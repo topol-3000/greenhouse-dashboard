@@ -1,0 +1,112 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Nothing here needs a repository secret: the browser suite serves the real
+# production build and answers /api/v1 from fixtures, so no backend is involved.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Format, lint, typecheck, test, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install from the lockfile
+        run: npm ci
+
+      - name: Formatting check
+        run: npm run format:check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Strict typecheck
+        run: npm run typecheck
+
+      - name: Unit and component tests
+        run: npm run test:coverage
+
+      - name: Production build
+        run: npm run build
+
+      - name: Upload build output
+        uses: actions/upload-artifact@v5
+        with:
+          name: dist
+          path: dist
+          retention-days: 7
+
+  e2e:
+    name: Browser smoke tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install from the lockfile
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Playwright desktop and narrow viewport
+        run: npm run e2e
+
+      - name: Upload the report when the suite fails
+        if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: playwright-report
+          path: playwright-report
+          retention-days: 7
+
+  docker:
+    name: Docker image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build the runtime image
+        run: docker compose build dashboard
+
+      - name: Start it and check it is healthy
+        run: |
+          docker compose up -d dashboard
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:3000/healthz > /dev/null; then
+              echo "dashboard is healthy"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "dashboard did not become healthy" >&2
+          docker compose logs dashboard
+          exit 1
+
+      - name: Serve index.html without a long-lived cache
+        run: |
+          curl --fail --silent --show-error --dump-header - --output /dev/null \
+            http://127.0.0.1:3000/ | grep -i "cache-control: no-cache"
+
+      - name: Stop
+        if: always()
+        run: docker compose down --remove-orphans

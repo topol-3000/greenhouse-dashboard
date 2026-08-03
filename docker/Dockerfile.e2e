@@ -1,0 +1,15 @@
+# Browser-level smoke coverage.
+#
+# The official Playwright image already carries the matching browser build and
+# its system libraries, so the suite runs the same way locally and in CI. This
+# image is a test tool: it is never the runtime image.
+
+FROM mcr.microsoft.com/playwright:v1.62.1-noble
+
+WORKDIR /app
+ENV CI=true
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
+COPY . .

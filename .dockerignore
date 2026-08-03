@@ -1,0 +1,14 @@
+# Build artifacts and local state only. Source, configuration and docs are all
+# copied in, so the checks that run inside the image see exactly what the
+# repository contains and cannot pass on a smaller set of files than CI does.
+node_modules
+dist
+coverage
+playwright-report
+test-results
+blob-report
+.git
+.vite
+*.log
+.env
+.env.*

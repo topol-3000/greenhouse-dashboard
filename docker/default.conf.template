@@ -1,0 +1,66 @@
+# Runtime Nginx configuration.
+#
+# Rendered by the base image's entrypoint, which substitutes only
+# ${GREENHOUSE_API_UPSTREAM} because NGINX_ENVSUBST_FILTER names it. Changing
+# that variable and restarting the container repoints the proxy without
+# rebuilding a single asset — the browser bundle contains no backend host.
+
+server {
+    listen 8080;
+    server_name _;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # Container-local liveness. Not proxied, so it answers even when the
+    # greenhouse backend is unreachable — the dashboard is still being served.
+    location = /healthz {
+        access_log off;
+        add_header Content-Type text/plain always;
+        return 200 "ok\n";
+    }
+
+    # The API boundary. `proxy_pass` carries no URI part on purpose: Nginx then
+    # forwards the original request URI unchanged, so both the path and the
+    # query string reach the backend exactly as the browser sent them.
+    location /api/v1 {
+        proxy_pass ${GREENHOUSE_API_UPSTREAM};
+        proxy_http_version 1.1;
+
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection        "";
+
+        proxy_connect_timeout 5s;
+        proxy_send_timeout    30s;
+        proxy_read_timeout    30s;
+
+        # A polling client should be told quickly that the backend is down, so
+        # it can show the stale state rather than hang.
+        proxy_next_upstream off;
+    }
+
+    # Hashed build assets are immutable: a changed file gets a new name.
+    location /assets/ {
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        try_files $uri =404;
+    }
+
+    # The SPA entry point must never be cached for long, or a browser would keep
+    # loading an old bundle that references deleted asset hashes.
+    location = /index.html {
+        add_header Cache-Control "no-cache, must-revalidate" always;
+    }
+
+    # SPA fallback. `/api/v1` is matched by its own prefix location above, so it
+    # is never swallowed by this rule.
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    gzip on;
+    gzip_types text/plain text/css application/javascript application/json image/svg+xml;
+    gzip_min_length 1024;
+}
