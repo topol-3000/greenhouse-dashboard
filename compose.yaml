@@ -1,24 +1,24 @@
-# Local runtime for the owner monitoring dashboard.
+# Local runtime for the AI Greenhouse Customer Portal.
 #
 #   docker compose up --build          serve on http://localhost:3000
 #   docker compose run --rm test       format, lint, typecheck, unit tests
 #   docker compose run --rm e2e        Playwright desktop + narrow viewport
 #
-# The dashboard reaches the backend through GREENHOUSE_API_UPSTREAM. It defaults
-# to the greenhouse API published on the host, and can be overridden without
+# The portal reaches the backend through GREENHOUSE_API_UPSTREAM. It defaults to
+# the greenhouse API published on the host, and can be overridden without
 # rebuilding the frontend:
 #
 #   GREENHOUSE_API_UPSTREAM=http://192.168.1.10:8000 docker compose up
 
 services:
-  dashboard:
+  portal:
     build:
       context: .
       target: runtime
     ports:
       # Bound to the loopback interface: this is a local development runtime,
       # not something to expose on the network.
-      - "127.0.0.1:${DASHBOARD_PORT:-3000}:8080"
+      - "127.0.0.1:${PORTAL_PORT:-3000}:8080"
     environment:
       GREENHOUSE_API_UPSTREAM: ${GREENHOUSE_API_UPSTREAM:-http://host.docker.internal:8000}
     extra_hosts:

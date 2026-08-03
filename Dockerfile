@@ -1,4 +1,4 @@
-# Production image for the owner monitoring dashboard.
+# Production image for the AI Greenhouse Customer Portal.
 #
 # The runtime stage carries only the built static assets and the Nginx runtime
 # configuration: no Node, no source, no dev dependencies, no lockfile, no

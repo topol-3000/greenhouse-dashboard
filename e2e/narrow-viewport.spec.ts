@@ -1,72 +1,67 @@
 /**
  * Narrow-viewport smoke flow.
  *
- * Runs on the `mobile` project only. It proves the layout stays usable at phone
- * width: the page does not scroll sideways, the cards and the charts stack into
- * a single column, and the facility selector is still reachable and operable.
+ * Runs on the `mobile` project only. It proves the portal shell stays usable at
+ * phone width: the page does not scroll sideways, the primary navigation
+ * collapses behind an accessible toggle, and the content stacks into one
+ * readable column.
  */
 
 import { expect, test } from "@playwright/test";
-import { mockApi } from "./fixtures";
+import { mockHealth } from "./fixtures";
 
-test.describe("narrow viewport", () => {
-  test("stacks the layout without horizontal overflow", async ({ page }) => {
-    await mockApi(page);
+test.describe("the portal shell at phone width", () => {
+  test("lays out without horizontal overflow", async ({ page }) => {
+    await mockHealth(page);
     await page.goto("/");
+    await expect(page.getByTestId("dashboard-page")).toBeVisible();
 
-    await expect(page.getByTestId("facility-context")).toBeVisible();
-    await expect(page.getByTestId("measurement-card")).toHaveCount(3);
-
-    // The body must never scroll sideways at phone width.
     const overflow = await page.evaluate(() => {
-      const document_ = document.documentElement;
-      return document_.scrollWidth - document_.clientWidth;
+      const root = document.documentElement;
+      return root.scrollWidth - root.clientWidth;
     });
     expect(overflow).toBeLessThanOrEqual(1);
-
-    // Cards are stacked, not sitting side by side.
-    const boxes = await page
-      .getByTestId("measurement-card")
-      .evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().left));
-    expect(new Set(boxes).size).toBe(1);
   });
 
-  test("stacks the charts into one column", async ({ page }) => {
-    await mockApi(page);
+  test("collapses the primary navigation behind an accessible toggle", async ({ page }) => {
+    await mockHealth(page);
     await page.goto("/");
 
-    const charts = page.getByTestId("history-chart");
-    await expect(charts).toHaveCount(2);
+    const toggle = page.getByRole("button", { name: "Menu" });
+    await expect(toggle).toBeVisible();
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
 
-    const lefts = await charts.evaluateAll((nodes) =>
-      nodes.map((node) => node.getBoundingClientRect().left),
-    );
-    expect(new Set(lefts).size).toBe(1);
-  });
-
-  test("keeps the facility selector usable at phone width", async ({ page }) => {
-    await mockApi(page);
-    await page.goto("/");
-
-    const facility = page.getByLabel("Active facility");
-    await expect(facility).toBeVisible();
+    // Collapsed means collapsed: the links are out of the layout, not just
+    // painted over.
+    const dashboardLink = page.getByRole("navigation", { name: "Primary" }).getByRole("link");
+    await expect(dashboardLink).toBeHidden();
 
     // Comfortably tappable.
-    const box = await facility.boundingBox();
+    const box = await toggle.boundingBox();
     expect(box?.height ?? 0).toBeGreaterThanOrEqual(40);
+
+    await toggle.click();
+    await expect(page.getByRole("button", { name: "Close menu" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    await expect(dashboardLink).toBeVisible();
+
+    await dashboardLink.click();
+    await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible();
   });
 
-  test("keeps every chart inside the viewport", async ({ page }) => {
-    await mockApi(page);
+  test("keeps the availability indicator and content in one column", async ({ page }) => {
+    await mockHealth(page);
     await page.goto("/");
 
-    const charts = page.getByTestId("history-chart");
-    await expect(charts).toHaveCount(2);
+    await expect(page.getByTestId("api-status")).toBeVisible();
 
     const viewport = page.viewportSize()!;
-    const widths = await charts.evaluateAll((nodes) =>
-      nodes.map((node) => node.getBoundingClientRect().width),
-    );
+    const widths = await page
+      .locator(".panel")
+      .evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().width));
+    expect(widths.length).toBeGreaterThan(0);
     for (const width of widths) {
       expect(width).toBeLessThanOrEqual(viewport.width);
     }

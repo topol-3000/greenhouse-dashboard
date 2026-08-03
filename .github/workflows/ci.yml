@@ -6,7 +6,8 @@ on:
     branches: [main]
 
 # Nothing here needs a repository secret: the browser suite serves the real
-# production build and answers /api/v1 from fixtures, so no backend is involved.
+# production build and answers the backend's /health from fixtures, so no
+# backend is involved.
 permissions:
   contents: read
 
@@ -86,20 +87,20 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Build the runtime image
-        run: docker compose build dashboard
+        run: docker compose build portal
 
       - name: Start it and check it is healthy
         run: |
-          docker compose up -d dashboard
+          docker compose up -d portal
           for attempt in $(seq 1 30); do
             if curl --fail --silent http://127.0.0.1:3000/healthz > /dev/null; then
-              echo "dashboard is healthy"
+              echo "portal is healthy"
               exit 0
             fi
             sleep 2
           done
-          echo "dashboard did not become healthy" >&2
-          docker compose logs dashboard
+          echo "portal did not become healthy" >&2
+          docker compose logs portal
           exit 1
 
       - name: Serve index.html without a long-lived cache
