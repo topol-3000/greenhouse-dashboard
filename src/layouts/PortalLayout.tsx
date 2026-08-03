@@ -27,6 +27,7 @@ import {
 import { Breadcrumbs } from "./Breadcrumbs";
 import { PortalNavigation } from "./PortalNavigation";
 import { useApiAvailabilityNotifications } from "./useApiAvailabilityNotifications";
+import { useRouteLabels } from "./useRouteLabels";
 
 const NAVIGATION_ID = "portal-navigation";
 
@@ -40,12 +41,17 @@ export function PortalLayout() {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const renderedPath = useRef(pathname);
 
-  const title = pageTitleFor(pathname);
-  const trail = buildBreadcrumbs(pathname);
+  // Resource names resolve after the route does, so the heading, the document
+  // title and the trail are all derived from the route table plus whatever the
+  // topology queries have answered so far.
+  const labels = useRouteLabels(pathname);
+  const title = pageTitleFor(pathname, labels);
+  const trail = buildBreadcrumbs(pathname, labels);
+  const documentTitle = documentTitleFor(pathname, labels);
 
   useEffect(() => {
-    document.title = documentTitleFor(pathname);
-  }, [pathname]);
+    document.title = documentTitle;
+  }, [documentTitle]);
 
   // A navigation closes the mobile menu and moves focus to the new page's
   // heading, so a keyboard or screen-reader user lands on the new content

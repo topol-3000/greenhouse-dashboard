@@ -24,8 +24,13 @@ Inside the application, Dashboard is one feature and one route, not the product.
   reverse proxy owns the backend host at runtime through
   `GREENHOUSE_API_UPSTREAM`. `VITE_API_BASE_URL` exists for deployments that
   cannot proxy; it is configuration, never a host hard-coded in source.
-- The `greenhouse` repository is authoritative for endpoint paths and response
-  shapes. Read its code, tests and OpenAPI document rather than guessing.
+- The checked-in [`openapi.json`](openapi.json) is the authoritative contract for
+  endpoint paths, response shapes, relationships, pagination and errors. Read it
+  rather than guessing, and rather than reaching into another repository. The
+  types at the API boundary are generated from it with
+  `npm run generate:api-types`.
+- If `openapi.json` cannot support something a screen needs, report the exact
+  gap. Do not invent a field, a response shape or a workaround around it.
 - Changing `greenhouse` or `greenhouse-simulation-lab` is out of scope here.
 
 ## Commands

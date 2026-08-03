@@ -1,19 +1,19 @@
 /**
  * The Customer Portal dashboard.
  *
- * One feature and one route of the portal, not the application itself. In this
- * unit it is the landing page: it states what the portal is for, reports
- * whether the cloud API can be reached, and says plainly that no greenhouse
- * resources have been loaded yet.
+ * One feature and one route of the portal, not the application itself. It
+ * states what the portal is for, reports whether the cloud API can be reached,
+ * and gives the customer the cloud API's own count of their sites and
+ * facilities with the way into Greenhouses.
  *
- * It renders no facility, no reading, no command and no statistic. Every number
- * on a later version of this page will have come from the API; until then there
- * is nothing here that a backend did not say.
+ * Every figure on this page came from the API. There is no reading, no
+ * actuator state, no command, no alert and no operational health here, because
+ * this release contains none of them.
  */
 
 import { useApiAvailability } from "../../api/availability";
-import { StatePanel } from "../../components/StatePanel";
 import { ApiAvailabilityPanel } from "./ApiAvailabilityPanel";
+import { TopologySummaryPanel } from "./TopologySummaryPanel";
 
 export function DashboardPage() {
   const { availability, recheck } = useApiAvailability();
@@ -41,17 +41,7 @@ export function DashboardPage() {
         <h2 id="resources-heading" className="section__heading">
           Greenhouse resources
         </h2>
-        <StatePanel title="Nothing has been loaded yet" headingLevel={3}>
-          <p>
-            This release is the portal foundation, so it reads no greenhouse resources. Your sites,
-            facilities and control zones will appear here once the portal loads them from the cloud
-            API.
-          </p>
-          <p>
-            Nothing on this page is sample data. When a value is not available, the portal says so
-            instead of showing a placeholder number.
-          </p>
-        </StatePanel>
+        <TopologySummaryPanel />
       </section>
     </div>
   );
