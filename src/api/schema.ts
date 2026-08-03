@@ -573,10 +573,18 @@ export interface paths {
      * List Commands
      * @description Return a bounded, deterministic newest-first window of commands.
      *
+     *     Every filter is an exact match, and several may be combined. Ordering is
+     *     ``created_at DESC, id DESC`` and is enforced by the query itself, so
+     *     repeated calls return the same window.
+     *
      *     Args:
      *         service: The command service for this request.
+     *         control_zone_id: Restricts the result to one zone when given.
      *         control_loop_id: Restricts the result to one loop when given.
      *         trigger_sample_id: Restricts the result to one trigger when given.
+     *         target_point_id: Restricts the result to one commanded point when given.
+     *         source: Restricts the result to one author when given.
+     *         idempotency_key: Resolves the one command a key identifies when given.
      *         limit: Maximum number of commands to return.
      *
      *     Returns:
@@ -584,7 +592,31 @@ export interface paths {
      */
     get: operations["list_commands_api_v1_commands_get"];
     put?: never;
-    post?: never;
+    /**
+     * Create Manual Command
+     * @description Ask one configured boolean actuator for one state, exactly once.
+     *
+     *     The target has to be an active boolean control point that is assigned to the
+     *     named zone in the ``control_output`` role and names a reported status point.
+     *     Every one of those is read from persisted configuration; none of it is
+     *     inferred from a code, a name or a metric.
+     *
+     *     HTTP 201 means the command was created, HTTP 200 that the key already named
+     *     it and nothing was written a second time. Neither means the actuator moved:
+     *     the command is ``pending`` until the Edge reports it ``applied`` or
+     *     ``rejected``, and the reported point's own state is what says what the
+     *     hardware is actually doing.
+     *
+     *     Args:
+     *         payload: The zone, the point and the boolean value asked for.
+     *         response: The response whose status distinguishes creation from replay.
+     *         service: The command service for this request.
+     *         idempotency_key: The client's ``Idempotency-Key`` header.
+     *
+     *     Returns:
+     *         The stored command and whether this request created it.
+     */
+    post: operations["create_manual_command_api_v1_commands_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -801,12 +833,22 @@ export interface components {
     };
     /**
      * CommandRead
-     * @description One applied command, with every identifier its chain is followed by.
+     * @description One command, whatever asked for it, with every identifier it is followed by.
      *
      *     All three sample identifiers are returned rather than joined into embedded
      *     samples: the telemetry history endpoint already reads a sample, and
      *     duplicating it here would give one value two representations that could
      *     disagree.
+     *
+     *     ``desired_value`` is a request and never a reading. What the actuator
+     *     actually reports is the reported point's own state, read through
+     *     ``GET /api/v1/points/{point_id}/state``; the two are deliberately separate
+     *     and can disagree for as long as the physical change takes, or forever if it
+     *     never happens.
+     *
+     *     ``state`` is the delivery lifecycle. ``pending`` is non-terminal; ``applied``
+     *     and ``rejected`` are terminal. ``acknowledged_at`` on a pending command means
+     *     the Edge received it, not that anything moved.
      */
     CommandRead: {
       /**
@@ -814,18 +856,18 @@ export interface components {
        * Format: uuid
        */
       id: string;
+      source: components["schemas"]["CommandSource"];
       /** Idempotency Key */
       idempotency_key: string;
       /**
-       * Control Loop Id
+       * Control Zone Id
        * Format: uuid
        */
-      control_loop_id: string;
-      /**
-       * Trigger Sample Id
-       * Format: uuid
-       */
-      trigger_sample_id: string;
+      control_zone_id: string;
+      /** Control Loop Id */
+      control_loop_id: string | null;
+      /** Trigger Sample Id */
+      trigger_sample_id: string | null;
       /**
        * Target Point Id
        * Format: uuid
@@ -854,10 +896,7 @@ export interface components {
       executed_at: string | null;
       /** Acknowledged At */
       acknowledged_at: string | null;
-      /** Rejection Reason */
-      rejection_reason: {
-        [key: string]: string;
-      } | null;
+      rejection_reason: components["schemas"]["CommandRejectionReason"] | null;
       /**
        * Created At
        * Format: date-time
@@ -865,8 +904,42 @@ export interface components {
       created_at: string;
     };
     /**
+     * CommandRejectionReason
+     * @description Why a command reached its terminal failure.
+     *
+     *     One representation, shared by the public command read model and the Cloud ↔
+     *     Edge acknowledgement that produces it. A rejection has a stable code a
+     *     client can branch on and a message a person can read, and never an
+     *     open-ended object whose keys a caller has to guess.
+     */
+    CommandRejectionReason: {
+      /** Code */
+      code: string;
+      /** Message */
+      message: string;
+    };
+    /**
+     * CommandSource
+     * @description Who asked for a command.
+     *
+     *     Persisted rather than derived from ``control_loop_id IS NULL``: the source
+     *     is what a reader actually wants to filter and reason about, and a nullable
+     *     foreign key is a poor place to keep a meaning.
+     * @enum {string}
+     */
+    CommandSource: "control_loop" | "manual";
+    /**
      * CommandState
      * @description Delivery lifecycle of a logical command.
+     *
+     *     ``PENDING`` is the only non-terminal state and the one every command is
+     *     written in. ``APPLIED`` is terminal success and ``REJECTED`` is terminal
+     *     failure; both are reached exactly once, through an Edge acknowledgement or
+     *     through the in-process loopback actuator, and never left again.
+     *
+     *     Acknowledgement is not a state. A pending command whose ``acknowledged_at``
+     *     is set has been received by the Edge and nothing more: the physical change
+     *     has not been reported either way, so the command is still non-terminal.
      * @enum {string}
      */
     CommandState: "pending" | "applied" | "rejected";
@@ -890,6 +963,12 @@ export interface components {
     /**
      * ConfigurationPoint
      * @description One point of the configuration document, with its current state.
+     *
+     *     ``reported_point_id`` is part of the document rather than of a separate
+     *     read: a client deciding whether a control point can be commanded needs the
+     *     point that reports it back, and needs it before any command exists. It is
+     *     ``null`` on every point that is not a control point and on a control point
+     *     whose feedback has not been configured.
      */
     ConfigurationPoint: {
       /**
@@ -907,6 +986,8 @@ export interface components {
       data_type: components["schemas"]["PointDataType"];
       /** Unit */
       unit: string | null;
+      /** Reported Point Id */
+      reported_point_id: string | null;
       status: components["schemas"]["StatusEnum"];
       state: components["schemas"]["ConfigurationPointState"];
     };
@@ -1189,7 +1270,7 @@ export interface components {
        */
       acknowledged_at: string;
       /** Reason */
-      reason?: components["schemas"]["EdgeRejectionReason"];
+      reason?: components["schemas"]["CommandRejectionReason"];
     };
     /**
      * EdgeCommandList
@@ -1298,16 +1379,6 @@ export interface components {
        * @constant
        */
       state: "pending";
-    };
-    /**
-     * EdgeRejectionReason
-     * @description Stable machine code and human explanation of a rejection.
-     */
-    EdgeRejectionReason: {
-      /** Code */
-      code: string;
-      /** Message */
-      message: string;
     };
     /**
      * EdgeSourceKind
@@ -1432,6 +1503,36 @@ export interface components {
       kind: components["schemas"]["EdgeSourceKind"];
       /** Id */
       id: string;
+    };
+    /**
+     * ErrorResponse
+     * @description The documented error body of the public domain API.
+     *
+     *     Declared as a model so an operation can name it in ``responses`` and a
+     *     generated client sees the shape it has to handle, instead of discovering it
+     *     from a failed request.
+     */
+    ErrorResponse: {
+      error: components["schemas"]["ErrorValue"];
+    };
+    /**
+     * ErrorValue
+     * @description One failure in the envelope every domain endpoint answers with.
+     *
+     *     ``code`` is the stable identifier a client branches on; ``message`` is for a
+     *     person. ``details`` carries the structured context of that one code — the
+     *     refused field, the point and the machine-readable reason — and never SQL,
+     *     a driver message, a stack trace or a credential.
+     */
+    ErrorValue: {
+      /** Code */
+      code: string;
+      /** Message */
+      message: string;
+      /** Details */
+      details: {
+        [key: string]: unknown;
+      };
     };
     /**
      * FacilityConfigurationRead
@@ -1695,6 +1796,65 @@ export interface components {
        */
       database: "ok" | "unavailable";
     };
+    /**
+     * ManualCommandAcceptanceRead
+     * @description Result of one idempotent manual command request.
+     *
+     *     The outcome is carried in the body as well as in the status code, so a
+     *     client behind a proxy that rewrites statuses can still tell a first creation
+     *     from a replay. ``existing`` means the stored command is returned unchanged
+     *     and nothing was written or enqueued a second time.
+     *
+     *     Acceptance is an acceptance of the *request*. It does not mean the actuator
+     *     moved: the command is pending until the Edge reports it applied or rejected.
+     */
+    ManualCommandAcceptanceRead: {
+      outcome: components["schemas"]["ManualCommandOutcome"];
+      command: components["schemas"]["CommandRead"];
+    };
+    /**
+     * ManualCommandCreate
+     * @description Body accepted by ``POST /api/v1/commands``.
+     *
+     *     Boolean on/off only. ``desired_value`` is a ``bool`` and not a typed value
+     *     object, a number or free-form JSON: this boundary exists so a customer can
+     *     switch one actuator, and a shape that could carry a dimming level would be
+     *     a contract for behaviour the backend does not have.
+     *
+     *     It is strictly boolean, so ``1``, ``"on"`` and ``"true"`` are refused rather
+     *     than coerced. That is the same rule the telemetry boundary already applies
+     *     to a boolean point's value: a ``bool`` is not an integer, and a request that
+     *     has to be guessed at is a request that can be guessed wrong.
+     *
+     *     The idempotency key is not here. It travels in the required
+     *     ``Idempotency-Key`` header, where a client that retries a lost request does
+     *     not have to rebuild the body to keep it.
+     */
+    ManualCommandCreate: {
+      /**
+       * Control Zone Id
+       * Format: uuid
+       * @description The control zone the target point is assigned to.
+       */
+      control_zone_id: string;
+      /**
+       * Target Point Id
+       * Format: uuid
+       * @description The active boolean control point to command. It must be assigned to control_zone_id in the control_output role and must name a reported status point.
+       */
+      target_point_id: string;
+      /**
+       * Desired Value
+       * @description The state asked for. true is on. It is a request, never a reading.
+       */
+      desired_value: boolean;
+    };
+    /**
+     * ManualCommandOutcome
+     * @description Whether an idempotent manual request created or replayed a command.
+     * @enum {string}
+     */
+    ManualCommandOutcome: "created" | "existing";
     /** Page[ControlLoopRead] */
     Page_ControlLoopRead_: {
       /** Items */
@@ -1794,6 +1954,11 @@ export interface components {
       min_value?: number | string | null;
       /** Max Value */
       max_value?: number | string | null;
+      /**
+       * Reported Point Id
+       * @description Status point reporting this control point's actual state back. Only a control point may name one, and the named point must be an active boolean status point of the same facility. Never inferred from a code, a name or a metric.
+       */
+      reported_point_id?: string | null;
     };
     /**
      * PointDataType
@@ -1822,6 +1987,11 @@ export interface components {
      *     Carries no value and no physical address. Both omissions are the point of
      *     the entity: the value lives in :class:`PointStateRead`, and the hardware
      *     behind it can arrive later without this representation changing.
+     *
+     *     ``reported_point_id`` is the one relationship it does carry, because it is
+     *     configuration rather than a value: a client deciding whether a control point
+     *     can be commanded has to be able to read the point that reports it back
+     *     before any command exists.
      */
     PointRead: {
       /**
@@ -1850,6 +2020,8 @@ export interface components {
       min_value: number | null;
       /** Max Value */
       max_value: number | null;
+      /** Reported Point Id */
+      reported_point_id: string | null;
       status: components["schemas"]["StatusEnum"];
       /**
        * Created At
@@ -1897,9 +2069,16 @@ export interface components {
      *
      *     Only the fields present in the request are applied. Unlike the topology
      *     schemas, an explicit ``null`` is *not* the same as omitting a field here:
-     *     ``unit``, ``min_value`` and ``max_value`` are nullable columns, so sending
-     *     ``{"min_value": null}`` clears the lower bound while leaving it out keeps
-     *     it. The service reads ``model_fields_set`` to tell the two apart.
+     *     ``unit``, ``min_value``, ``max_value`` and ``reported_point_id`` are
+     *     nullable columns, so sending ``{"min_value": null}`` clears the lower bound
+     *     while leaving it out keeps it. The service reads ``model_fields_set`` to
+     *     tell the two apart.
+     *
+     *     ``reported_point_id`` is mutable on purpose. It is configuration and not
+     *     identity: which status point reports a fan back can be corrected, and a
+     *     control point provisioned before the relationship existed has to be able to
+     *     acquire one. Nothing already recorded is reinterpreted by changing it —
+     *     a command carries its own copy of the relationship it was created with.
      *
      *     Every field the point's meaning depends on is declared even though none can
      *     be changed, and declared with a permissive type on purpose. Accepting
@@ -1917,6 +2096,8 @@ export interface components {
       min_value?: number | string | null;
       /** Max Value */
       max_value?: number | string | null;
+      /** Reported Point Id */
+      reported_point_id?: string | null;
       status?: components["schemas"]["StatusEnum"] | null;
       /** Code */
       code?: string | null;
@@ -2126,6 +2307,8 @@ export interface components {
       data_type: components["schemas"]["PointDataType"];
       /** Unit */
       unit: string | null;
+      /** Reported Point Id */
+      reported_point_id: string | null;
     };
     /**
      * ZonePointRole
@@ -3050,10 +3233,18 @@ export interface operations {
   list_commands_api_v1_commands_get: {
     parameters: {
       query?: {
+        /** @description Restrict the result to the commands of one control zone. */
+        control_zone_id?: string | null;
         /** @description Restrict the result to the commands of one control loop. */
         control_loop_id?: string | null;
         /** @description Restrict the result to the commands one measurement caused. */
         trigger_sample_id?: string | null;
+        /** @description Restrict the result to the commands addressed to one point. */
+        target_point_id?: string | null;
+        /** @description Restrict the result to one author of commands. */
+        source?: components["schemas"]["CommandSource"] | null;
+        /** @description Resolve the one manual command a client-supplied key identifies. The key is unique, so the answer carries zero or one command: this is how a client that lost a creation response finds out whether its command exists. */
+        idempotency_key?: string | null;
         /** @description Maximum number of commands to return. */
         limit?: number;
       };
@@ -3072,13 +3263,94 @@ export interface operations {
           "application/json": components["schemas"]["CommandListRead"];
         };
       };
-      /** @description Validation Error */
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Unprocessable Content */
       422: {
         headers: {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  create_manual_command_api_v1_commands_post: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Required client-supplied UUID identifying one logical manual command. Repeating it with the same control_zone_id, target_point_id and desired_value returns the stored command with HTTP 200 and creates nothing; repeating it with a different one answers HTTP 409 idempotency_key_conflict. The server never replaces a supplied key. */
+        "Idempotency-Key": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ManualCommandCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ManualCommandAcceptanceRead"];
+        };
+      };
+      /** @description Created */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ManualCommandAcceptanceRead"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Unprocessable Content */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
         };
       };
     };
@@ -3101,6 +3373,15 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["CommandRead"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
         };
       };
       /** @description Validation Error */

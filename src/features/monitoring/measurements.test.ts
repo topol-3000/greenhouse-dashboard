@@ -64,6 +64,7 @@ describe("measurement discovery", () => {
       metric_type: "air_temperature",
       data_type: "float",
       unit: "degC",
+      reported_point_id: null,
       status: "archived",
       state: { value: 21.4, quality: "good", observed_at: "2026-01-04T09:05:00Z" },
     };

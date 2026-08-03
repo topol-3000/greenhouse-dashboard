@@ -13,8 +13,8 @@ product, and the application is not a standalone monitoring dashboard.
 
 ## Current state
 
-The portal foundation, read-only topology, and read-only monitoring inside a
-control zone. Delivered:
+The portal foundation, read-only topology, read-only monitoring inside a control
+zone, and limited manual control of that zone's actuators. Delivered:
 
 - product identity, page and document titles;
 - a real client-side routing layer with an extensible route table, including
@@ -34,16 +34,21 @@ control zone. Delivered:
   points with their last known value, unit, quality and observation time, and a
   bounded telemetry window for the selected point, charted only when the
   contract and the data are both numeric;
+- a manual-control section inside the ControlZone workspace: the zone's active
+  boolean `control_output` points that name a reported point, their reported
+  state, explicit on/off actions behind a confirmation, one idempotent
+  `POST /api/v1/commands`, and bounded observation of that command's lifecycle;
 - reusable loading, refresh, empty, error, resource-not-found, relationship-
   mismatch and notification states.
 
 Not delivered, and not to be implied by any screen: topology or point creation,
-editing and deletion; actuator reported or desired state; actuator control;
-manual commands and command polling; activity history; alerts; thresholds and
-"normal/warning/critical" verdicts; agronomic recommendations; target ranges;
-recipes; grow cycles; runtime targets; automation and schedules;
-control-loop visualisation; authentication, users, roles, tenants, billing and
-settings; WebSocket or server-sent events.
+editing and deletion; non-boolean actuator control of any kind; command history
+and activity; alerts; thresholds and "normal/warning/critical" verdicts;
+agronomic recommendations; target ranges; recipes; grow cycles; runtime targets;
+automation and schedules; control-loop creation or visualisation; device
+provisioning, gateway status and any direct Edge or device communication;
+authentication, users, roles, tenants, billing and settings; WebSocket or
+server-sent events.
 
 ## Stack
 
@@ -67,6 +72,9 @@ from it by `npm run generate:api-types`. The endpoints in use:
 | A zone's point composition   | `GET /api/v1/control-zones/{zone_id}/points`         |
 | Measurements and their state | `GET /api/v1/facilities/{facility_id}/configuration` |
 | One point's telemetry window | `GET /api/v1/points/{point_id}/telemetry?limit=200`  |
+| Create one manual command    | `POST /api/v1/commands`                              |
+| One command's lifecycle      | `GET /api/v1/commands/{command_id}`                  |
+| Resolve a lost creation      | `GET /api/v1/commands?idempotency_key=&limit=1`      |
 
 Rules that follow from that:
 
@@ -91,7 +99,29 @@ Rules that follow from that:
   timestamps, and that is where `received_at` is shown;
 - a point is a measurement when `point_kind` is `measurement` and `status` is
   `active`. Never by name, code or `metric_type`. Control and status points stay
-  in the zone's composition and get no card, no reading and no chart;
+  in the zone's composition and get no measurement card, no reading and no chart;
+- a point is commandable only when every clause of the creation operation's own
+  precondition holds: `point_kind` `control`, `status` `active`, `data_type`
+  `boolean`, the zone link's `role` is `control_output`, and `reported_point_id`
+  names a point the document describes. A control point failing a clause is
+  listed with the reason and given no action — in particular a `float` control
+  point never grows a slider, because the contract publishes no bounds or step;
+- reported state is the `reported_point_id` point's own state and nothing else.
+  Points are never paired by name, unit or list position, the desired value is
+  never rendered as a reading, and the control point's own state projection is
+  shown as neither;
+- `CommandState` is the delivery lifecycle: `pending` is the only non-terminal
+  state, `applied` and `rejected` are terminal, and `acknowledged_at` on a
+  pending command means only that the Edge received it. A `200`, a `201` and an
+  `outcome` are answers about the _request_, never about the equipment;
+- `Idempotency-Key` is a required client UUID identifying one logical intent. It
+  is generated on confirmation, kept for a safe replay of that same intent, and
+  never reused for a different one. A lost response is ambiguous, never a
+  failure: it is resolved through the key filter or replayed under the same key,
+  and never by scanning the collection for something that looks similar;
+- command lifecycle polling is 5 seconds, stops at a terminal state, a `404` or
+  a `422`, and is bounded by a 2-minute client observation window that ends in
+  "still unconfirmed" rather than "failed";
 - `TelemetryHistoryRead` is `items` alone — no total, no cursor — and the
   operation documents no ordering and no selection rule for `limit`. So the
   portal sorts by `observed_at` itself, asks for a fixed 200-sample window, and

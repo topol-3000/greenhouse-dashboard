@@ -9,22 +9,27 @@ ControlZone workspace sit alongside it.
 
 ## What this release contains
 
-The portal foundation, **read-only greenhouse topology**, and **read-only
-monitoring inside a control zone**. On top of the application shell — identity,
-routing, navigation, breadcrumbs, notifications, the responsive layout, the
-shared UI states and the API boundary — it loads the customer's real
-Site → Facility → ControlZone structure from the cloud API, lets them navigate
-it, and inside a control zone shows what its measurement points last reported
-and the telemetry history of the one they select.
+The portal foundation, **read-only greenhouse topology**, **read-only monitoring
+inside a control zone**, and **limited manual control of that zone's actuators**.
+On top of the application shell — identity, routing, navigation, breadcrumbs,
+notifications, the responsive layout, the shared UI states and the API
+boundary — it loads the customer's real Site → Facility → ControlZone structure
+from the cloud API, lets them navigate it, and inside a control zone shows what
+its measurement points last reported, the telemetry history of the one they
+select, and the control points they may switch on or off.
 
 Everything on screen came from the cloud API. There are no sample facilities, no
 placeholder readings and no invented statistics; when the API returns nothing,
 the portal says so rather than filling the page.
 
-The portal stays **read-only**. Nothing in it creates, edits or deletes a site,
-a facility, a control zone or a point, and nothing in it operates a greenhouse:
-there is no actuator state, no control, no command, no Activity history, no
-alert and no automation. Authentication is not part of this release either — see
+The one thing the portal writes is **one manual command at a time**, through the
+public `POST /api/v1/commands` operation, after an explicit confirmation. It
+still creates, edits and deletes nothing: no site, no facility, no control zone,
+no point, no control loop and no schedule. There is no Activity history, no
+alert and no automation, and it never talks to a gateway or a device. What a
+command _did_ is what the cloud API says it did — see
+[Manual control inside a control zone](#manual-control-inside-a-control-zone).
+Authentication is not part of this release either — see
 [Not implemented yet](#not-implemented-yet).
 
 ## Repository boundaries
@@ -196,6 +201,9 @@ src/
                 switcher and their view models
     monitoring/ the ControlZone workspace's monitoring section: measurement
                 discovery, current-state cards, telemetry series and chart
+    control/    the ControlZone workspace's manual-control section: actuator
+                discovery, reported state, confirmation, command submission
+                and bounded command-lifecycle observation
   layouts/     the portal shell: header, navigation, breadcrumbs, main region
   routes/      the route table and the 404 page
   shared/      cross-feature utilities (notifications channel, formatting)
@@ -218,13 +226,13 @@ answer is an error state on screen, not sample data.
 
 ## Routes
 
-| Route                                   | What it is                                                                                    |
-| --------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `/`                                     | Dashboard — cloud API availability and the API's own topology counts                          |
-| `/sites`                                | Greenhouses — every site and the facilities inside it                                         |
-| `/facilities/:facilityId`               | Facility workspace — the facility, its site and its control zones                             |
-| `/facilities/:facilityId/zones/:zoneId` | ControlZone workspace — the zone, its parents, its point inventory and its monitoring section |
-| `*`                                     | The portal's 404 page, rendered inside the shell with a way back                              |
+| Route                                   | What it is                                                                                                                |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `/`                                     | Dashboard — cloud API availability and the API's own topology counts                                                      |
+| `/sites`                                | Greenhouses — every site and the facilities inside it                                                                     |
+| `/facilities/:facilityId`               | Facility workspace — the facility, its site and its control zones                                                         |
+| `/facilities/:facilityId/zones/:zoneId` | ControlZone workspace — the zone, its parents, its point inventory, its monitoring section and its manual-control section |
+| `*`                                     | The portal's 404 page, rendered inside the shell with a way back                                                          |
 
 The primary navigation offers **Dashboard** and **Greenhouses** only: the two
 routes that work without a resource. The nested routes are reached by link, by
@@ -325,6 +333,141 @@ degrades at the smallest scope there is: a history that fails leaves the current
 values, a monitoring request that fails leaves the topology, the breadcrumbs and
 the navigation working.
 
+### Manual control inside a control zone
+
+Manual control is a section of the ControlZone workspace, underneath monitoring.
+It is not a route of its own and not an entry in the primary navigation, which
+stays **Dashboard** and **Greenhouses**. `/sites` and `/facilities/:facilityId`
+gain no global on/off button, no aggregated actuator state and no command data.
+
+**Which points can be commanded.** `POST /api/v1/commands` publishes its own
+precondition — the target must be "an active boolean control point that is
+assigned to the named zone in the `control_output` role and names a reported
+status point" — and every clause of it is an explicit field of the configuration
+document. All five are checked before an action is offered:
+
+| Clause                               | Field                                                                              |
+| ------------------------------------ | ---------------------------------------------------------------------------------- |
+| a control point                      | `ConfigurationPoint.point_kind === "control"`                                      |
+| active                               | `ConfigurationPoint.status === "active"`                                           |
+| boolean                              | `ConfigurationPoint.data_type === "boolean"`                                       |
+| a control output **of this zone**    | `ConfigurationZonePoint.role === "control_output"`                                 |
+| names the point that reports it back | `ConfigurationPoint.reported_point_id !== null`, and that point is in the document |
+
+Nothing is classified by a name, a code or a `metric_type`. A control point
+called "North air temperature vent" is commandable because of its fields; a
+status point called "North lamp power switch" is not, for the same reason. The
+role belongs to the _link_, so a control point this zone assigns as a
+`safety_interlock` is not a manual target of this zone. A control point that
+fails a clause is **listed with the reason** and given no action — a `float`
+control point does not grow a slider, because the contract publishes no bounds,
+step or unit semantics for one.
+
+A zone with no control outputs reads **No manual controls are available for this
+zone**, which is a successful answer and not an outage.
+
+**Which actions are offered.** Two named buttons, `Turn on X` and `Turn off X`,
+and nothing else. `ManualCommandCreate.desired_value` is a strict `bool` whose
+schema says "true is on"; the contract refuses `1`, `"on"` and `"true"` rather
+than coercing them, and publishes no numeric, percentage or free-form command
+shape at all. So there is no slider, no dimming, no text field, no JSON editor
+and no single unlabelled toggle whose position hides the value being requested.
+Neither action is withheld because the reported state appears to match it: that
+state has its own timestamp and the contract does not make it authoritative over
+what may be commanded.
+
+**Three states, kept apart.** The section never merges these into one "current
+state", because the contract does not:
+
+- **Reported state** — the last state of the point `reported_point_id` names,
+  and nothing else. `false` and `0` are readings; only a `null` value renders
+  **No reported state yet**. It is never replaced by what was asked for, never
+  inferred from an HTTP status, and never inferred from a command succeeding.
+  The control point's _own_ state projection is deliberately not shown: the
+  contract defines it as neither a desired state nor a reported one.
+- **Requested state** — `desired_value` on the command that was created. "A
+  request, never a reading", in the contract's words.
+- **Command state** — `CommandState`, shown with the raw enum beside its label.
+  `pending` is the only non-terminal state; `applied` and `rejected` are
+  terminal. `acknowledged_at` on a pending command means the Edge received it
+  and nothing more, and is worded that way.
+
+When a command reaches `applied` and the reported state has not changed, **both
+facts stay on screen** and neither is reconciled into the other.
+
+**Confirmation.** Choosing an action opens a modal confirmation and sends
+nothing. It states the site, the facility, the control zone, the control point
+with its code, the exact value being requested and the reported state as it
+stands, plus a plain sentence that the command is a request to the cloud API and
+may not be applied immediately. Submission happens only from the confirm action.
+Focus starts on the dialog rather than on a button — so the keystroke that
+opened it cannot also press one — stays inside it while it is open, and returns
+to the control that opened it on Cancel or `Escape`. Changing zone or facility
+closes obsolete confirmation state.
+
+**One command per confirmation.** The confirm action is disabled while its
+request is in flight and guarded so that a double click or a repeated `Enter`
+cannot produce a second request. Only the affected actuator's actions are
+disabled; every other actuator, monitoring and the navigation stay usable.
+
+**Idempotency.** `Idempotency-Key` is required by the contract and is a UUID the
+portal generates from `crypto.randomUUID()` (falling back to
+`crypto.getRandomValues`, never to a timestamp or `Math.random`) when the
+customer confirms **one logical intent**. The same intent keeps its key for a
+safe replay; a different action gets a new one. A browser with no secure random
+source is told manual control is unavailable rather than given a button that
+fails when pressed. The contract's rules are what make this safe: the same key
+with the same body answers `200 outcome: "existing"` and writes nothing, and the
+same key with a different body answers `409 idempotency_key_conflict`.
+
+**An ambiguous outcome.** If the request never completes — the connection drops,
+the response is lost — the portal says the command **may or may not have been
+created**. It does not call it a failure, does not retry on its own, and does not
+mint a new key. Two safe actions are offered: resolve it with
+`GET /api/v1/commands?idempotency_key=` (the contract's own answer, carrying zero
+or one command), or send the same request again under the same key. The
+actuator's actions stay closed until it is resolved. The command collection is
+never scanned for something that merely resembles what was asked for.
+
+**Lifecycle observation.** After a creation response the command is followed by
+`GET /api/v1/commands/{command_id}`, keyed by its own identifier, every **5
+seconds**, and only while it is non-terminal. It stops at `applied` and
+`rejected`, stops on a `404` or a `422`, and never retries on top of the
+interval. A command whose `control_zone_id`, `target_point_id` and
+`desired_value` are not the ones the intent asked for is refused rather than
+adopted.
+
+The contract defines no delivery timeout, so the portal bounds its own watching
+at **2 minutes**. When that runs out without a terminal state the screen says
+**Status is still unconfirmed. The portal stopped checking automatically** — a
+client observation window, explicitly not a failure and explicitly not a
+rejection — and offers **Check again**, which resumes the same command under the
+same identifier.
+
+**Failing at the smallest scope.** A refused command leaves the actuator, its
+reported state, the measurements and the topology exactly where they are. A
+failed lifecycle read keeps the last command representation on screen with a
+note and a retry. A failed background configuration refresh keeps the actuator
+inventory and its reported states. A `/health` failure erases nothing, and a
+command is never gated on `/health` answering. `409` and `422` are decisions and
+are never retried automatically; a `5xx` or a lost connection is never presented
+as proof that a command was rejected. No response body, header, URL or upstream
+detail reaches a screen — failures are described by status and by the contract's
+own `error.code`.
+
+**What manual control does not add.** No Activity feed, no command history
+beyond the one command created in the current interaction, no schedules, no
+alerts, no automation or control-loop editing, no thresholds, no recipes, no
+grow cycles, no device provisioning, no gateway status, no simulation controls,
+and no WebSocket or server-sent events. General command history and Activity are
+not part of this release.
+
+**A stated limitation.** The command being followed lives in the workspace, not
+in the address. Refreshing the page during a pending command stops the portal
+following it; the command itself is unaffected, and nothing about it is invented
+afterwards. Resolving a command after a refresh needs the Activity surface that
+is not part of this release.
+
 ## Backend integration
 
 [`openapi.json`](openapi.json) is the backend contract this repository is built
@@ -358,6 +501,40 @@ The two operations monitoring adds:
 | ---------------------------------------------- | ---------------------------------------------------- | --------------------------- |
 | Zone membership, point metadata, current state | `GET /api/v1/facilities/{facility_id}/configuration` | `FacilityConfigurationRead` |
 | One point's bounded telemetry window           | `GET /api/v1/points/{point_id}/telemetry?limit=200`  | `TelemetryHistoryRead`      |
+
+The three operations manual control adds:
+
+| Purpose                          | Operation                                       | Schema                                                |
+| -------------------------------- | ----------------------------------------------- | ----------------------------------------------------- |
+| Create one manual command        | `POST /api/v1/commands`                         | `ManualCommandCreate` → `ManualCommandAcceptanceRead` |
+| Read one command's lifecycle     | `GET /api/v1/commands/{command_id}`             | `CommandRead`                                         |
+| Resolve a lost creation response | `GET /api/v1/commands?idempotency_key=&limit=1` | `CommandListRead`                                     |
+
+The request body is exactly `ManualCommandCreate` — the schema is
+`additionalProperties: false`, so there is no field to add:
+
+```http
+POST /api/v1/commands
+Idempotency-Key: 3f1b8b0e-9c1e-4a5a-9a8f-2b7f0c5d1a42
+Content-Type: application/json
+
+{
+  "control_zone_id": "9b3e1f5c-8d30-4b49-9d8f-7b4d3e1f0001",
+  "target_point_id": "bb000000-0000-4000-8000-000000000002",
+  "desired_value": true
+}
+```
+
+`201` means the command was created and `200` that the key already named it; the
+body's own `outcome` (`created` / `existing`) is what the portal reads, because
+the contract puts it there for clients behind a proxy that rewrites statuses.
+Neither status means the actuator moved.
+
+The controllable inventory and the reported states come from the **same
+`FacilityConfigurationRead` request monitoring already makes** — one query key,
+one poll, no second read. `reported_point_id` is on `ConfigurationPoint`
+precisely so a client can decide whether a control point can be commanded before
+any command exists, which is why no extra request is needed to find out.
 
 **Why the configuration document.** It is the only published operation that
 answers all three monitoring questions in one request: which points a zone
@@ -402,9 +579,18 @@ Notes that follow from the contract:
   `unknown` and narrowed where it is displayed, never coerced at the boundary;
 - an entry of a telemetry response that does not match `TelemetrySampleRead` is
   counted and left out rather than allowed to discard the whole window;
-- `GET /api/v1/points/{point_id}/state` is **not** used — see the note above —
-  and neither is any control-plane operation: commands, control loops, gateways,
-  the edge surface, and every `POST`, `PATCH` and `DELETE`. The portal reads.
+- `GET /api/v1/points/{point_id}/state` is **not** used — see the note above:
+  the configuration document already carries every point's last state, including
+  the reported points, and one request per actuator per poll would buy only
+  `received_at` and `revision`;
+- the Cloud ↔ Edge surface — `GET /api/v1/edge/gateways/{gateway_id}/commands`,
+  `PUT .../acknowledgement` and `POST /api/v1/edge/telemetry` — is for gateways
+  and is **never** called from the browser. Neither is control-loop creation,
+  gateway provisioning, direct current-state mutation, or any other `POST`,
+  `PATCH` or `DELETE`. The one write this portal makes is a manual command;
+- `CommandRead` returns the three sample identifiers rather than embedded
+  samples, and the portal does not follow them: a command's result is its
+  `state`, and what the equipment reports is the reported point's own state.
 
 ## Accessibility and responsiveness
 
@@ -431,6 +617,25 @@ Notes that follow from the contract:
   operable, with no custom combobox to re-learn and no keyboard trap. A
   background poll is shown but not announced, so a screen reader is not
   interrupted every thirty seconds by a request nobody asked for.
+- Manual control is a labelled region with its own ordered headings
+  (`Manual control` → each control point → `Reported state` / `This command`).
+  Every action carries the actuator's name in its accessible name — `Turn on
+North lamp`, not `On` — and a disabled action is accompanied by the reason in
+  words.
+- The confirmation is a real modal: `role="dialog"`, `aria-modal`, an accessible
+  name, initial focus on the dialog rather than on a button, a contained tab
+  cycle, `Escape` and Cancel both closing it, and focus returned to the control
+  that opened it. Its confirm action names the target and the value, so it is
+  specific out of context.
+- Reported state, requested state and command state are each readable in
+  monochrome and without an icon: a value and its words, never a colour-changing
+  switch. Lifecycle transitions are announced through one live region whose text
+  changes only when the state changes, so a five-second poll that returns the
+  same answer announces nothing.
+- Actuator cards reflow into one column at phone width, their actions stay
+  comfortably tappable, and the confirmation is sized from the viewport rather
+  than a fixed pixel width, scrolling inside itself instead of pushing the page
+  sideways. Long point names, identifiers and lifecycle messages wrap.
 
 ## Not implemented yet
 
@@ -442,16 +647,24 @@ Named here so nothing above is mistaken for a promise that has been kept:
 - **Topology and point editing.** Sites, facilities, control zones and points are
   read-only here. There is no create, edit or delete, and no button that pretends
   there is.
-- **Manual control.** No actuator reported state, no actuator desired state, no
-  control button, no command submission, no command polling and no command
-  history. Monitoring reads measurement points and nothing else.
-- Activity history, alerts and notifications about greenhouse conditions,
-  threshold evaluation and "normal/warning/critical" classification.
+- **Command history and Activity.** The manual-control section shows the one
+  command created in the current interaction and its lifecycle. There is no
+  Activity feed, no list of past commands, and no way to resolve a command after
+  a page refresh.
+- Alerts and notifications about greenhouse conditions, threshold evaluation and
+  "normal/warning/critical" classification.
 - Agronomic recommendations, target ranges, recipes, grow cycles, runtime
-  targets, automation, schedules and control-loop visualisation.
+  targets, automation, schedules, temporary overrides and control-loop creation
+  or visualisation. Manual control switches one configured actuator; it
+  configures nothing.
+- Non-boolean actuator control. The command contract accepts a strict `bool`, so
+  there is no dimming, speed, percentage or setpoint control to build.
+- Device provisioning, firmware, physical device bindings, gateway status and
+  any direct Edge or device communication. The portal calls the public cloud API
+  and never the Cloud ↔ Edge surface.
 - Users, tenants, billing and settings screens.
-- Live transports: monitoring refreshes on a bounded poll, and this release adds
-  no WebSocket and no server-sent events.
+- Live transports: monitoring and command lifecycles refresh on bounded polls,
+  and this release adds no WebSocket and no server-sent events.
 
 ## Troubleshooting
 

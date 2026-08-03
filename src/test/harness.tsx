@@ -46,13 +46,59 @@ export interface RouteReply {
 /** A routing table, or a function of the call count for per-attempt answers. */
 export type Router = Record<string, RouteReply | ((attempt: number) => RouteReply)>;
 
+/**
+ * One request the portal made, as the boundary actually built it.
+ *
+ * The method, the headers and the body are recorded as well as the URL, because
+ * a write is only correct if all four are: a manual command that reached the
+ * right path with the wrong body, or without the `Idempotency-Key` the contract
+ * requires, is a failure a URL-only assertion would miss.
+ */
+export interface RecordedRequest {
+  readonly url: string;
+  readonly method: string;
+  readonly headers: Readonly<Record<string, string>>;
+  /** The request body, parsed as JSON when there was one. */
+  readonly body: unknown;
+}
+
 export interface FetchMock {
   /** Every URL requested, in order. */
   calls: string[];
+  /** Every request in full, in order. */
+  requests: RecordedRequest[];
   /** Requests seen per URL. */
   countFor: (url: string) => number;
+  /** Every recorded request to one URL, in order. */
+  requestsFor: (url: string) => RecordedRequest[];
   /** Replace the routing table mid-test, to simulate a backend going down. */
   setRoutes: (routes: Router) => void;
+}
+
+/** Read the headers of a `fetch` call, whatever shape they were given in. */
+function headersOf(init: RequestInit | undefined): Record<string, string> {
+  const source = init?.headers;
+  const headers: Record<string, string> = {};
+  if (source === undefined) {
+    return headers;
+  }
+  new Headers(source).forEach((value, key) => {
+    headers[key] = value;
+  });
+  return headers;
+}
+
+/** Parse a recorded request body, leaving anything unparseable as it arrived. */
+function bodyOf(init: RequestInit | undefined): unknown {
+  const body = init?.body;
+  if (typeof body !== "string") {
+    return undefined;
+  }
+  try {
+    return JSON.parse(body);
+  } catch {
+    return body;
+  }
 }
 
 /**
@@ -64,11 +110,18 @@ export interface FetchMock {
 export function installFetchMock(initial: Router): FetchMock {
   let routes = initial;
   const calls: string[] = [];
+  const requests: RecordedRequest[] = [];
   const perUrl = new Map<string, number>();
 
   const stub = vi.fn((input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const url = urlOf(input);
     calls.push(url);
+    requests.push({
+      url,
+      method: init?.method ?? "GET",
+      headers: headersOf(init),
+      body: bodyOf(init),
+    });
     const attempt = (perUrl.get(url) ?? 0) + 1;
     perUrl.set(url, attempt);
 
@@ -102,7 +155,9 @@ export function installFetchMock(initial: Router): FetchMock {
 
   return {
     calls,
+    requests,
     countFor: (url) => perUrl.get(url) ?? 0,
+    requestsFor: (url) => requests.filter((request) => request.url === url),
     setRoutes: (next) => {
       routes = next;
     },

@@ -32,6 +32,11 @@ interface RequestErrorPanelProps {
   onRetry?: () => void;
   retrying?: boolean;
   headingLevel?: 2 | 3;
+  /**
+   * Test hook. Two sections of one page can fail on the same request and each
+   * says so for itself, so a test needs to be able to tell them apart.
+   */
+  testId?: string;
 }
 
 /** A request that failed, with a way to try it again. */
@@ -41,13 +46,14 @@ export function RequestErrorPanel({
   onRetry,
   retrying = false,
   headingLevel = 3,
+  testId = "request-error",
 }: RequestErrorPanelProps) {
   return (
     <StatePanel
       title={title}
       tone="error"
       role="alert"
-      testId="request-error"
+      testId={testId}
       headingLevel={headingLevel}
       {...(onRetry
         ? {
@@ -155,6 +161,8 @@ interface RefreshFailurePanelProps {
   error: unknown;
   onRetry: () => void;
   retrying?: boolean;
+  /** Test hook, so two sections failing on one request stay distinguishable. */
+  testId?: string;
 }
 
 /**
@@ -168,13 +176,14 @@ export function RefreshFailurePanel({
   error,
   onRetry,
   retrying = false,
+  testId = "refresh-failure",
 }: RefreshFailurePanelProps) {
   return (
     <StatePanel
       title="Showing the last data the cloud API returned"
       tone="warning"
       role="status"
-      testId="refresh-failure"
+      testId={testId}
       action={
         <button type="button" className="button" onClick={onRetry} disabled={retrying}>
           {retrying ? "Trying again…" : "Try again"}

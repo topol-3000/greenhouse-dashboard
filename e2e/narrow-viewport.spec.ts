@@ -9,7 +9,7 @@
  */
 
 import { expect, test } from "@playwright/test";
-import { E2E_IDS, mockHealth, mockTopology } from "./fixtures";
+import { E2E_IDS, mockCommands, mockHealth, mockTopology } from "./fixtures";
 
 const FACILITY_URL = `/facilities/${E2E_IDS.northGreenhouse}`;
 const ZONE_URL = `${FACILITY_URL}/zones/${E2E_IDS.climateZone}`;
@@ -140,5 +140,62 @@ test.describe("the portal shell at phone width", () => {
     for (const width of widths) {
       expect(width).toBeLessThanOrEqual(viewport.width);
     }
+  });
+});
+
+test.describe("manual control at phone width", () => {
+  test("stacks the actuator cards and keeps their actions tappable", async ({ page }) => {
+    await mockHealth(page);
+    await mockTopology(page);
+    await mockCommands(page);
+    await page.goto(ZONE_URL);
+
+    await expect(page.getByTestId("actuator-cards")).toBeVisible();
+    expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);
+
+    const viewport = page.viewportSize()!;
+    const widths = await page
+      .getByTestId("actuator-card")
+      .evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().width));
+    expect(widths.length).toBeGreaterThan(0);
+    for (const width of widths) {
+      expect(width).toBeLessThanOrEqual(viewport.width);
+    }
+
+    // Comfortably tappable rather than squeezed into a row of small targets.
+    const action = page
+      .getByTestId("manual-control")
+      .getByRole("button", { name: "Turn on North air temperature vent" });
+    const box = await action.boundingBox();
+    expect(box?.height ?? 0).toBeGreaterThanOrEqual(40);
+  });
+
+  test("fits the confirmation and the command lifecycle on the screen", async ({ page }) => {
+    await mockHealth(page);
+    await mockTopology(page);
+    const commands = await mockCommands(page);
+    await page.goto(ZONE_URL);
+
+    await page
+      .getByTestId("manual-control")
+      .getByRole("button", { name: "Turn on North air temperature vent" })
+      .click();
+
+    const dialog = page.getByRole("dialog", { name: "Confirm this manual command" });
+    await expect(dialog).toBeVisible();
+    expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);
+
+    const viewport = page.viewportSize()!;
+    const box = await dialog.boundingBox();
+    // Sized by the viewport rather than by a fixed pixel width.
+    expect(box?.width ?? 0).toBeLessThanOrEqual(viewport.width);
+    expect(box?.height ?? 0).toBeLessThanOrEqual(viewport.height);
+
+    await dialog.getByTestId("command-confirm").click();
+    await expect(page.getByTestId("command-progress")).toBeVisible();
+    expect(commands.creations()).toHaveLength(1);
+
+    // A long identifier and a long lifecycle message wrap rather than widen.
+    expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);
   });
 });

@@ -17,9 +17,15 @@ const FACILITY_URL = `/facilities/${E2E_IDS.northGreenhouse}`;
 const ZONE_URL = `${FACILITY_URL}/zones/${E2E_IDS.climateZone}`;
 const IRRIGATION_URL = `${FACILITY_URL}/zones/${E2E_IDS.irrigationZone}`;
 
-/** The measurement card for one point, found by the identifier the API sent. */
+/**
+ * The measurement card for one point, found by the identifier the API sent.
+ *
+ * Scoped to the monitoring section rather than to the page: a control point has
+ * a card of its own in the manual-control section, and "this point has no
+ * measurement card" is a claim about monitoring, not about the whole workspace.
+ */
 function card(page: import("@playwright/test").Page, pointId: string) {
-  return page.locator(`[data-point-id="${pointId}"]`);
+  return page.getByTestId("monitoring").locator(`[data-point-id="${pointId}"]`);
 }
 
 test.describe("reading a control zone's measurements", () => {

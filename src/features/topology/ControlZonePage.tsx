@@ -1,5 +1,5 @@
 /**
- * One control zone's read-only workspace, inside the facility that owns it.
+ * One control zone's workspace, inside the facility that owns it.
  *
  * The page exists at `/facilities/:facilityId/zones/:zoneId`, but the URL is not
  * evidence of anything. The zone's own `facility_id` is what decides whether it
@@ -7,7 +7,7 @@
  * drawn under the wrong parent, and the site comes from the facility because
  * `ControlZoneRead` publishes none.
  *
- * The page carries two lists of points, and they mean different things.
+ * The page carries three lists of points, and they mean different things.
  *
  * The composition table is the zone's point *inventory*, built only from fields
  * `ZonePointAssignmentRead` states — `point_name`, `point_code`, `point_kind`,
@@ -15,17 +15,24 @@
  * its control and status points, and it carries no reading, because that schema
  * contains none.
  *
- * The monitoring section below it is the zone's *measurements*: the points the
- * API publishes as `point_kind: "measurement"`, with the last state it holds
- * for each and the telemetry history of the one that is selected. A control or
- * status point appears in the inventory and never here — no card, no reading,
- * no chart, nothing to press.
+ * The monitoring section is the zone's *measurements*: the points the API
+ * publishes as `point_kind: "measurement"`, with the last state it holds for
+ * each and the telemetry history of the one that is selected.
  *
- * No point is classified by its name in either list. There is no actuator
- * state, no desired state, no command and no automation on this page.
+ * The manual-control section is the zone's *control outputs*: the points the API
+ * publishes as active boolean `control` points assigned here in the
+ * `control_output` role, which name the point that reports them back. Those five
+ * explicit fields are the entire test. A measurement point is never an actuator,
+ * a status point is never a command target, and a control point that fails any
+ * clause is listed with the reason rather than given a button.
+ *
+ * No point is classified by its name in any of the three. There is no automation,
+ * no schedule, no alert and no command history on this page.
  */
 
 import { useParams } from "react-router";
+import { ManualControlSection } from "../control/ManualControlSection";
+import { useZoneManualControl } from "../control/useZoneManualControl";
 import { MonitoringSection } from "../monitoring/MonitoringSection";
 import { useZoneMonitoring } from "../monitoring/useZoneMonitoring";
 import { LoadingState, StatePanel } from "../../components/StatePanel";
@@ -54,11 +61,14 @@ export function ControlZonePage() {
   // zone lookup rather than behind it, and it is switched off the moment the
   // contract says this zone is not part of this facility — the portal does not
   // read a zone's measurements into a page it will refuse to draw.
-  const monitoring = useZoneMonitoring(
-    facilityId,
-    zoneId,
-    !workspace.isZoneMissing && workspace.relationship !== "mismatch",
-  );
+  const workspaceIsUsable = !workspace.isZoneMissing && workspace.relationship !== "mismatch";
+  const monitoring = useZoneMonitoring(facilityId, zoneId, workspaceIsUsable);
+
+  // Manual control reads the same configuration document monitoring reads —
+  // the same query key, so the two share one poll — and is switched off under
+  // exactly the same conditions. The portal offers no action on a zone the
+  // contract does not place in the facility the address names.
+  const control = useZoneManualControl(facilityId, zoneId, workspaceIsUsable);
 
   if (workspace.isZoneMissing) {
     return (
@@ -220,6 +230,13 @@ export function ControlZonePage() {
       </section>
 
       <MonitoringSection zoneName={zone.name} monitoring={monitoring} />
+
+      <ManualControlSection
+        zoneName={zone.name}
+        facilityName={facility?.name}
+        siteName={site?.name}
+        control={control}
+      />
     </div>
   );
 }

@@ -98,6 +98,31 @@ export function requireNumber(
 }
 
 /**
+ * Read a required boolean field.
+ *
+ * Nothing is coerced. The contract's own command boundary refuses `1`, `"on"`
+ * and `"true"` rather than guessing at them, and a reader that accepted what the
+ * writer refuses would be the place a wrong guess entered the portal.
+ *
+ * @param record The decoded object.
+ * @param key The contract's field name.
+ * @param context What was being read, for the error message.
+ * @returns The field's value.
+ * @throws {ParseError} When the field is missing or is not a boolean.
+ */
+export function requireBoolean(
+  record: Record<string, unknown>,
+  key: string,
+  context: string,
+): boolean {
+  const value = record[key];
+  if (typeof value !== "boolean") {
+    throw new ParseError(`The cloud API's ${context} has no readable "${key}".`);
+  }
+  return value;
+}
+
+/**
  * Read a field the contract declares as nullable string.
  *
  * @param record The decoded object.

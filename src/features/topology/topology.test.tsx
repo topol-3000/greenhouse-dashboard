@@ -324,7 +324,9 @@ describe("the ControlZone workspace", () => {
     // Classified by the contract's own fields, never by the point's name.
     expect(within(table).getByText("North air temperature")).toBeInTheDocument();
     expect(within(table).getByText("Primary measurement")).toBeInTheDocument();
-    expect(within(table).getByText("Control output")).toBeInTheDocument();
+    // The zone assigns several points as control outputs, so this role is
+    // expected more than once and the assertion counts rather than uniquing.
+    expect(within(table).getAllByText("Control output").length).toBeGreaterThan(0);
     expect(within(table).getAllByText("Not set").length).toBeGreaterThan(0);
 
     const text = table.textContent ?? "";

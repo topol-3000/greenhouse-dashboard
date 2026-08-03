@@ -1,5 +1,5 @@
 /**
- * The topology and monitoring slices of the backend's published contract.
+ * The topology, monitoring and manual-control slices of the published contract.
  *
  * Every type here is an alias of a schema in [`openapi.json`](../../openapi.json),
  * re-exported through the generated `schema.ts` rather than re-typed by hand.
@@ -63,6 +63,69 @@
  * - completeness is never claimed, because no field in the response could
  *   support the claim.
  *
+ * ## Manual control operations
+ *
+ * | Purpose                                | Operation                                             | Schema                           |
+ * | -------------------------------------- | ----------------------------------------------------- | -------------------------------- |
+ * | Controllable points and reported state | `GET /api/v1/facilities/{facility_id}/configuration`   | `FacilityConfigurationRead`      |
+ * | Create one manual command              | `POST /api/v1/commands`                                | `ManualCommandCreate` → `ManualCommandAcceptanceRead` |
+ * | Read one command's lifecycle           | `GET /api/v1/commands/{command_id}`                    | `CommandRead`                    |
+ * | Resolve a lost creation response       | `GET /api/v1/commands?idempotency_key=&limit=1`        | `CommandListRead`                |
+ *
+ * ### How a controllable point is identified
+ *
+ * `POST /api/v1/commands` states its own precondition: the target "has to be an
+ * active boolean control point that is assigned to the named zone in the
+ * `control_output` role and names a reported status point". Every clause of that
+ * is an explicit field of the configuration document, and the portal checks all
+ * five before it offers an action:
+ *
+ * - `ConfigurationPoint.point_kind === "control"`;
+ * - `ConfigurationPoint.status === "active"`;
+ * - `ConfigurationPoint.data_type === "boolean"`, which is what makes
+ *   `ManualCommandCreate.desired_value` — a strict `bool` — a valid request for
+ *   this target;
+ * - `ConfigurationZonePoint.role === "control_output"` on the link between the
+ *   zone in the address and the point;
+ * - `ConfigurationPoint.reported_point_id !== null`.
+ *
+ * No point is classified by its name, its code, its `metric_type` or its
+ * position in a list, and a point that fails any clause is offered no action.
+ *
+ * ### How reported state is related to a control point
+ *
+ * `ConfigurationPoint.reported_point_id` is the contract's one statement of that
+ * relationship, and its own description says why it is in the document: "a
+ * client deciding whether a control point can be commanded needs the point that
+ * reports it back, and needs it before any command exists". The portal reads the
+ * reported point out of the same document by that identifier. Points are never
+ * paired by a similar name, a matching unit or a shared position.
+ *
+ * ### Desired, reported and command state
+ *
+ * The contract keeps these three apart and so does the portal.
+ *
+ * `ManualCommandCreate.desired_value` and `CommandRead.desired_value` are "a
+ * request, never a reading" in the contract's own words. `CommandState` is the
+ * *delivery* lifecycle: `pending` is the only non-terminal state, `applied` and
+ * `rejected` are terminal, and `acknowledged_at` on a pending command "means the
+ * Edge received it, not that anything moved". What the actuator actually reports
+ * is the reported point's own state. A `201`, a `200` or an `applied` command is
+ * therefore never rendered as a reading, and the reported state is never
+ * overwritten with what was asked for.
+ *
+ * ### Idempotency
+ *
+ * The `Idempotency-Key` header is required and is a UUID the client supplies.
+ * The contract defines the replay rules exactly: the same key with the same
+ * `control_zone_id`, `target_point_id` and `desired_value` answers `200` with
+ * `outcome: "existing"` and writes nothing; the same key with a different one
+ * answers `409 idempotency_key_conflict`; and the server never replaces a
+ * supplied key. That is what makes a retry of a lost request safe, and
+ * `GET /api/v1/commands?idempotency_key=` is the documented way to find out
+ * whether a submission whose response was lost exists — "the key is unique, so
+ * the answer carries zero or one command".
+ *
  * ## Relationships, as the contract states them
  *
  * `FacilityRead.site_id` and `ControlZoneRead.facility_id` are the only
@@ -74,9 +137,15 @@
  *
  * ## What is deliberately not consumed here
  *
- * `GET /api/v1/points/{point_id}/state`, and every control-plane operation the
- * contract publishes: commands, control loops, gateways, the edge surface and
- * every `POST`, `PATCH` and `DELETE`. The portal is a reader.
+ * `GET /api/v1/points/{point_id}/state` — the configuration document already
+ * carries every point's last known state, including the reported points, and one
+ * request per actuator per poll would buy only `received_at` and `revision`.
+ *
+ * The Cloud ↔ Edge surface — `GET /api/v1/edge/gateways/{gateway_id}/commands`,
+ * `PUT .../acknowledgement` and `POST /api/v1/edge/telemetry` — is for gateways
+ * and is never called from a browser. Control loops, gateways, provisioning and
+ * every other `POST`, `PATCH` and `DELETE` are equally out of scope: the one
+ * write this portal makes is a manual command.
  */
 
 import type { components } from "./schema";
@@ -135,6 +204,30 @@ export type TelemetryHistoryRead = components["schemas"]["TelemetryHistoryRead"]
 /** One stored measurement, returned unchanged by the history operation. */
 export type TelemetrySampleRead = components["schemas"]["TelemetrySampleRead"];
 
+/** The body `POST /api/v1/commands` accepts: a zone, a point and a boolean. */
+export type ManualCommandCreate = components["schemas"]["ManualCommandCreate"];
+
+/** The answer to one idempotent manual request: the outcome and the command. */
+export type ManualCommandAcceptanceRead = components["schemas"]["ManualCommandAcceptanceRead"];
+
+/** Whether an idempotent manual request created or replayed a command. */
+export type ManualCommandOutcome = components["schemas"]["ManualCommandOutcome"];
+
+/** One command, with every identifier and timestamp it is followed by. */
+export type CommandRead = components["schemas"]["CommandRead"];
+
+/** A count-free collection of commands: `items`, and nothing else. */
+export type CommandListRead = components["schemas"]["CommandListRead"];
+
+/** Delivery lifecycle of a command: `pending`, `applied` or `rejected`. */
+export type CommandState = components["schemas"]["CommandState"];
+
+/** Who asked for a command: `control_loop` or `manual`. */
+export type CommandSource = components["schemas"]["CommandSource"];
+
+/** The stable code and readable message of a terminal failure. */
+export type CommandRejectionReason = components["schemas"]["CommandRejectionReason"];
+
 /**
  * `point_kind` of a point the customer reads rather than drives.
  *
@@ -143,6 +236,65 @@ export type TelemetrySampleRead = components["schemas"]["TelemetrySampleRead"];
  * points are not measurements however they are labelled.
  */
 export const MEASUREMENT_POINT_KIND: PointKind = "measurement";
+
+/**
+ * `point_kind` of a point the customer may drive.
+ *
+ * This field, and no other, is what makes a point a candidate for manual
+ * control. It is a necessary condition and not a sufficient one — see
+ * {@link CONTROL_OUTPUT_ROLE} and {@link BOOLEAN_DATA_TYPE}.
+ */
+export const CONTROL_POINT_KIND: PointKind = "control";
+
+/**
+ * The zone link role a manual command's target must carry.
+ *
+ * `POST /api/v1/commands` requires the target to be assigned to the named zone
+ * "in the `control_output` role". A control point assigned as a
+ * `safety_interlock` or a `derived_indicator` is therefore not a manual target
+ * of that zone, whatever its `point_kind` says.
+ */
+export const CONTROL_OUTPUT_ROLE: ZonePointRole = "control_output";
+
+/**
+ * The one `data_type` a manual command can express.
+ *
+ * `ManualCommandCreate.desired_value` is a strict `bool`: the contract refuses
+ * `1`, `"on"` and `"true"` rather than coercing them, and publishes no numeric,
+ * enumerated or free-form command shape at all. A control point of any other
+ * data type has no action the contract can prove, and is offered none.
+ */
+export const BOOLEAN_DATA_TYPE: PointDataType = "boolean";
+
+/** The one non-terminal command state. */
+export const PENDING_COMMAND_STATE: CommandState = "pending";
+
+/** Terminal success: the Edge reported the command applied. */
+export const APPLIED_COMMAND_STATE: CommandState = "applied";
+
+/** Terminal failure: the Edge rejected the command. */
+export const REJECTED_COMMAND_STATE: CommandState = "rejected";
+
+/**
+ * The command states that are reached once and never left.
+ *
+ * From `CommandState`'s own description: "`PENDING` is the only non-terminal
+ * state […] `APPLIED` is terminal success and `REJECTED` is terminal failure;
+ * both are reached exactly once […] and never left again."
+ */
+export const TERMINAL_COMMAND_STATES: readonly CommandState[] = [
+  APPLIED_COMMAND_STATE,
+  REJECTED_COMMAND_STATE,
+];
+
+/** `source` of a command a customer asked for rather than a control loop. */
+export const MANUAL_COMMAND_SOURCE: CommandSource = "manual";
+
+/** The header `POST /api/v1/commands` requires, spelled as the contract does. */
+export const IDEMPOTENCY_KEY_HEADER = "Idempotency-Key";
+
+/** `error.code` the contract names for a key reused with a different request. */
+export const IDEMPOTENCY_KEY_CONFLICT_CODE = "idempotency_key_conflict";
 
 /** `status` of a resource that is in use rather than archived. */
 export const ACTIVE_STATUS: StatusEnum = "active";
