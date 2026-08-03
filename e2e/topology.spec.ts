@@ -168,11 +168,13 @@ test.describe("topology states", () => {
     await expect(page.getByRole("link", { name: "Back to Greenhouses" })).toBeVisible();
   });
 
-  test("renders no telemetry, actuator state, command or simulation data", async ({ page }) => {
+  test("keeps the overview and the facility workspace free of readings", async ({ page }) => {
     await mockHealth(page);
     await mockTopology(page);
 
-    for (const url of ["/sites", FACILITY_URL, ZONE_URL]) {
+    // Monitoring lives in the control zone workspace. These two screens must
+    // not grow telemetry, aggregates or facility-wide claims.
+    for (const url of ["/sites", FACILITY_URL]) {
       await page.goto(url);
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
       const text = (await page.locator("body").innerText()).toLowerCase();
@@ -188,22 +190,29 @@ test.describe("topology states", () => {
         expect(text).not.toContain(forbidden);
       }
       expect(text).not.toMatch(/\d+(\.\d+)?\s?(°c|°f|lx|ppm|kpa)/);
+      await expect(page.getByTestId("monitoring")).toHaveCount(0);
     }
   });
 
-  test("asks only for the topology endpoints the contract publishes", async ({ page }) => {
+  test("asks only for the read endpoints the contract publishes", async ({ page }) => {
     await mockHealth(page);
     const topology = await mockTopology(page);
 
     await page.goto(ZONE_URL);
     await expect(page.getByTestId("zone-points")).toBeVisible();
+    await expect(page.getByTestId("measurement-cards")).toBeVisible();
 
     for (const request of topology.requests()) {
-      expect(request).toMatch(/^\/api\/v1\/(sites|facilities|control-zones)(\/|\?)/);
+      expect(request).toMatch(/^\/api\/v1\/(sites|facilities|control-zones|points)(\/|\?)/);
     }
+    // The configuration document is the one current-state read: no per-point
+    // state request, and nothing from the control plane.
     expect(topology.requests().some((request) => request.includes("/state"))).toBe(false);
+    expect(topology.requests().some((request) => request.includes("/commands"))).toBe(false);
+    expect(topology.requests().some((request) => request.includes("/control-loops"))).toBe(false);
+    expect(topology.requests().some((request) => request.includes("/gateways"))).toBe(false);
+    // Telemetry is asked for only once a point has been chosen.
     expect(topology.requests().some((request) => request.includes("/telemetry"))).toBe(false);
-    expect(topology.requests().some((request) => request.includes("/configuration"))).toBe(false);
 
     // Pagination is requested with the contract's window, at its maximum page.
     expect(topology.requests()).toContain("/api/v1/sites?limit=200&offset=0");

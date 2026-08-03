@@ -43,6 +43,40 @@ test.describe("the portal shell at phone width", () => {
     }
   });
 
+  test("keeps the monitoring section and its chart inside the viewport", async ({ page }) => {
+    await mockHealth(page);
+    await mockTopology(page);
+    await page.goto(ZONE_URL);
+
+    await expect(page.getByTestId("measurement-cards")).toBeVisible();
+    expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);
+
+    // The cards stack into one column rather than being squeezed side by side.
+    const viewport = page.viewportSize()!;
+    const cardWidths = await page
+      .getByTestId("measurement-card")
+      .evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().width));
+    expect(cardWidths.length).toBeGreaterThan(0);
+    for (const width of cardWidths) {
+      expect(width).toBeLessThanOrEqual(viewport.width);
+    }
+
+    // The chart is drawn at the width it has, and the sample table scrolls
+    // inside its own box, so neither pushes the page sideways.
+    await page.getByRole("button", { name: "Show history of North air temperature" }).click();
+    await expect(page.getByTestId("history-chart")).toBeVisible();
+    expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);
+
+    const chartWidth = await page
+      .getByTestId("history-chart-svg")
+      .evaluate((node) => node.getBoundingClientRect().width);
+    expect(chartWidth).toBeLessThanOrEqual(viewport.width);
+
+    await page.getByText(/Show the \d+ loaded samples? as a table/).click();
+    await expect(page.getByTestId("sample-table")).toBeVisible();
+    expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);
+  });
+
   test("offers a keyboard-operable facility switcher with an accessible name", async ({ page }) => {
     await mockHealth(page);
     await mockTopology(page);

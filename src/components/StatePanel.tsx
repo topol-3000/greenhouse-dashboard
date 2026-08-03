@@ -18,7 +18,7 @@ interface StatePanelProps {
   /** An optional action, such as rechecking a failed request. */
   action?: ReactNode;
   /** Heading level, so a panel never breaks the page's heading order. */
-  headingLevel?: 2 | 3;
+  headingLevel?: 2 | 3 | 4;
   /**
    * Announce the panel to assistive technology. A failure the user did not ask
    * for is an `alert`; a state they navigated to announces itself by being the
@@ -38,7 +38,7 @@ export function StatePanel({
   role,
   testId,
 }: StatePanelProps) {
-  const Heading = headingLevel === 2 ? "h2" : "h3";
+  const Heading = headingLevel === 2 ? "h2" : headingLevel === 4 ? "h4" : "h3";
   return (
     <div
       className={`panel panel--${tone}`}

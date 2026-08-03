@@ -325,7 +325,7 @@ describe("the ControlZone workspace", () => {
     expect(within(table).getByText("North air temperature")).toBeInTheDocument();
     expect(within(table).getByText("Primary measurement")).toBeInTheDocument();
     expect(within(table).getByText("Control output")).toBeInTheDocument();
-    expect(within(table).getByText("Not set")).toBeInTheDocument();
+    expect(within(table).getAllByText("Not set").length).toBeGreaterThan(0);
 
     const text = table.textContent ?? "";
     expect(text).not.toMatch(/\d+(\.\d+)?\s?(°C|°F|%RH|lx|ppm|kPa)/);
@@ -347,6 +347,7 @@ describe("the ControlZone workspace", () => {
     // Nothing about the zone is drawn under the wrong parent.
     expect(screen.queryByTestId("zone-meta")).toBeNull();
     expect(screen.queryByTestId("zone-points")).toBeNull();
+    expect(screen.queryByTestId("monitoring")).toBeNull();
     // Nor is its name claimed by the breadcrumb trail.
     const trail = screen.getByRole("navigation", { name: "Breadcrumb" });
     expect(within(trail).queryByText(climateZone.name)).toBeNull();
@@ -440,8 +441,11 @@ describe("navigating the topology", () => {
 });
 
 describe("truthfulness of the topology screens", () => {
-  it("renders no telemetry, actuator state, command or simulation data", async () => {
-    for (const path of [GREENHOUSES_PATH, FACILITY_URL, ZONE_URL]) {
+  it("keeps the overview and the facility workspace free of readings", async () => {
+    // Monitoring belongs to the control zone workspace and to nothing above it:
+    // these two screens must not grow telemetry cards, aggregate values or
+    // facility-wide claims assembled from partial data.
+    for (const path of [GREENHOUSES_PATH, FACILITY_URL]) {
       const view = renderPortal({ path });
       await screen.findByRole("heading", { level: 1 });
       await waitFor(() => {
@@ -464,23 +468,30 @@ describe("truthfulness of the topology screens", () => {
         expect(text).not.toContain(forbidden);
       }
       expect(text).not.toMatch(/\d+(\.\d+)?\s?(°C|°F|%RH|lx|ppm|kPa)/);
+      expect(screen.queryByTestId("monitoring")).toBeNull();
 
       view.unmount();
     }
   });
 
-  it("asks only for the topology endpoints the contract publishes", async () => {
+  it("asks only for the read endpoints the contract publishes", async () => {
     const { api } = renderPortal({ path: ZONE_URL });
     await screen.findByTestId("control-zone-page");
+    await screen.findByTestId("measurement-cards");
 
     for (const url of api.calls) {
-      expect(url).toMatch(/^(\/health|\/api\/v1\/(sites|facilities|control-zones)(\/|\?))/);
+      expect(url).toMatch(/^(\/health|\/api\/v1\/(sites|facilities|control-zones|points)(\/|\?))/);
     }
-    // No endpoint that would carry state or commands into the portal.
+    // No endpoint that would carry a command, an actuator or a device into the
+    // portal, and no per-point state request: the configuration document is the
+    // one current-state read.
     expect(api.calls.some((url) => url.includes("/state"))).toBe(false);
-    expect(api.calls.some((url) => url.includes("/telemetry"))).toBe(false);
     expect(api.calls.some((url) => url.includes("/commands"))).toBe(false);
-    expect(api.calls.some((url) => url.includes("/configuration"))).toBe(false);
+    expect(api.calls.some((url) => url.includes("/control-loops"))).toBe(false);
+    expect(api.calls.some((url) => url.includes("/gateways"))).toBe(false);
+    expect(api.calls.some((url) => url.includes("/edge/"))).toBe(false);
+    // Telemetry is requested only once a point has been selected.
+    expect(api.calls.some((url) => url.includes("/telemetry"))).toBe(false);
   });
 
   it("does not wait for the health check before loading topology", async () => {

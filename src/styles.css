@@ -687,6 +687,141 @@ a {
   border-bottom: none;
 }
 
+/* Monitoring --------------------------------------------------------------
+ *
+ * The chart is drawn at the pixel width its container actually has, so nothing
+ * here may let it become wider than that container: the plot box clips and the
+ * svg is a block element, which together keep a wide series inside the page
+ * instead of introducing a horizontal scrollbar on the document.
+ */
+
+.subsection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.subsection__heading {
+  margin: 0;
+  font-size: 1.0625rem;
+}
+
+.measurement__value {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.measurement__unit {
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+/* "No data yet" is a state, not a reading: it is set apart by weight and size
+ * as well as by its words, never by colour alone. */
+.measurement__value--absent {
+  font-size: 1.125rem;
+  font-weight: 500;
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+.chart {
+  margin: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.75rem;
+}
+
+.chart__caption {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.chart__title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.chart__summary {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.chart__plot {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.chart__svg {
+  display: block;
+  max-width: 100%;
+}
+
+.chart__axis {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.chart__line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.chart__point {
+  fill: var(--accent);
+}
+
+.chart__tick {
+  fill: var(--text-secondary);
+  font-size: 0.75rem;
+}
+
+.chart__tick--y {
+  text-anchor: end;
+}
+
+.chart__tick--end {
+  text-anchor: end;
+}
+
+.samples {
+  min-width: 0;
+}
+
+.samples__summary {
+  cursor: pointer;
+  padding: 0.5rem 0;
+  min-height: 2.75rem;
+  display: flex;
+  align-items: center;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.samples__summary:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.samples > .table-scroll {
+  margin-top: 0.5rem;
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;

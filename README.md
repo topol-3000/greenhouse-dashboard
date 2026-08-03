@@ -9,19 +9,22 @@ ControlZone workspace sit alongside it.
 
 ## What this release contains
 
-The portal foundation, plus **read-only greenhouse topology**. On top of the
-application shell — identity, routing, navigation, breadcrumbs, notifications,
-the responsive layout, the shared UI states and the API boundary — it loads the
-customer's real Site → Facility → ControlZone structure from the cloud API and
-lets them navigate it.
+The portal foundation, **read-only greenhouse topology**, and **read-only
+monitoring inside a control zone**. On top of the application shell — identity,
+routing, navigation, breadcrumbs, notifications, the responsive layout, the
+shared UI states and the API boundary — it loads the customer's real
+Site → Facility → ControlZone structure from the cloud API, lets them navigate
+it, and inside a control zone shows what its measurement points last reported
+and the telemetry history of the one they select.
 
 Everything on screen came from the cloud API. There are no sample facilities, no
 placeholder readings and no invented statistics; when the API returns nothing,
 the portal says so rather than filling the page.
 
-Topology is **read-only** here: nothing in the portal creates, edits or deletes
-a site, a facility or a control zone. Monitoring, manual control, Activity
-history and authentication are not part of this release — see
+The portal stays **read-only**. Nothing in it creates, edits or deletes a site,
+a facility, a control zone or a point, and nothing in it operates a greenhouse:
+there is no actuator state, no control, no command, no Activity history, no
+alert and no automation. Authentication is not part of this release either — see
 [Not implemented yet](#not-implemented-yet).
 
 ## Repository boundaries
@@ -168,15 +171,16 @@ docker compose run --rm test   # format, lint, typecheck, unit/component tests
 docker compose run --rm e2e    # Playwright, in the official browser image
 ```
 
-The browser suite serves the real production build and answers `/health` and the
-topology endpoints from contract-faithful fixtures inside the browser, so it
-needs no backend, no sibling repository and no shared mutable state. Use the
-Docker command when the local machine lacks the browser's system libraries.
+The browser suite serves the real production build and answers `/health`, the
+topology endpoints, the facility configuration document and point telemetry from
+contract-faithful fixtures inside the browser, so it needs no backend, no
+sibling repository and no shared mutable state. Use the Docker command when the
+local machine lacks the browser's system libraries.
 
-Nested routes are client-side addresses, so **whatever serves the bundle must
-answer every path with `index.html`**. The repository's Nginx runtime and
-`vite preview` both do; a host that does not will 404 on a refresh of
-`/facilities/…`.
+Nested routes and the `?point=` selection are client-side addresses, so
+**whatever serves the bundle must answer every path with `index.html`**. The
+repository's Nginx runtime and `vite preview` both do; a host that does not will
+404 on a refresh of `/facilities/…/zones/…`.
 
 ## Application structure
 
@@ -187,9 +191,11 @@ src/
                decoding, pagination, health and topology requests, queries
   components/  reusable presentational UI (panels, status, notifications)
   features/
-    dashboard/ the Dashboard feature and its route component
-    topology/  Greenhouses, Facility and ControlZone screens, the facility
-               switcher and their view models
+    dashboard/  the Dashboard feature and its route component
+    topology/   Greenhouses, Facility and ControlZone screens, the facility
+                switcher and their view models
+    monitoring/ the ControlZone workspace's monitoring section: measurement
+                discovery, current-state cards, telemetry series and chart
   layouts/     the portal shell: header, navigation, breadcrumbs, main region
   routes/      the route table and the 404 page
   shared/      cross-feature utilities (notifications channel, formatting)
@@ -212,13 +218,13 @@ answer is an error state on screen, not sample data.
 
 ## Routes
 
-| Route                                   | What it is                                                            |
-| --------------------------------------- | --------------------------------------------------------------------- |
-| `/`                                     | Dashboard — cloud API availability and the API's own topology counts  |
-| `/sites`                                | Greenhouses — every site and the facilities inside it                 |
-| `/facilities/:facilityId`               | Facility workspace — the facility, its site and its control zones     |
-| `/facilities/:facilityId/zones/:zoneId` | ControlZone workspace — the zone, its parents and its point inventory |
-| `*`                                     | The portal's 404 page, rendered inside the shell with a way back      |
+| Route                                   | What it is                                                                                    |
+| --------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `/`                                     | Dashboard — cloud API availability and the API's own topology counts                          |
+| `/sites`                                | Greenhouses — every site and the facilities inside it                                         |
+| `/facilities/:facilityId`               | Facility workspace — the facility, its site and its control zones                             |
+| `/facilities/:facilityId/zones/:zoneId` | ControlZone workspace — the zone, its parents, its point inventory and its monitoring section |
+| `*`                                     | The portal's 404 page, rendered inside the shell with a way back                              |
 
 The primary navigation offers **Dashboard** and **Greenhouses** only: the two
 routes that work without a resource. The nested routes are reached by link, by
@@ -245,6 +251,79 @@ A site with no facilities, a facility with no control zones and a cloud API with
 no topology at all are each stated in words. So is an incomplete read: if a
 collection is larger than the portal's bounded pagination walk, the screen says
 how much of it is being shown instead of presenting a partial list as the whole.
+
+### Monitoring inside a control zone
+
+Monitoring is a section of the ControlZone workspace, not a route of its own and
+not an entry in the primary navigation. `/sites` and `/facilities/:facilityId`
+stay free of readings: there is no facility-wide aggregate, no global freshness
+and no cross-zone telemetry, because a truthful one cannot be assembled from a
+partial read.
+
+**Which points appear.** A point is a measurement when the API says
+`point_kind: "measurement"` and `status: "active"`, and never otherwise. Nothing
+is classified by a name, a code or a `metric_type`: a control point called
+"North air temperature vent" is a control point. Control and status points stay
+visible in the zone's composition table above — that is the zone's _inventory_ —
+and never receive a card, a value, a chart or a button.
+
+**Current state.** Each measurement card carries the value, the unit, the
+quality and the observation time the API published, and nothing else.
+
+- `0` and `false` are readings and render as readings. A point that has never
+  reported carries `value: null` with `quality: "no_data"`, and reads
+  **No data yet**;
+- a point the API published without a unit reads **Unit not provided**. No unit
+  is guessed, and no value is converted between units;
+- `quality` is shown as the backend's own vocabulary — `Good`, `Uncertain`,
+  `Stale` — never re-interpreted. There is **no invented freshness threshold**:
+  the portal shows the real `observed_at` and lets the backend's `DataQuality`
+  say whether a value is stale. Nothing is labelled normal, high, low, safe or
+  out of range, because the contract defines no range for the portal to compare
+  against;
+- "Refreshing…" and "Showing the last data the cloud API returned" describe the
+  _request_, never the age of a measurement.
+
+**Telemetry history.** Selecting a measurement point loads one bounded window of
+its history. The selection lives in the URL as `?point=<point_id>`, so a link to
+one point's history is shareable and survives a refresh; it is validated against
+the zone's loaded measurements, and an identifier that names none of them
+selects nothing without invalidating the facility or the zone in the address.
+
+- the window is **200 samples**, requested with the operation's own `limit`. The
+  contract publishes no total and no cursor for telemetry, so there is no page
+  to follow and no completeness to reach — the screen says it is a bounded
+  window, and says so more loudly when the response comes back full;
+- samples are ordered by `observed_at` in the browser, with the sample
+  identifier as a tie-break. The operation documents no ordering, so arrival
+  order is not trusted;
+- `observed_at` (when a greenhouse measured it) and `received_at` (when the
+  cloud heard about it) are shown as two separate columns and are never
+  substituted for one another;
+- **charts are numeric only.** A point is charted when the contract types it
+  `float` or `integer` _and_ the sample's value is a finite number at a readable
+  instant. A string is never parsed into a number, `NaN` and infinity are not
+  plotted, and nothing invalid becomes `0`. Samples that cannot be plotted stay
+  in the table and are counted in a notice above the chart;
+- a run of plottable samples is one line, and an unplottable sample **breaks**
+  it, so a gap is drawn as a gap rather than interpolated through;
+- a `boolean` or `string` measurement keeps its history and is shown as a table
+  with an explanation instead of a fabricated numeric chart;
+- if the loaded samples carry **more than one unit**, they are not drawn as one
+  continuous series and are not converted: the screen says the window mixes
+  units and shows the samples with their own units.
+
+**Refreshing and failing.** The configuration document is re-read every 30
+seconds and the selected point's window every 60; both are TanStack Query
+intervals, cancelled on unmount and paused while the tab is in the background,
+never a hand-rolled timer. A failure is retried once and then left to the
+interval; a `404` or a rejected identifier stops the interval entirely, because
+repeating it cannot change the answer. A failed refresh never empties the
+screen — the last successful values and the last successful chart stay exactly
+where they were, with a note saying they may be out of date — and monitoring
+degrades at the smallest scope there is: a history that fails leaves the current
+values, a monitoring request that fails leaves the topology, the breadcrumbs and
+the navigation working.
 
 ## Backend integration
 
@@ -273,6 +352,32 @@ documents the mapping.
 | Resolve one control zone            | `GET /api/v1/control-zones/{zone_id}`        | `ControlZoneRead`               |
 | A control zone's point composition  | `GET /api/v1/control-zones/{zone_id}/points` | `Page[ZonePointAssignmentRead]` |
 
+The two operations monitoring adds:
+
+| Purpose                                        | Operation                                            | Schema                      |
+| ---------------------------------------------- | ---------------------------------------------------- | --------------------------- |
+| Zone membership, point metadata, current state | `GET /api/v1/facilities/{facility_id}/configuration` | `FacilityConfigurationRead` |
+| One point's bounded telemetry window           | `GET /api/v1/points/{point_id}/telemetry?limit=200`  | `TelemetryHistoryRead`      |
+
+**Why the configuration document.** It is the only published operation that
+answers all three monitoring questions in one request: which points a zone
+contains (`ConfigurationZone.points`), what each point _is_
+(`ConfigurationPoint.point_kind`, `data_type`, `unit`, `status`) and what it
+last read (`ConfigurationPoint.state`). Its own description says it is assembled
+from a fixed number of queries. The alternative —
+`GET /api/v1/control-zones/{zone_id}/points` followed by
+`GET /api/v1/points/{point_id}/state` per point — costs one request per
+measurement point per poll, and `ZonePointAssignmentRead` still does not publish
+the point's `status`, so an archived point could not be recognised without yet
+another request each. `include_archived` is not sent, so the contract's own
+default applies and archived zones and points are left out by the backend.
+
+What that costs, stated rather than hidden: `ConfigurationPointState` carries
+`value`, `quality` and `observed_at` only. `received_at` and `revision` exist on
+`PointStateRead` alone, and the portal does not spend a request per point per
+poll to fetch them. Telemetry samples publish both timestamps, so `received_at`
+appears where the contract already supplies it — in the history table.
+
 Notes that follow from the contract:
 
 - every collection answers the `Page` envelope — `items`, `total`, `limit`,
@@ -287,8 +392,19 @@ Notes that follow from the contract:
 - a `404` — and a `422` for an identifier that is not the UUID the contract
   requires — is a resource-level "not in the cloud API" state on the page, never
   a full-page outage;
-- `GET /api/v1/facilities/{facility_id}/configuration` is deliberately **not**
-  used: it carries live point state, and this release is topology only.
+- `TelemetryHistoryRead` is `items` and nothing else — no `total`, no cursor, no
+  page number — and the telemetry operation documents no ordering and does not
+  say which samples a `limit` keeps when more match. So there is no pagination
+  to implement, the portal sorts the window itself, and no screen claims a
+  history is complete, is the latest _N_ samples, or covers a fixed period;
+- `value` has no schema on `ConfigurationPointState` and `TelemetrySampleRead`:
+  the backend stores measurements in one `jsonb` column. It is carried as
+  `unknown` and narrowed where it is displayed, never coerced at the boundary;
+- an entry of a telemetry response that does not match `TelemetrySampleRead` is
+  counted and left out rather than allowed to discard the whole window;
+- `GET /api/v1/points/{point_id}/state` is **not** used — see the note above —
+  and neither is any control-plane operation: commands, control loops, gateways,
+  the edge surface, and every `POST`, `PATCH` and `DELETE`. The portal reads.
 
 ## Accessibility and responsiveness
 
@@ -297,9 +413,24 @@ Notes that follow from the contract:
 - A visible focus indicator on every interactive element.
 - Primary navigation that collapses at narrow widths behind a toggle with
   `aria-expanded`/`aria-controls`, closes on `Escape` and returns focus to it.
-- No state signalled by colour alone: every status carries its own words.
-- Light and dark palettes with held contrast, and a reduced-motion rule.
-- Desktop, tablet and phone layouts without horizontal page overflow.
+- No state signalled by colour alone: every status carries its own words. A
+  reading, a missing reading, a quality and a failed refresh are each readable in
+  monochrome, and the chart encodes nothing in colour that is not also in text.
+- Light and dark palettes with held contrast, and a reduced-motion rule. The
+  chart animates nothing.
+- Desktop, tablet and phone layouts without horizontal page overflow. The chart
+  is drawn at the pixel width its container actually has — rather than scaled
+  from a fixed `viewBox`, which would shrink its labels along with it — and a
+  wide sample table scrolls inside its own box, never the page.
+- Monitoring is a labelled region with an ordered heading hierarchy
+  (`Monitoring` → `Measurement points` / `Telemetry history` → each point), and
+  the chart has an accessible name plus a text summary of the loaded series. The
+  full sample table is always available underneath it, so no value is only
+  available by looking at, or hovering over, a drawing.
+- Point selection is a set of ordinary buttons with `aria-pressed`: keyboard
+  operable, with no custom combobox to re-learn and no keyboard trap. A
+  background poll is shown but not announced, so a screen reader is not
+  interrupted every thirty seconds by a request nobody asked for.
 
 ## Not implemented yet
 
@@ -308,12 +439,19 @@ Named here so nothing above is mistaken for a promise that has been kept:
 - **Authentication.** There is no sign-in, no token, no user and no role. The
   portal shows whatever the cloud API it is configured against reports, and the
   API boundary carries a place to attach a token rather than a fake one.
-- **Topology editing.** Sites, facilities and control zones are read-only here.
-  There is no create, edit or delete, and no button that pretends there is.
-- Sensor monitoring, telemetry history, freshness and charts.
-- Actuator state, actuator controls, manual commands and command polling.
-- Activity history, recipes, grow cycles, automation and schedules.
+- **Topology and point editing.** Sites, facilities, control zones and points are
+  read-only here. There is no create, edit or delete, and no button that pretends
+  there is.
+- **Manual control.** No actuator reported state, no actuator desired state, no
+  control button, no command submission, no command polling and no command
+  history. Monitoring reads measurement points and nothing else.
+- Activity history, alerts and notifications about greenhouse conditions,
+  threshold evaluation and "normal/warning/critical" classification.
+- Agronomic recommendations, target ranges, recipes, grow cycles, runtime
+  targets, automation, schedules and control-loop visualisation.
 - Users, tenants, billing and settings screens.
+- Live transports: monitoring refreshes on a bounded poll, and this release adds
+  no WebSocket and no server-sent events.
 
 ## Troubleshooting
 

@@ -7,15 +7,27 @@
  * drawn under the wrong parent, and the site comes from the facility because
  * `ControlZoneRead` publishes none.
  *
+ * The page carries two lists of points, and they mean different things.
+ *
  * The composition table is the zone's point *inventory*, built only from fields
- * the contract states — `point_name`, `point_code`, `point_kind`, `role`,
- * `data_type`, `unit`. No point is classified by its name. There is no reading,
- * no freshness, no actuator state, no control and no command on this page,
- * because `ZonePointAssignmentRead` contains none of those and the portal
- * invents nothing.
+ * `ZonePointAssignmentRead` states — `point_name`, `point_code`, `point_kind`,
+ * `role`, `data_type`, `unit`. It describes what the zone is made of, including
+ * its control and status points, and it carries no reading, because that schema
+ * contains none.
+ *
+ * The monitoring section below it is the zone's *measurements*: the points the
+ * API publishes as `point_kind: "measurement"`, with the last state it holds
+ * for each and the telemetry history of the one that is selected. A control or
+ * status point appears in the inventory and never here — no card, no reading,
+ * no chart, nothing to press.
+ *
+ * No point is classified by its name in either list. There is no actuator
+ * state, no desired state, no command and no automation on this page.
  */
 
 import { useParams } from "react-router";
+import { MonitoringSection } from "../monitoring/MonitoringSection";
+import { useZoneMonitoring } from "../monitoring/useZoneMonitoring";
 import { LoadingState, StatePanel } from "../../components/StatePanel";
 import {
   BackgroundRefreshNotice,
@@ -37,6 +49,16 @@ export function ControlZonePage() {
   const zoneId = params["zoneId"] ?? "";
   const workspace = useControlZoneWorkspace(facilityId, zoneId);
   const topology = useTopologyOverview();
+
+  // Monitoring is read for the facility in the address, in parallel with the
+  // zone lookup rather than behind it, and it is switched off the moment the
+  // contract says this zone is not part of this facility — the portal does not
+  // read a zone's measurements into a page it will refuse to draw.
+  const monitoring = useZoneMonitoring(
+    facilityId,
+    zoneId,
+    !workspace.isZoneMissing && workspace.relationship !== "mismatch",
+  );
 
   if (workspace.isZoneMissing) {
     return (
@@ -196,6 +218,8 @@ export function ControlZonePage() {
           </>
         )}
       </section>
+
+      <MonitoringSection zoneName={zone.name} monitoring={monitoring} />
     </div>
   );
 }
