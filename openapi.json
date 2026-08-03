@@ -1575,14 +1575,117 @@
       }
     },
     "/api/v1/commands": {
+      "post": {
+        "tags": [
+          "control"
+        ],
+        "summary": "Create Manual Command",
+        "description": "Ask one configured boolean actuator for one state, exactly once.\n\nThe target has to be an active boolean control point that is assigned to the\nnamed zone in the ``control_output`` role and names a reported status point.\nEvery one of those is read from persisted configuration; none of it is\ninferred from a code, a name or a metric.\n\nHTTP 201 means the command was created, HTTP 200 that the key already named\nit and nothing was written a second time. Neither means the actuator moved:\nthe command is ``pending`` until the Edge reports it ``applied`` or\n``rejected``, and the reported point's own state is what says what the\nhardware is actually doing.\n\nArgs:\n    payload: The zone, the point and the boolean value asked for.\n    response: The response whose status distinguishes creation from replay.\n    service: The command service for this request.\n    idempotency_key: The client's ``Idempotency-Key`` header.\n\nReturns:\n    The stored command and whether this request created it.",
+        "operationId": "create_manual_command_api_v1_commands_post",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Required client-supplied UUID identifying one logical manual command. Repeating it with the same control_zone_id, target_point_id and desired_value returns the stored command with HTTP 200 and creates nothing; repeating it with a different one answers HTTP 409 idempotency_key_conflict. The server never replaces a supplied key.",
+              "title": "Idempotency-Key"
+            },
+            "description": "Required client-supplied UUID identifying one logical manual command. Repeating it with the same control_zone_id, target_point_id and desired_value returns the stored command with HTTP 200 and creates nothing; repeating it with a different one answers HTTP 409 idempotency_key_conflict. The server never replaces a supplied key."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualCommandCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManualCommandAcceptanceRead"
+                }
+              }
+            }
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManualCommandAcceptanceRead"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      },
       "get": {
         "tags": [
           "control"
         ],
         "summary": "List Commands",
-        "description": "Return a bounded, deterministic newest-first window of commands.\n\nArgs:\n    service: The command service for this request.\n    control_loop_id: Restricts the result to one loop when given.\n    trigger_sample_id: Restricts the result to one trigger when given.\n    limit: Maximum number of commands to return.\n\nReturns:\n    The matching commands in ``created_at DESC, id DESC`` order.",
+        "description": "Return a bounded, deterministic newest-first window of commands.\n\nEvery filter is an exact match, and several may be combined. Ordering is\n``created_at DESC, id DESC`` and is enforced by the query itself, so\nrepeated calls return the same window.\n\nArgs:\n    service: The command service for this request.\n    control_zone_id: Restricts the result to one zone when given.\n    control_loop_id: Restricts the result to one loop when given.\n    trigger_sample_id: Restricts the result to one trigger when given.\n    target_point_id: Restricts the result to one commanded point when given.\n    source: Restricts the result to one author when given.\n    idempotency_key: Resolves the one command a key identifies when given.\n    limit: Maximum number of commands to return.\n\nReturns:\n    The matching commands in ``created_at DESC, id DESC`` order.",
         "operationId": "list_commands_api_v1_commands_get",
         "parameters": [
+          {
+            "name": "control_zone_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Restrict the result to the commands of one control zone.",
+              "title": "Control Zone Id"
+            },
+            "description": "Restrict the result to the commands of one control zone."
+          },
           {
             "name": "control_loop_id",
             "in": "query",
@@ -1622,6 +1725,62 @@
             "description": "Restrict the result to the commands one measurement caused."
           },
           {
+            "name": "target_point_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Restrict the result to the commands addressed to one point.",
+              "title": "Target Point Id"
+            },
+            "description": "Restrict the result to the commands addressed to one point."
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/CommandSource"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Restrict the result to one author of commands.",
+              "title": "Source"
+            },
+            "description": "Restrict the result to one author of commands."
+          },
+          {
+            "name": "idempotency_key",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Resolve the one manual command a client-supplied key identifies. The key is unique, so the answer carries zero or one command: this is how a client that lost a creation response finds out whether its command exists.",
+              "title": "Idempotency Key"
+            },
+            "description": "Resolve the one manual command a client-supplied key identifies. The key is unique, so the answer carries zero or one command: this is how a client that lost a creation response finds out whether its command exists."
+          },
+          {
             "name": "limit",
             "in": "query",
             "required": false,
@@ -1647,15 +1806,35 @@
               }
             }
           },
-          "422": {
-            "description": "Validation Error",
+          "404": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
-            }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
           }
         }
       }
@@ -1690,6 +1869,16 @@
                 }
               }
             }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
           },
           "422": {
             "description": "Validation Error",
@@ -2384,18 +2573,40 @@
             "format": "uuid",
             "title": "Id"
           },
+          "source": {
+            "$ref": "#/components/schemas/CommandSource"
+          },
           "idempotency_key": {
             "type": "string",
             "title": "Idempotency Key"
           },
-          "control_loop_id": {
+          "control_zone_id": {
             "type": "string",
             "format": "uuid",
+            "title": "Control Zone Id"
+          },
+          "control_loop_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Control Loop Id"
           },
           "trigger_sample_id": {
-            "type": "string",
-            "format": "uuid",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Trigger Sample Id"
           },
           "target_point_id": {
@@ -2483,16 +2694,12 @@
           "rejection_reason": {
             "anyOf": [
               {
-                "additionalProperties": {
-                  "type": "string"
-                },
-                "type": "object"
+                "$ref": "#/components/schemas/CommandRejectionReason"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Rejection Reason"
+            ]
           },
           "created_at": {
             "type": "string",
@@ -2503,7 +2710,9 @@
         "type": "object",
         "required": [
           "id",
+          "source",
           "idempotency_key",
+          "control_zone_id",
           "control_loop_id",
           "trigger_sample_id",
           "target_point_id",
@@ -2520,7 +2729,41 @@
           "created_at"
         ],
         "title": "CommandRead",
-        "description": "One applied command, with every identifier its chain is followed by.\n\nAll three sample identifiers are returned rather than joined into embedded\nsamples: the telemetry history endpoint already reads a sample, and\nduplicating it here would give one value two representations that could\ndisagree."
+        "description": "One command, whatever asked for it, with every identifier it is followed by.\n\nAll three sample identifiers are returned rather than joined into embedded\nsamples: the telemetry history endpoint already reads a sample, and\nduplicating it here would give one value two representations that could\ndisagree.\n\n``desired_value`` is a request and never a reading. What the actuator\nactually reports is the reported point's own state, read through\n``GET /api/v1/points/{point_id}/state``; the two are deliberately separate\nand can disagree for as long as the physical change takes, or forever if it\nnever happens.\n\n``state`` is the delivery lifecycle. ``pending`` is non-terminal; ``applied``\nand ``rejected`` are terminal. ``acknowledged_at`` on a pending command means\nthe Edge received it, not that anything moved."
+      },
+      "CommandRejectionReason": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Message"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "CommandRejectionReason",
+        "description": "Why a command reached its terminal failure.\n\nOne representation, shared by the public command read model and the Cloud \u2194\nEdge acknowledgement that produces it. A rejection has a stable code a\nclient can branch on and a message a person can read, and never an\nopen-ended object whose keys a caller has to guess."
+      },
+      "CommandSource": {
+        "type": "string",
+        "enum": [
+          "control_loop",
+          "manual"
+        ],
+        "title": "CommandSource",
+        "description": "Who asked for a command.\n\nPersisted rather than derived from ``control_loop_id IS NULL``: the source\nis what a reader actually wants to filter and reason about, and a nullable\nforeign key is a poor place to keep a meaning."
       },
       "CommandState": {
         "type": "string",
@@ -2530,7 +2773,7 @@
           "rejected"
         ],
         "title": "CommandState",
-        "description": "Delivery lifecycle of a logical command."
+        "description": "Delivery lifecycle of a logical command.\n\n``PENDING`` is the only non-terminal state and the one every command is\nwritten in. ``APPLIED`` is terminal success and ``REJECTED`` is terminal\nfailure; both are reached exactly once, through an Edge acknowledgement or\nthrough the in-process loopback actuator, and never left again.\n\nAcknowledgement is not a state. A pending command whose ``acknowledged_at``\nis set has been received by the Edge and nothing more: the physical change\nhas not been reported either way, so the command is still non-terminal."
       },
       "ConfigurationFacility": {
         "properties": {
@@ -2601,6 +2844,18 @@
             ],
             "title": "Unit"
           },
+          "reported_point_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reported Point Id"
+          },
           "status": {
             "$ref": "#/components/schemas/StatusEnum"
           },
@@ -2617,11 +2872,12 @@
           "metric_type",
           "data_type",
           "unit",
+          "reported_point_id",
           "status",
           "state"
         ],
         "title": "ConfigurationPoint",
-        "description": "One point of the configuration document, with its current state."
+        "description": "One point of the configuration document, with its current state.\n\n``reported_point_id`` is part of the document rather than of a separate\nread: a client deciding whether a control point can be commanded needs the\npoint that reports it back, and needs it before any command exists. It is\n``null`` on every point that is not a control point and on a control point\nwhose feedback has not been configured."
       },
       "ConfigurationPointState": {
         "properties": {
@@ -3065,7 +3321,7 @@
             "title": "Acknowledged At"
           },
           "reason": {
-            "$ref": "#/components/schemas/EdgeRejectionReason",
+            "$ref": "#/components/schemas/CommandRejectionReason",
             "title": "Reason"
           }
         },
@@ -3255,31 +3511,6 @@
         ],
         "title": "EdgePendingCommand",
         "description": "One pending command in the exact public representation."
-      },
-      "EdgeRejectionReason": {
-        "properties": {
-          "code": {
-            "type": "string",
-            "maxLength": 64,
-            "minLength": 1,
-            "pattern": "^[a-z][a-z0-9_]*$",
-            "title": "Code"
-          },
-          "message": {
-            "type": "string",
-            "maxLength": 500,
-            "minLength": 1,
-            "title": "Message"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "code",
-          "message"
-        ],
-        "title": "EdgeRejectionReason",
-        "description": "Stable machine code and human explanation of a rejection."
       },
       "EdgeSourceKind": {
         "type": "string",
@@ -3476,6 +3707,44 @@
         "title": "EdgeTelemetrySource",
         "description": "Generic provenance metadata."
       },
+      "ErrorResponse": {
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorValue"
+          }
+        },
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "title": "ErrorResponse",
+        "description": "The documented error body of the public domain API.\n\nDeclared as a model so an operation can name it in ``responses`` and a\ngenerated client sees the shape it has to handle, instead of discovering it\nfrom a failed request."
+      },
+      "ErrorValue": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "details": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Details"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "message",
+          "details"
+        ],
+        "title": "ErrorValue",
+        "description": "One failure in the envelope every domain endpoint answers with.\n\n``code`` is the stable identifier a client branches on; ``message`` is for a\nperson. ``details`` carries the structured context of that one code \u2014 the\nrefused field, the point and the machine-readable reason \u2014 and never SQL,\na driver message, a stack trace or a credential."
+      },
       "FacilityConfigurationRead": {
         "properties": {
           "facility": {
@@ -3507,7 +3776,7 @@
           "points"
         ],
         "title": "FacilityConfigurationRead",
-        "description": "Response of ``GET /api/v1/facilities/{facility_id}/configuration``.\n\nThe whole growbox in one answer: what it is, where it stands, how it is\ndivided into zones and which points those zones read and drive. It is a read\nmodel assembled from a fixed number of queries, not a serialised ORM graph —\nthe entities keep referring to each other by identifier, and this document\nis where they are brought together."
+        "description": "Response of ``GET /api/v1/facilities/{facility_id}/configuration``.\n\nThe whole growbox in one answer: what it is, where it stands, how it is\ndivided into zones and which points those zones read and drive. It is a read\nmodel assembled from a fixed number of queries, not a serialised ORM graph \u2014\nthe entities keep referring to each other by identifier, and this document\nis where they are brought together."
       },
       "FacilityCreate": {
         "properties": {
@@ -3969,6 +4238,62 @@
         ],
         "title": "HealthResponse"
       },
+      "ManualCommandAcceptanceRead": {
+        "properties": {
+          "outcome": {
+            "$ref": "#/components/schemas/ManualCommandOutcome"
+          },
+          "command": {
+            "$ref": "#/components/schemas/CommandRead"
+          }
+        },
+        "type": "object",
+        "required": [
+          "outcome",
+          "command"
+        ],
+        "title": "ManualCommandAcceptanceRead",
+        "description": "Result of one idempotent manual command request.\n\nThe outcome is carried in the body as well as in the status code, so a\nclient behind a proxy that rewrites statuses can still tell a first creation\nfrom a replay. ``existing`` means the stored command is returned unchanged\nand nothing was written or enqueued a second time.\n\nAcceptance is an acceptance of the *request*. It does not mean the actuator\nmoved: the command is pending until the Edge reports it applied or rejected."
+      },
+      "ManualCommandCreate": {
+        "properties": {
+          "control_zone_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Control Zone Id",
+            "description": "The control zone the target point is assigned to."
+          },
+          "target_point_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Target Point Id",
+            "description": "The active boolean control point to command. It must be assigned to control_zone_id in the control_output role and must name a reported status point."
+          },
+          "desired_value": {
+            "type": "boolean",
+            "title": "Desired Value",
+            "description": "The state asked for. true is on. It is a request, never a reading."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "control_zone_id",
+          "target_point_id",
+          "desired_value"
+        ],
+        "title": "ManualCommandCreate",
+        "description": "Body accepted by ``POST /api/v1/commands``.\n\nBoolean on/off only. ``desired_value`` is a ``bool`` and not a typed value\nobject, a number or free-form JSON: this boundary exists so a customer can\nswitch one actuator, and a shape that could carry a dimming level would be\na contract for behaviour the backend does not have.\n\nIt is strictly boolean, so ``1``, ``\"on\"`` and ``\"true\"`` are refused rather\nthan coerced. That is the same rule the telemetry boundary already applies\nto a boolean point's value: a ``bool`` is not an integer, and a request that\nhas to be guessed at is a request that can be guessed wrong.\n\nThe idempotency key is not here. It travels in the required\n``Idempotency-Key`` header, where a client that retries a lost request does\nnot have to rebuild the body to keep it."
+      },
+      "ManualCommandOutcome": {
+        "type": "string",
+        "enum": [
+          "created",
+          "existing"
+        ],
+        "title": "ManualCommandOutcome",
+        "description": "Whether an idempotent manual request created or replayed a command."
+      },
       "Page_ControlLoopRead_": {
         "properties": {
           "items": {
@@ -4240,6 +4565,19 @@
               }
             ],
             "title": "Max Value"
+          },
+          "reported_point_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reported Point Id",
+            "description": "Status point reporting this control point's actual state back. Only a control point may name one, and the named point must be an active boolean status point of the same facility. Never inferred from a code, a name or a metric."
           }
         },
         "additionalProperties": false,
@@ -4253,7 +4591,7 @@
           "data_type"
         ],
         "title": "PointCreate",
-        "description": "Body accepted by ``POST /api/v1/points``.\n\nThe relationship between ``data_type``, ``unit`` and the range is not\nchecked here. Those rules produce their own error codes —\n``unit_not_allowed``, ``range_not_allowed`` — which a schema validator\ncannot express, so the service applies them. The one rule kept at this level\nis the ordering of the range, because both ends are always visible in a\ncreation body."
+        "description": "Body accepted by ``POST /api/v1/points``.\n\nThe relationship between ``data_type``, ``unit`` and the range is not\nchecked here. Those rules produce their own error codes \u2014\n``unit_not_allowed``, ``range_not_allowed`` \u2014 which a schema validator\ncannot express, so the service applies them. The one rule kept at this level\nis the ordering of the range, because both ends are always visible in a\ncreation body."
       },
       "PointDataType": {
         "type": "string",
@@ -4352,6 +4690,18 @@
             ],
             "title": "Max Value"
           },
+          "reported_point_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reported Point Id"
+          },
           "status": {
             "$ref": "#/components/schemas/StatusEnum"
           },
@@ -4379,12 +4729,13 @@
           "unit",
           "min_value",
           "max_value",
+          "reported_point_id",
           "status",
           "created_at",
           "updated_at"
         ],
         "title": "PointRead",
-        "description": "Representation of a point returned by every point endpoint.\n\nCarries no value and no physical address. Both omissions are the point of\nthe entity: the value lives in :class:`PointStateRead`, and the hardware\nbehind it can arrive later without this representation changing."
+        "description": "Representation of a point returned by every point endpoint.\n\nCarries no value and no physical address. Both omissions are the point of\nthe entity: the value lives in :class:`PointStateRead`, and the hardware\nbehind it can arrive later without this representation changing.\n\n``reported_point_id`` is the one relationship it does carry, because it is\nconfiguration rather than a value: a client deciding whether a control point\ncan be commanded has to be able to read the point that reports it back\nbefore any command exists."
       },
       "PointStateRead": {
         "properties": {
@@ -4503,6 +4854,18 @@
             ],
             "title": "Max Value"
           },
+          "reported_point_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reported Point Id"
+          },
           "status": {
             "anyOf": [
               {
@@ -4585,7 +4948,7 @@
         "additionalProperties": false,
         "type": "object",
         "title": "PointUpdate",
-        "description": "Body accepted by ``PATCH /api/v1/points/{point_id}``.\n\nOnly the fields present in the request are applied. Unlike the topology\nschemas, an explicit ``null`` is *not* the same as omitting a field here:\n``unit``, ``min_value`` and ``max_value`` are nullable columns, so sending\n``{\"min_value\": null}`` clears the lower bound while leaving it out keeps\nit. The service reads ``model_fields_set`` to tell the two apart.\n\nEvery field the point's meaning depends on is declared even though none can\nbe changed, and declared with a permissive type on purpose. Accepting\n``{\"point_kind\": \"vibes\"}`` as a string is what lets the service answer with\nHTTP 409 ``immutable_field`` — the honest reason for the refusal — instead\nof the HTTP 422 an enum would produce for a value that was never going to be\napplied anyway."
+        "description": "Body accepted by ``PATCH /api/v1/points/{point_id}``.\n\nOnly the fields present in the request are applied. Unlike the topology\nschemas, an explicit ``null`` is *not* the same as omitting a field here:\n``unit``, ``min_value``, ``max_value`` and ``reported_point_id`` are\nnullable columns, so sending ``{\"min_value\": null}`` clears the lower bound\nwhile leaving it out keeps it. The service reads ``model_fields_set`` to\ntell the two apart.\n\n``reported_point_id`` is mutable on purpose. It is configuration and not\nidentity: which status point reports a fan back can be corrected, and a\ncontrol point provisioned before the relationship existed has to be able to\nacquire one. Nothing already recorded is reinterpreted by changing it \u2014\na command carries its own copy of the relationship it was created with.\n\nEvery field the point's meaning depends on is declared even though none can\nbe changed, and declared with a permissive type on purpose. Accepting\n``{\"point_kind\": \"vibes\"}`` as a string is what lets the service answer with\nHTTP 409 ``immutable_field`` \u2014 the honest reason for the refusal \u2014 instead\nof the HTTP 422 an enum would produce for a value that was never going to be\napplied anyway."
       },
       "SiteCreate": {
         "properties": {
@@ -4808,7 +5171,7 @@
           "out_of_order"
         ],
         "title": "TelemetryWriteOutcome",
-        "description": "What the write boundary did with an offered sample.\n\nA producer used to be told nothing: the sample was accepted either way, and\n\"accepted\" covered three different things. Automation needs them apart,\nbecause only the first one is new information about the point — a replay and\na late arrival describe a state the system has already reacted to, and\nre-deciding on either would act twice on one measurement.\n\nAttributes:\n    RECORDED_CURRENT: The sample was new and became the current state.\n    DUPLICATE: The identifier was already recorded; nothing changed.\n    OUT_OF_ORDER: The sample was recorded in history, but an equal or newer\n        measurement already holds the current state."
+        "description": "What the write boundary did with an offered sample.\n\nA producer used to be told nothing: the sample was accepted either way, and\n\"accepted\" covered three different things. Automation needs them apart,\nbecause only the first one is new information about the point \u2014 a replay and\na late arrival describe a state the system has already reacted to, and\nre-deciding on either would act twice on one measurement.\n\nAttributes:\n    RECORDED_CURRENT: The sample was new and became the current state.\n    DUPLICATE: The identifier was already recorded; nothing changed.\n    OUT_OF_ORDER: The sample was recorded in history, but an equal or newer\n        measurement already holds the current state."
       },
       "ValidationError": {
         "properties": {
@@ -4919,6 +5282,18 @@
               }
             ],
             "title": "Unit"
+          },
+          "reported_point_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reported Point Id"
           }
         },
         "type": "object",
@@ -4932,7 +5307,8 @@
           "point_name",
           "point_kind",
           "data_type",
-          "unit"
+          "unit",
+          "reported_point_id"
         ],
         "title": "ZonePointAssignmentRead",
         "description": "Representation of one zone-point assignment.\n\nThe point's own fields are copied in rather than referenced, because a\nclient listing a zone's composition wants to read it without a request per\nlink. The copy is deliberately partial: what a point *means* is answered by\n``GET /api/v1/points/{point_id}``, and duplicating the whole entity here\nwould make this endpoint a second, competing source of it."
