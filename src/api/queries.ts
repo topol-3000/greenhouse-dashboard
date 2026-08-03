@@ -18,6 +18,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { fetchHealth } from "./health";
+import { fetchFacilityConfiguration, fetchPointTelemetry } from "./monitoring";
 import {
   fetchControlZone,
   fetchControlZonePoints,
@@ -26,6 +27,7 @@ import {
   fetchFacility,
   fetchSite,
   fetchSites,
+  isResourceMissing,
 } from "./topology";
 
 /** How often the portal rechecks cloud API availability, in milliseconds. */
@@ -41,6 +43,41 @@ export const HEALTH_POLL_MS = 30_000;
  */
 export const TOPOLOGY_STALE_MS = 60_000;
 
+/**
+ * How often a facility's configuration document is re-read, in milliseconds.
+ *
+ * Monitoring is not topology: the document carries the points' last known
+ * state, so it is re-read on an interval where topology is not. One request per
+ * interval describes every measurement point of the facility, so the cost does
+ * not grow with the number of points in the zone.
+ */
+export const MONITORING_POLL_MS = 30_000;
+
+/** How long a configuration answer is treated as fresh, in milliseconds. */
+export const MONITORING_STALE_MS = 15_000;
+
+/**
+ * How often the selected point's telemetry window is re-read.
+ *
+ * Slower than current state on purpose: the card answers "what does it read
+ * now", and re-drawing a two-hundred-sample chart every thirty seconds would
+ * cost more than it tells anyone.
+ */
+export const TELEMETRY_POLL_MS = 60_000;
+
+/** How long a telemetry window is treated as fresh, in milliseconds. */
+export const TELEMETRY_STALE_MS = 30_000;
+
+/**
+ * Samples requested per telemetry window.
+ *
+ * The contract caps `limit` at 1000 and publishes no total and no cursor, so
+ * there is no page to follow and no completeness to reach. 200 is chosen to be
+ * enough to read a trend and small enough to draw and to tabulate on a phone;
+ * the screen always says the window is bounded rather than complete.
+ */
+export const TELEMETRY_HISTORY_LIMIT = 200;
+
 /** Query keys, kept in one place so cancellation and invalidation agree. */
 export const queryKeys = {
   health: () => ["api-health"] as const,
@@ -53,7 +90,28 @@ export const queryKeys = {
     ["topology", "control-zones", "list", facilityId] as const,
   controlZone: (zoneId: string) => ["topology", "control-zones", "detail", zoneId] as const,
   controlZonePoints: (zoneId: string) => ["topology", "control-zones", "points", zoneId] as const,
+  monitoring: () => ["monitoring"] as const,
+  facilityConfiguration: (facilityId: string) =>
+    ["monitoring", "facility-configuration", facilityId] as const,
+  pointTelemetry: (pointId: string, limit: number) =>
+    ["monitoring", "point-telemetry", pointId, limit] as const,
 };
+
+/**
+ * A polling interval that stops once the answer cannot change by retrying.
+ *
+ * A `404` or a rejected identifier is the backend's answer, not a hiccup: left
+ * on a plain interval it would become one wrong address producing two requests
+ * a minute for as long as the tab is open. Every other failure keeps polling,
+ * because an unreachable API is expected to come back.
+ *
+ * @param intervalMs The interval to use while the resource may still answer.
+ * @returns The value TanStack Query's `refetchInterval` takes.
+ */
+export function pollUnlessResourceMissing(intervalMs: number) {
+  return (query: { readonly state: { readonly error: unknown } }): number | false =>
+    isResourceMissing(query.state.error) ? false : intervalMs;
+}
 
 /**
  * Poll the cloud API's health endpoint.
@@ -165,5 +223,55 @@ export function useControlZonePointsQuery(zoneId: string | undefined) {
     queryFn: ({ signal }) => fetchControlZonePoints(id ?? "", { signal }),
     enabled: id !== undefined,
     staleTime: TOPOLOGY_STALE_MS,
+  });
+}
+
+/**
+ * One facility's configuration document, polled while the workspace is open.
+ *
+ * This is the monitoring section's only current-state request: one bounded poll
+ * describes every measurement point of every zone in the facility, so a zone
+ * with one point and a zone with twenty cost the same. It is keyed by facility
+ * rather than by zone precisely so that moving between two zones of the same
+ * facility reads the cache instead of asking again.
+ *
+ * @param facilityId The facility from the route, untrusted.
+ * @param enabled Whether the workspace is in a state where monitoring may run —
+ *   false for a zone that does not belong to this facility, or for one the
+ *   cloud API does not have.
+ */
+export function useFacilityConfigurationQuery(facilityId: string | undefined, enabled = true) {
+  const id = identifier(facilityId);
+  return useQuery({
+    queryKey: queryKeys.facilityConfiguration(id ?? ""),
+    queryFn: ({ signal }) => fetchFacilityConfiguration(id ?? "", { signal }),
+    enabled: enabled && id !== undefined,
+    staleTime: MONITORING_STALE_MS,
+    refetchInterval: pollUnlessResourceMissing(MONITORING_POLL_MS),
+  });
+}
+
+/**
+ * One bounded telemetry window for one point.
+ *
+ * The window size is part of the key, so changing it is a different answer
+ * rather than an overwrite of the previous one, and the point identifier is
+ * part of the key so a late response for a point the user has moved away from
+ * cannot be rendered as the new point's history.
+ *
+ * @param pointId The point to read, already validated against the zone.
+ * @param limit Samples to request.
+ */
+export function usePointTelemetryQuery(
+  pointId: string | undefined,
+  limit: number = TELEMETRY_HISTORY_LIMIT,
+) {
+  const id = identifier(pointId);
+  return useQuery({
+    queryKey: queryKeys.pointTelemetry(id ?? "", limit),
+    queryFn: ({ signal }) => fetchPointTelemetry(id ?? "", { signal, limit }),
+    enabled: id !== undefined,
+    staleTime: TELEMETRY_STALE_MS,
+    refetchInterval: pollUnlessResourceMissing(TELEMETRY_POLL_MS),
   });
 }

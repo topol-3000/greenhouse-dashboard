@@ -13,7 +13,8 @@ product, and the application is not a standalone monitoring dashboard.
 
 ## Current state
 
-The portal foundation, plus read-only topology. Delivered:
+The portal foundation, read-only topology, and read-only monitoring inside a
+control zone. Delivered:
 
 - product identity, page and document titles;
 - a real client-side routing layer with an extensible route table, including
@@ -29,14 +30,20 @@ The portal foundation, plus read-only topology. Delivered:
   switcher, and a zone's point inventory;
 - the Dashboard route as a truthful landing page, carrying the API's own site
   and facility counts;
+- a monitoring section inside the ControlZone workspace: the zone's measurement
+  points with their last known value, unit, quality and observation time, and a
+  bounded telemetry window for the selected point, charted only when the
+  contract and the data are both numeric;
 - reusable loading, refresh, empty, error, resource-not-found, relationship-
   mismatch and notification states.
 
-Not delivered, and not to be implied by any screen: topology creation, editing
-or deletion, sensor monitoring, telemetry history, freshness, actuator state,
-actuator control, manual commands, command polling, activity history, recipes,
-grow cycles, automation, schedules, authentication, users, roles, tenants,
-billing and settings.
+Not delivered, and not to be implied by any screen: topology or point creation,
+editing and deletion; actuator reported or desired state; actuator control;
+manual commands and command polling; activity history; alerts; thresholds and
+"normal/warning/critical" verdicts; agronomic recommendations; target ranges;
+recipes; grow cycles; runtime targets; automation and schedules;
+control-loop visualisation; authentication, users, roles, tenants, billing and
+settings; WebSocket or server-sent events.
 
 ## Stack
 
@@ -51,13 +58,15 @@ The portal is an ordinary HTTP client of the `greenhouse` public API. The
 checked-in `openapi.json` is the contract, and `src/api/schema.ts` is generated
 from it by `npm run generate:api-types`. The endpoints in use:
 
-| Purpose                    | Endpoint                                     |
-| -------------------------- | -------------------------------------------- |
-| Cloud API availability     | `GET /health`                                |
-| Sites                      | `GET /api/v1/sites`, `…/{site_id}`           |
-| Facilities                 | `GET /api/v1/facilities`, `…/{facility_id}`  |
-| Control zones              | `GET /api/v1/control-zones`, `…/{zone_id}`   |
-| A zone's point composition | `GET /api/v1/control-zones/{zone_id}/points` |
+| Purpose                      | Endpoint                                             |
+| ---------------------------- | ---------------------------------------------------- |
+| Cloud API availability       | `GET /health`                                        |
+| Sites                        | `GET /api/v1/sites`, `…/{site_id}`                   |
+| Facilities                   | `GET /api/v1/facilities`, `…/{facility_id}`          |
+| Control zones                | `GET /api/v1/control-zones`, `…/{zone_id}`           |
+| A zone's point composition   | `GET /api/v1/control-zones/{zone_id}/points`         |
+| Measurements and their state | `GET /api/v1/facilities/{facility_id}/configuration` |
+| One point's telemetry window | `GET /api/v1/points/{point_id}/telemetry?limit=200`  |
 
 Rules that follow from that:
 
@@ -71,8 +80,28 @@ Rules that follow from that:
   whatever pages arrived;
 - `404`, and `422` for an identifier the contract's UUID format rejects, are
   resource-level states on one screen, not a global outage;
-- `GET /api/v1/facilities/{facility_id}/configuration` is not used: it carries
-  live point state, which is outside this unit.
+- monitoring reads the facility configuration document because it is the one
+  operation that answers zone membership, point metadata (`point_kind`,
+  `data_type`, `unit`, `status`) and current state together. The alternative
+  costs a `GET /points/{id}/state` per measurement point per poll and still does
+  not publish the point's `status`. `include_archived` is not sent, so the
+  contract's default applies;
+- `ConfigurationPointState` has no `received_at` and no `revision`. They live on
+  `PointStateRead`, which is not requested; telemetry samples carry both
+  timestamps, and that is where `received_at` is shown;
+- a point is a measurement when `point_kind` is `measurement` and `status` is
+  `active`. Never by name, code or `metric_type`. Control and status points stay
+  in the zone's composition and get no card, no reading and no chart;
+- `TelemetryHistoryRead` is `items` alone — no total, no cursor — and the
+  operation documents no ordering and no selection rule for `limit`. So the
+  portal sorts by `observed_at` itself, asks for a fixed 200-sample window, and
+  never claims a history is complete or is "the latest N";
+- `value` is untyped in the contract. It crosses the boundary as `unknown` and
+  is narrowed where it is displayed. `0` and `false` are readings; `null` with
+  `quality: "no_data"` is not. Only a finite number at a readable instant is
+  plotted, and nothing is ever coerced into one;
+- `DataQuality` is the backend's own statement about a value, `stale` included.
+  The portal shows it verbatim and defines no freshness threshold of its own.
 - `/health` is unversioned in the backend and is a sibling of `/api/v1`, so both
   are derived from one configured base URL and cannot drift apart.
 - The default base URL is empty, meaning same origin. The backend host lives in
@@ -104,6 +133,13 @@ only a change — is announced in the global notification region.
 - **The configuration is invalid** — the portal reports a misconfiguration in
   place of the availability state rather than failing silently.
 - **A malformed response** — a controlled error state, never a blank screen.
+- **Monitoring degrades at the smallest scope.** A monitoring failure leaves the
+  zone's topology, breadcrumbs and navigation working; a history failure leaves
+  the current values; a failed refresh of either leaves the last good answer on
+  screen with a note that it may be out of date. Polling is a TanStack Query
+  interval — 30s for current state, 60s for the selected point's window —
+  cancelled on unmount, paused in a background tab, and stopped entirely once
+  the backend has answered `404` or rejected the identifier.
 - **No data** — an explicit not-available state, never a synthetic value.
 
 ## Out of scope

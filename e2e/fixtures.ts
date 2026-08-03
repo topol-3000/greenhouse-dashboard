@@ -108,11 +108,51 @@ interface ZonePointRow {
   unit: string | null;
 }
 
+interface ConfigurationPointRow {
+  id: string;
+  code: string;
+  name: string;
+  point_kind: string;
+  metric_type: string;
+  data_type: string;
+  unit: string | null;
+  status: "active" | "archived";
+  state: { value?: unknown; quality: string; observed_at: string | null };
+}
+
+interface ConfigurationRow {
+  facility: { id: string; name: string; code: string; facility_type: string; status: string };
+  site: { id: string; name: string; code: string; timezone: string };
+  control_zones: {
+    id: string;
+    name: string;
+    code: string;
+    zone_type: string;
+    status: string;
+    points: { point_id: string; code: string; role: string }[];
+  }[];
+  points: ConfigurationPointRow[];
+}
+
+interface TelemetryRow {
+  id: string;
+  point_id: string;
+  value: unknown;
+  unit: string | null;
+  observed_at: string;
+  received_at: string;
+  quality: string;
+}
+
 export interface TopologyDataset {
   sites: SiteRow[];
   facilities: FacilityRow[];
   zones: ZoneRow[];
   points: ZonePointRow[];
+  /** `FacilityConfigurationRead` documents, keyed by the facility they describe. */
+  configurations: ConfigurationRow[];
+  /** `TelemetryHistoryRead` items, keyed by point identifier. */
+  telemetry: Record<string, TelemetryRow[]>;
 }
 
 /** Identifiers are UUIDs in the contract, so the fixtures use real ones. */
@@ -122,8 +162,13 @@ export const E2E_IDS = {
   northGreenhouse: "8a2d0e4b-7c2f-4a38-8c7e-6a3c2d0e0001",
   seedlingRoom: "8a2d0e4b-7c2f-4a38-8c7e-6a3c2d0e0002",
   climateZone: "9b3e1f5c-8d30-4b49-9d8f-7b4d3e1f0001",
+  irrigationZone: "9b3e1f5c-8d30-4b49-9d8f-7b4d3e1f0002",
   seedlingClimateZone: "9b3e1f5c-8d30-4b49-9d8f-7b4d3e1f0003",
   unknownFacility: "00000000-0000-4000-8000-000000000404",
+  airTempPoint: "bb000000-0000-4000-8000-000000000001",
+  ventPoint: "bb000000-0000-4000-8000-000000000002",
+  co2Point: "bb000000-0000-4000-8000-000000000003",
+  soilMoisturePoint: "bb000000-0000-4000-8000-000000000004",
 } as const;
 
 const T0 = "2026-01-04T09:00:00Z";
@@ -208,7 +253,7 @@ export const DEFAULT_TOPOLOGY: TopologyDataset = {
     {
       id: "aa000000-0000-4000-8000-000000000001",
       control_zone_id: E2E_IDS.climateZone,
-      point_id: "bb000000-0000-4000-8000-000000000001",
+      point_id: E2E_IDS.airTempPoint,
       role: "primary_measurement",
       created_at: T0,
       point_code: "north-air-temp",
@@ -217,7 +262,220 @@ export const DEFAULT_TOPOLOGY: TopologyDataset = {
       data_type: "float",
       unit: "degC",
     },
+    {
+      id: "aa000000-0000-4000-8000-000000000002",
+      control_zone_id: E2E_IDS.climateZone,
+      point_id: E2E_IDS.ventPoint,
+      role: "control_output",
+      created_at: T0,
+      point_code: "north-vent",
+      // Named like a measurement, and classified as a control point.
+      point_name: "North air temperature vent",
+      point_kind: "control",
+      data_type: "boolean",
+      unit: null,
+    },
+    {
+      id: "aa000000-0000-4000-8000-000000000003",
+      control_zone_id: E2E_IDS.climateZone,
+      point_id: E2E_IDS.co2Point,
+      role: "secondary_measurement",
+      created_at: T0,
+      point_code: "north-co2",
+      point_name: "North CO2",
+      point_kind: "measurement",
+      data_type: "integer",
+      unit: "ppm",
+    },
+    {
+      id: "aa000000-0000-4000-8000-000000000004",
+      control_zone_id: E2E_IDS.climateZone,
+      point_id: E2E_IDS.soilMoisturePoint,
+      role: "secondary_measurement",
+      created_at: T0,
+      point_code: "north-soil-moisture",
+      point_name: "North soil moisture",
+      point_kind: "measurement",
+      data_type: "float",
+      unit: null,
+    },
   ],
+  configurations: [
+    {
+      facility: {
+        id: E2E_IDS.northGreenhouse,
+        name: "North Greenhouse",
+        code: "north-gh",
+        facility_type: "greenhouse",
+        status: "active",
+      },
+      site: {
+        id: E2E_IDS.riversideSite,
+        name: "Riverside Growing Site",
+        code: "riverside",
+        timezone: "Europe/Kyiv",
+      },
+      control_zones: [
+        {
+          id: E2E_IDS.climateZone,
+          name: "North Climate",
+          code: "north-climate",
+          zone_type: "climate",
+          status: "active",
+          points: [
+            {
+              point_id: E2E_IDS.airTempPoint,
+              code: "north-air-temp",
+              role: "primary_measurement",
+            },
+            { point_id: E2E_IDS.ventPoint, code: "north-vent", role: "control_output" },
+            { point_id: E2E_IDS.co2Point, code: "north-co2", role: "secondary_measurement" },
+            {
+              point_id: E2E_IDS.soilMoisturePoint,
+              code: "north-soil-moisture",
+              role: "secondary_measurement",
+            },
+          ],
+        },
+        {
+          id: E2E_IDS.irrigationZone,
+          name: "North Irrigation",
+          code: "north-irrigation",
+          zone_type: "irrigation",
+          status: "active",
+          points: [],
+        },
+      ],
+      points: [
+        {
+          id: E2E_IDS.airTempPoint,
+          code: "north-air-temp",
+          name: "North air temperature",
+          point_kind: "measurement",
+          metric_type: "air_temperature",
+          data_type: "float",
+          unit: "degC",
+          status: "active",
+          state: { value: 21.4, quality: "good", observed_at: "2026-01-04T09:05:00Z" },
+        },
+        {
+          id: E2E_IDS.ventPoint,
+          code: "north-vent",
+          name: "North air temperature vent",
+          point_kind: "control",
+          metric_type: "vent_position",
+          data_type: "boolean",
+          unit: null,
+          status: "active",
+          state: { value: true, quality: "good", observed_at: "2026-01-04T09:05:00Z" },
+        },
+        {
+          id: E2E_IDS.co2Point,
+          code: "north-co2",
+          name: "North CO2",
+          point_kind: "measurement",
+          metric_type: "co2",
+          data_type: "integer",
+          unit: "ppm",
+          status: "active",
+          // A measured zero, which is not the same as no reading.
+          state: { value: 0, quality: "uncertain", observed_at: "2026-01-04T09:04:00Z" },
+        },
+        {
+          id: E2E_IDS.soilMoisturePoint,
+          code: "north-soil-moisture",
+          name: "North soil moisture",
+          point_kind: "measurement",
+          metric_type: "soil_moisture",
+          data_type: "float",
+          unit: null,
+          status: "active",
+          // Never reported: the empty projection a point is created with.
+          state: { value: null, quality: "no_data", observed_at: null },
+        },
+      ],
+    },
+    {
+      facility: {
+        id: E2E_IDS.seedlingRoom,
+        name: "Seedling Room",
+        code: "seedling-1",
+        facility_type: "seedling_room",
+        status: "active",
+      },
+      site: {
+        id: E2E_IDS.riversideSite,
+        name: "Riverside Growing Site",
+        code: "riverside",
+        timezone: "Europe/Kyiv",
+      },
+      control_zones: [
+        {
+          id: E2E_IDS.seedlingClimateZone,
+          name: "Seedling Climate",
+          code: "seedling-climate",
+          zone_type: "climate",
+          status: "active",
+          points: [],
+        },
+      ],
+      points: [],
+    },
+  ],
+  telemetry: {
+    // Deliberately not in chronological order: the contract documents none.
+    [E2E_IDS.airTempPoint]: [
+      {
+        id: "cc000000-0000-4000-8000-000000000002",
+        point_id: E2E_IDS.airTempPoint,
+        value: 21.4,
+        unit: "degC",
+        observed_at: "2026-01-04T09:05:00Z",
+        received_at: "2026-01-04T09:05:04Z",
+        quality: "good",
+      },
+      {
+        id: "cc000000-0000-4000-8000-000000000001",
+        point_id: E2E_IDS.airTempPoint,
+        value: 20.1,
+        unit: "degC",
+        observed_at: "2026-01-04T09:00:00Z",
+        received_at: "2026-01-04T09:00:03Z",
+        quality: "good",
+      },
+      {
+        id: "cc000000-0000-4000-8000-000000000003",
+        point_id: E2E_IDS.airTempPoint,
+        value: 22.9,
+        unit: "degC",
+        observed_at: "2026-01-04T09:10:00Z",
+        received_at: "2026-01-04T09:10:02Z",
+        quality: "uncertain",
+      },
+    ],
+    [E2E_IDS.co2Point]: [
+      {
+        id: "cd000000-0000-4000-8000-000000000001",
+        point_id: E2E_IDS.co2Point,
+        value: 412,
+        unit: "ppm",
+        observed_at: "2026-01-04T09:00:00Z",
+        received_at: "2026-01-04T09:00:01Z",
+        quality: "good",
+      },
+      {
+        id: "cd000000-0000-4000-8000-000000000002",
+        point_id: E2E_IDS.co2Point,
+        value: 0,
+        unit: "ppm",
+        observed_at: "2026-01-04T09:04:00Z",
+        received_at: "2026-01-04T09:04:01Z",
+        quality: "good",
+      },
+    ],
+    // A point with no stored history at all.
+    [E2E_IDS.soilMoisturePoint]: [],
+  },
 };
 
 /** A cloud API with nothing provisioned. */
@@ -226,11 +484,17 @@ export const EMPTY_TOPOLOGY: TopologyDataset = {
   facilities: [],
   zones: [],
   points: [],
+  configurations: [],
+  telemetry: {},
 };
 
 export interface TopologyController {
   /** Make every topology request fail, as an unreachable backend would. */
   setUnreachable: (unreachable: boolean) => void;
+  /** Make the configuration document fail while everything else answers. */
+  setConfigurationUnreachable: (unreachable: boolean) => void;
+  /** Make every telemetry request fail while current state keeps answering. */
+  setTelemetryUnreachable: (unreachable: boolean) => void;
   /** Every topology path the browser asked for, in order. */
   requests: () => string[];
 }
@@ -269,6 +533,8 @@ export async function mockTopology(
   dataset: TopologyDataset = DEFAULT_TOPOLOGY,
 ): Promise<TopologyController> {
   let unreachable = false;
+  let configurationUnreachable = false;
+  let telemetryUnreachable = false;
   const requests: string[] = [];
 
   await page.route("**/api/v1/**", async (route) => {
@@ -281,6 +547,36 @@ export async function mockTopology(
     }
 
     const path = url.pathname;
+
+    const configuration = /^\/api\/v1\/facilities\/([^/]+)\/configuration$/.exec(path);
+    if (configuration) {
+      if (configurationUnreachable) {
+        await route.abort("connectionrefused");
+        return;
+      }
+      const facilityId = decodeURIComponent(configuration[1]!);
+      const found = dataset.configurations.find((row) => row.facility.id === facilityId);
+      await (found ? json(route, found) : json(route, NOT_FOUND, 404));
+      return;
+    }
+
+    const telemetry = /^\/api\/v1\/points\/([^/]+)\/telemetry$/.exec(path);
+    if (telemetry) {
+      if (telemetryUnreachable) {
+        await route.abort("connectionrefused");
+        return;
+      }
+      const pointId = decodeURIComponent(telemetry[1]!);
+      const samples = dataset.telemetry[pointId];
+      if (samples === undefined) {
+        await json(route, NOT_FOUND, 404);
+        return;
+      }
+      // `TelemetryHistoryRead` is `items` and nothing else, bounded by `limit`.
+      const limit = Number(url.searchParams.get("limit") ?? "100");
+      await json(route, { items: samples.slice(0, limit) });
+      return;
+    }
 
     if (path === "/api/v1/sites") {
       await json(route, envelope(dataset.sites, url));
@@ -349,6 +645,12 @@ export async function mockTopology(
   return {
     setUnreachable: (next) => {
       unreachable = next;
+    },
+    setConfigurationUnreachable: (next) => {
+      configurationUnreachable = next;
+    },
+    setTelemetryUnreachable: (next) => {
+      telemetryUnreachable = next;
     },
     requests: () => [...requests],
   };
