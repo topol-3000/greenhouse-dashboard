@@ -6,6 +6,9 @@
  * measurement cards, no-data, numeric-only charting, partial responses, a
  * first-load failure with a working Retry, and a refresh failure that keeps the
  * previous snapshot and marks it stale.
+ *
+ * Every numeric point is charted at once, so chart assertions are scoped to one
+ * card through its `data-point-code` rather than to the page.
  */
 
 import { screen, waitFor, within } from "@testing-library/react";
@@ -30,6 +33,7 @@ const CONFIG_URL = `/api/v1/facilities/${FACILITY_ID}/configuration`;
 const OTHER_CONFIG_URL = `/api/v1/facilities/${OTHER_FACILITY_ID}/configuration`;
 const TEMPERATURE_URL = `/api/v1/points/${POINT_IDS.airTemperature}/telemetry?limit=100`;
 const HUMIDITY_URL = `/api/v1/points/${POINT_IDS.airHumidity}/telemetry?limit=100`;
+const SOIL_MOISTURE_URL = `/api/v1/points/${POINT_IDS.soilMoisture}/telemetry?limit=100`;
 
 /** The routing table of a healthy backend with producer-created data. */
 function healthyRoutes(): Router {
@@ -39,8 +43,25 @@ function healthyRoutes(): Router {
     [OTHER_CONFIG_URL]: { body: emptyFacilityConfiguration },
     [TEMPERATURE_URL]: { body: telemetryHistory(100) },
     [HUMIDITY_URL]: { body: telemetryHistory(12, POINT_IDS.airHumidity) },
-    [`/api/v1/points/${POINT_IDS.soilMoisture}/telemetry?limit=100`]: { body: { items: [] } },
+    [SOIL_MOISTURE_URL]: { body: { items: [] } },
   };
+}
+
+/**
+ * The chart card of one point, once its own history has arrived.
+ *
+ * Each card polls independently, so they do not appear at the same instant —
+ * waiting for "a chart" would hand back whichever one resolved first.
+ */
+async function findChart(pointCode: string): Promise<HTMLElement> {
+  let chart: HTMLElement | undefined;
+  await waitFor(() => {
+    chart = screen
+      .queryAllByTestId("history-chart")
+      .find((element) => element.dataset["pointCode"] === pointCode);
+    expect(chart).toBeDefined();
+  });
+  return chart!;
 }
 
 beforeEach(() => {
@@ -142,65 +163,79 @@ describe("monitoring a facility", () => {
   });
 });
 
-describe("the history chart", () => {
-  it("charts the selected numeric point's 100 samples oldest first", async () => {
+describe("the history charts", () => {
+  it("charts a numeric point's 100 samples oldest first", async () => {
     installFetchMock(healthyRoutes());
 
     renderWithQuery(<Dashboard />);
 
-    const summary = await screen.findByTestId("chart-summary");
-    expect(summary).toHaveTextContent("100 samples for Air temperature");
+    const chart = await findChart("air_temperature");
+    expect(within(chart).getByTestId("chart-summary")).toHaveTextContent(
+      "100 samples for Air temperature",
+    );
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: "Show sample table" }));
+    await user.click(within(chart).getByRole("button", { name: "Show sample table" }));
 
-    const rows = within(screen.getByRole("table")).getAllByRole("row").slice(1);
+    const rows = within(within(chart).getByRole("table")).getAllByRole("row").slice(1);
     expect(rows).toHaveLength(100);
     const times = rows.map((row) => row.querySelector("time")!.getAttribute("datetime")!);
     const ascending = [...times].sort((left, right) => Date.parse(left) - Date.parse(right));
     expect(times).toEqual(ascending);
   });
 
-  it("offers only numeric measurement points in the chart selector", async () => {
+  it("charts every numeric measurement point at once and no other point", async () => {
     installFetchMock(healthyRoutes());
 
     renderWithQuery(<Dashboard />);
 
-    await screen.findByTestId("chart-summary");
-    const selector = screen.getByLabelText("Charted measurement");
-    const options = within(selector)
-      .getAllByRole("option")
-      .map((option) => option.textContent);
+    let codes: (string | undefined)[] = [];
+    await waitFor(() => {
+      codes = screen.getAllByTestId("history-chart").map((element) => element.dataset["pointCode"]);
+      expect(codes).toHaveLength(3);
+    });
 
-    expect(options).toEqual(["Air temperature (°C)", "Air humidity (%)", "Soil moisture (%)"]);
-    expect(options.some((label) => label?.includes("Fan running"))).toBe(false);
+    expect(codes).toEqual(["air_temperature", "air_humidity", "soil_moisture"]);
+    // A boolean measurement point has a card but no numeric axis, and a control
+    // point is not a measurement at all.
+    expect(codes).not.toContain("fan_running");
+    expect(codes).not.toContain("fan_power");
   });
 
-  it("fetches the newly selected point's history", async () => {
+  it("names each chart, so nothing has to be selected to tell them apart", async () => {
+    installFetchMock(healthyRoutes());
+
+    renderWithQuery(<Dashboard />);
+
+    const chart = await findChart("air_humidity");
+    expect(within(chart).getByRole("heading", { level: 3 })).toHaveTextContent("Air humidity (%)");
+    expect(screen.queryByLabelText("Charted measurement")).not.toBeInTheDocument();
+  });
+
+  it("fetches every numeric point's history without any interaction", async () => {
     const mock = installFetchMock(healthyRoutes());
 
     renderWithQuery(<Dashboard />);
-    await screen.findByTestId("chart-summary");
 
-    const user = userEvent.setup();
-    await user.selectOptions(screen.getByLabelText("Charted measurement"), POINT_IDS.airHumidity);
-
+    const humidity = await findChart("air_humidity");
     await waitFor(() => {
-      expect(screen.getByTestId("chart-summary")).toHaveTextContent("12 samples for Air humidity");
+      expect(within(humidity).getByTestId("chart-summary")).toHaveTextContent(
+        "12 samples for Air humidity",
+      );
     });
+
+    expect(mock.countFor(TEMPERATURE_URL)).toBe(1);
     expect(mock.countFor(HUMIDITY_URL)).toBe(1);
+    expect(mock.countFor(SOIL_MOISTURE_URL)).toBe(1);
   });
 
   it("says so when a numeric point has no samples yet", async () => {
     installFetchMock(healthyRoutes());
 
     renderWithQuery(<Dashboard />);
-    await screen.findByTestId("chart-summary");
 
-    const user = userEvent.setup();
-    await user.selectOptions(screen.getByLabelText("Charted measurement"), POINT_IDS.soilMoisture);
-
-    expect(await screen.findByTestId("chart-empty")).toHaveTextContent("Soil moisture");
+    const chart = await findChart("soil_moisture");
+    expect(within(chart).getByTestId("chart-empty")).toHaveTextContent("Soil moisture");
   });
 });
 
@@ -245,11 +280,9 @@ describe("facility selection", () => {
 describe("failure behaviour", () => {
   it("shows a full error state and a working Retry on first load", async () => {
     const mock = installFetchMock({
+      ...healthyRoutes(),
       [FACILITIES_URL]: (attempt) =>
         attempt === 1 ? { networkError: true } : { body: facilityPage },
-      [CONFIG_URL]: { body: facilityConfiguration },
-      [OTHER_CONFIG_URL]: { body: emptyFacilityConfiguration },
-      [TEMPERATURE_URL]: { body: telemetryHistory(100) },
     });
 
     renderWithQuery(<Dashboard />);
@@ -344,20 +377,23 @@ describe("failure behaviour", () => {
 });
 
 describe("accessibility", () => {
-  it("labels and reaches both selectors by keyboard", async () => {
+  it("labels the facility selector and reaches it by keyboard", async () => {
     installFetchMock(healthyRoutes());
 
     renderWithQuery(<Dashboard />);
-    await screen.findByTestId("chart-summary");
+    await findChart("air_temperature");
 
     const facility = screen.getByLabelText("Active facility");
-    const point = screen.getByLabelText("Charted measurement");
     expect(facility.tagName).toBe("SELECT");
-    expect(point.tagName).toBe("SELECT");
 
     const user = userEvent.setup();
     await user.tab();
     expect(facility).toHaveFocus();
+
+    // The next stop is the first chart's own control, because the chart
+    // selector it used to sit in front of no longer exists.
+    await user.tab();
+    expect(screen.getAllByRole("button", { name: "Show sample table" })[0]).toHaveFocus();
   });
 
   it("selects a facility with the keyboard alone", async () => {
@@ -389,14 +425,15 @@ describe("accessibility", () => {
     expect(screen.getByRole("heading", { level: 2, name: "Recent history" })).toBeInTheDocument();
   });
 
-  it("exposes the chart's numbers as text, not only as a drawing", async () => {
+  it("exposes each chart's numbers as text, not only as a drawing", async () => {
     installFetchMock(healthyRoutes());
 
     renderWithQuery(<Dashboard />);
 
-    const summary = await screen.findByTestId("chart-summary");
+    const chart = await findChart("air_temperature");
+    const summary = within(chart).getByTestId("chart-summary");
     expect(summary).toHaveTextContent("Latest");
     expect(summary).toHaveTextContent("ranging");
-    expect(screen.getByRole("button", { name: "Show sample table" })).toBeInTheDocument();
+    expect(within(chart).getByRole("button", { name: "Show sample table" })).toBeInTheDocument();
   });
 });

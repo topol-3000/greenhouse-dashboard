@@ -9,7 +9,7 @@
  * than letting it resolve into a stale render.
  */
 
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { fetchFacilities, fetchFacilityConfiguration, fetchPointTelemetry } from "./client";
 
 /** Poll interval for the facility list, in milliseconds. */
@@ -18,7 +18,7 @@ export const FACILITIES_POLL_MS = 30_000;
 /** Poll interval for the selected facility's configuration and current state. */
 export const CONFIGURATION_POLL_MS = 5_000;
 
-/** Poll interval for the selected point's telemetry history. */
+/** Poll interval for each charted point's telemetry history. */
 export const TELEMETRY_POLL_MS = 10_000;
 
 /** Query keys, kept in one place so cancellation and invalidation agree. */
@@ -54,13 +54,24 @@ export function useFacilityConfigurationQuery(facilityId: string | null) {
   });
 }
 
-/** The selected numeric point's last {@link HISTORY_SAMPLE_LIMIT} samples. */
-export function usePointTelemetryQuery(pointId: string | null) {
-  return useQuery({
-    queryKey: queryKeys.telemetry(pointId ?? ""),
-    queryFn: ({ signal }) => fetchPointTelemetry(pointId!, signal),
-    enabled: pointId !== null,
-    refetchInterval: TELEMETRY_POLL_MS,
-    staleTime: TELEMETRY_POLL_MS,
+/**
+ * Every charted point's last {@link HISTORY_SAMPLE_LIMIT} samples, in the order
+ * the point ids were given.
+ *
+ * The screen charts all numeric points at once, and a hook cannot be called in
+ * a loop, so the histories are requested through `useQueries`. Each entry keeps
+ * the per-point query key, so the cache, the deduplication and the abort on
+ * `signal` behave exactly as they did for a single point — there are simply N
+ * independent intervals instead of one, and a point whose history fails leaves
+ * the other charts alone.
+ */
+export function usePointTelemetryQueries(pointIds: string[]) {
+  return useQueries({
+    queries: pointIds.map((pointId) => ({
+      queryKey: queryKeys.telemetry(pointId),
+      queryFn: ({ signal }: { signal: AbortSignal }) => fetchPointTelemetry(pointId, signal),
+      refetchInterval: TELEMETRY_POLL_MS,
+      staleTime: TELEMETRY_POLL_MS,
+    })),
   });
 }

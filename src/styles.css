@@ -419,6 +419,27 @@ body {
 
 /* Chart ------------------------------------------------------------------ */
 
+/*
+ * Every numeric point is charted at once. `auto-fit` with a 28rem floor gives
+ * two columns inside the 72rem page and collapses to one below roughly 58rem,
+ * so no media query is needed — the same technique as `.card-grid`.
+ */
+.chart-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--gap);
+  grid-template-columns: repeat(auto-fit, minmax(min(28rem, 100%), 1fr));
+}
+
+.chart-grid__cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
 .chart {
   margin: 0;
   display: flex;
@@ -428,6 +449,23 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface-1);
+  min-width: 0;
+}
+
+/*
+ * The summary is the figure's `figcaption` and therefore its last child, which
+ * is what keeps the figure valid. Ordering puts it back where it reads best:
+ * under the heading and above the drawing it describes.
+ */
+.chart__title {
+  margin: 0;
+  font-size: 1rem;
+  order: -2;
+}
+
+.chart__unit {
+  color: var(--text-secondary);
+  font-weight: 400;
 }
 
 .chart__summary {
