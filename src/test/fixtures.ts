@@ -19,14 +19,24 @@
  * fails against it.
  *
  * Its points are awkward on purpose too. The climate zone holds four
- * measurement points and two that are not measurements, one of which is named
- * so that any portal classifying points by their name would show it as one. Of
- * the measurements, one reads a real `0`, one reads `false`, one has never
- * reported at all, and one carries no unit — so "missing", "zero" and "no unit"
- * cannot be rendered the same way and pass.
+ * measurement points and several that are not measurements, one of which is
+ * named so that any portal classifying points by their name would show it as
+ * one. Of the measurements, one reads a real `0`, one reads `false`, one has
+ * never reported at all, and one carries no unit — so "missing", "zero" and "no
+ * unit" cannot be rendered the same way and pass.
+ *
+ * Its control points are awkward in the same spirit. Two of them satisfy every
+ * clause of the manual command operation's precondition, so no portal can pass
+ * by picking the first one it finds. The rest each fail exactly one clause — a
+ * `float` data type, an archived status, no `reported_point_id`, and a control
+ * point assigned as a `safety_interlock` rather than a `control_output` — so a
+ * portal that checks four of the five clauses fails here rather than in a
+ * customer's greenhouse. One status point is named "North lamp power switch",
+ * which is what a portal matching on names would offer as an actuator.
  */
 
 import type {
+  CommandRead,
   ConfigurationPoint,
   ControlZoneRead,
   FacilityConfigurationRead,
@@ -145,6 +155,15 @@ export const POINT_IDS = {
   humiditySensorStatus: "bb000000-0000-4000-8000-000000000005",
   leafWetness: "bb000000-0000-4000-8000-000000000006",
   archivedTemp: "bb000000-0000-4000-8000-000000000007",
+  ventStatus: "bb000000-0000-4000-8000-000000000008",
+  lamp: "bb000000-0000-4000-8000-000000000009",
+  lampStatus: "bb000000-0000-4000-8000-00000000000a",
+  dimmer: "bb000000-0000-4000-8000-00000000000b",
+  archivedPump: "bb000000-0000-4000-8000-00000000000c",
+  pumpStatus: "bb000000-0000-4000-8000-00000000000d",
+  heater: "bb000000-0000-4000-8000-00000000000e",
+  interlock: "bb000000-0000-4000-8000-00000000000f",
+  interlockStatus: "bb000000-0000-4000-8000-000000000010",
 } as const;
 
 export const climateZonePoints: readonly ZonePointAssignmentRead[] = [
@@ -159,6 +178,7 @@ export const climateZonePoints: readonly ZonePointAssignmentRead[] = [
     point_kind: "measurement",
     data_type: "float",
     unit: "degC",
+    reported_point_id: null,
   },
   {
     id: "aa000000-0000-4000-8000-000000000002",
@@ -173,6 +193,7 @@ export const climateZonePoints: readonly ZonePointAssignmentRead[] = [
     point_kind: "control",
     data_type: "boolean",
     unit: null,
+    reported_point_id: POINT_IDS.ventStatus,
   },
   {
     id: "aa000000-0000-4000-8000-000000000003",
@@ -185,6 +206,7 @@ export const climateZonePoints: readonly ZonePointAssignmentRead[] = [
     point_kind: "measurement",
     data_type: "integer",
     unit: "ppm",
+    reported_point_id: null,
   },
   {
     id: "aa000000-0000-4000-8000-000000000004",
@@ -197,6 +219,7 @@ export const climateZonePoints: readonly ZonePointAssignmentRead[] = [
     point_kind: "measurement",
     data_type: "float",
     unit: null,
+    reported_point_id: null,
   },
   {
     id: "aa000000-0000-4000-8000-000000000005",
@@ -209,6 +232,7 @@ export const climateZonePoints: readonly ZonePointAssignmentRead[] = [
     point_kind: "status",
     data_type: "string",
     unit: null,
+    reported_point_id: null,
   },
   {
     id: "aa000000-0000-4000-8000-000000000006",
@@ -221,6 +245,132 @@ export const climateZonePoints: readonly ZonePointAssignmentRead[] = [
     point_kind: "measurement",
     data_type: "boolean",
     unit: null,
+    reported_point_id: null,
+  },
+  {
+    id: "aa000000-0000-4000-8000-000000000007",
+    control_zone_id: IDS.climateZone,
+    point_id: POINT_IDS.ventStatus,
+    role: "status_feedback",
+    created_at: T0,
+    point_code: "north-vent-status",
+    point_name: "North vent status",
+    point_kind: "status",
+    data_type: "boolean",
+    unit: null,
+    reported_point_id: null,
+  },
+  {
+    id: "aa000000-0000-4000-8000-000000000008",
+    control_zone_id: IDS.climateZone,
+    point_id: POINT_IDS.lamp,
+    role: "control_output",
+    created_at: T0,
+    point_code: "north-lamp",
+    point_name: "North lamp",
+    point_kind: "control",
+    data_type: "boolean",
+    unit: null,
+    reported_point_id: POINT_IDS.lampStatus,
+  },
+  {
+    id: "aa000000-0000-4000-8000-000000000009",
+    control_zone_id: IDS.climateZone,
+    point_id: POINT_IDS.lampStatus,
+    // Named exactly like the actuator a name-matching portal would offer. It is
+    // a `status` point, so it is never a command target.
+    role: "status_feedback",
+    created_at: T0,
+    point_code: "north-lamp-power-switch",
+    point_name: "North lamp power switch",
+    point_kind: "status",
+    data_type: "boolean",
+    unit: null,
+    reported_point_id: null,
+  },
+  {
+    id: "aa000000-0000-4000-8000-00000000000a",
+    control_zone_id: IDS.climateZone,
+    point_id: POINT_IDS.dimmer,
+    role: "control_output",
+    created_at: T0,
+    point_code: "north-vent-dimmer",
+    point_name: "North vent dimmer",
+    point_kind: "control",
+    // The command boundary accepts a strict `bool` and nothing else, so this
+    // point has no action the contract can express.
+    data_type: "float",
+    unit: "%",
+    reported_point_id: POINT_IDS.ventStatus,
+  },
+  {
+    id: "aa000000-0000-4000-8000-00000000000b",
+    control_zone_id: IDS.climateZone,
+    point_id: POINT_IDS.archivedPump,
+    role: "control_output",
+    created_at: T0,
+    point_code: "north-pump",
+    point_name: "North circulation pump",
+    point_kind: "control",
+    data_type: "boolean",
+    unit: null,
+    reported_point_id: POINT_IDS.pumpStatus,
+  },
+  {
+    id: "aa000000-0000-4000-8000-00000000000c",
+    control_zone_id: IDS.climateZone,
+    point_id: POINT_IDS.pumpStatus,
+    role: "status_feedback",
+    created_at: T0,
+    point_code: "north-pump-status",
+    point_name: "North circulation pump status",
+    point_kind: "status",
+    data_type: "boolean",
+    unit: null,
+    reported_point_id: null,
+  },
+  {
+    id: "aa000000-0000-4000-8000-00000000000d",
+    control_zone_id: IDS.climateZone,
+    point_id: POINT_IDS.heater,
+    role: "control_output",
+    created_at: T0,
+    point_code: "north-heater",
+    point_name: "North heater",
+    point_kind: "control",
+    data_type: "boolean",
+    unit: null,
+    // No point reports it back, which the creation operation requires.
+    reported_point_id: null,
+  },
+  {
+    id: "aa000000-0000-4000-8000-00000000000e",
+    control_zone_id: IDS.climateZone,
+    point_id: POINT_IDS.interlock,
+    // A commandable-looking control point that this zone does not assign as a
+    // `control_output`. The role belongs to the link, so it is not a manual
+    // target of this zone.
+    role: "safety_interlock",
+    created_at: T0,
+    point_code: "north-frost-interlock",
+    point_name: "North frost interlock",
+    point_kind: "control",
+    data_type: "boolean",
+    unit: null,
+    reported_point_id: POINT_IDS.interlockStatus,
+  },
+  {
+    id: "aa000000-0000-4000-8000-00000000000f",
+    control_zone_id: IDS.climateZone,
+    point_id: POINT_IDS.interlockStatus,
+    role: "status_feedback",
+    created_at: T0,
+    point_code: "north-frost-interlock-status",
+    point_name: "North frost interlock status",
+    point_kind: "status",
+    data_type: "boolean",
+    unit: null,
+    reported_point_id: null,
   },
 ];
 
@@ -242,6 +392,7 @@ export const northConfigurationPoints: readonly ConfigurationPoint[] = [
     metric_type: "air_temperature",
     data_type: "float",
     unit: "degC",
+    reported_point_id: null,
     status: "active",
     state: { value: 21.4, quality: "good", observed_at: "2026-01-04T09:05:00Z" },
   },
@@ -253,7 +404,10 @@ export const northConfigurationPoints: readonly ConfigurationPoint[] = [
     metric_type: "vent_position",
     data_type: "boolean",
     unit: null,
+    reported_point_id: POINT_IDS.ventStatus,
     status: "active",
+    // The control point's own projection. It is neither a desired state nor a
+    // reported one in the contract, and the portal renders it as neither.
     state: { value: true, quality: "good", observed_at: "2026-01-04T09:05:00Z" },
   },
   {
@@ -264,6 +418,7 @@ export const northConfigurationPoints: readonly ConfigurationPoint[] = [
     metric_type: "co2",
     data_type: "integer",
     unit: "ppm",
+    reported_point_id: null,
     // A measured zero, which is a reading and not an absence.
     status: "active",
     state: { value: 0, quality: "uncertain", observed_at: "2026-01-04T09:04:00Z" },
@@ -277,6 +432,7 @@ export const northConfigurationPoints: readonly ConfigurationPoint[] = [
     data_type: "float",
     // The API published no unit for this point, and the portal invents none.
     unit: null,
+    reported_point_id: null,
     status: "active",
     // Never reported: the empty projection every point starts with.
     state: { value: null, quality: "no_data", observed_at: null },
@@ -289,6 +445,7 @@ export const northConfigurationPoints: readonly ConfigurationPoint[] = [
     metric_type: "sensor_state",
     data_type: "string",
     unit: null,
+    reported_point_id: null,
     status: "active",
     state: { value: "online", quality: "good", observed_at: "2026-01-04T09:05:00Z" },
   },
@@ -300,9 +457,124 @@ export const northConfigurationPoints: readonly ConfigurationPoint[] = [
     metric_type: "leaf_wetness",
     data_type: "boolean",
     unit: null,
+    reported_point_id: null,
     status: "active",
     // `false` is a reading. It must not render as "No data yet".
     state: { value: false, quality: "good", observed_at: "2026-01-04T09:03:00Z" },
+  },
+  {
+    id: POINT_IDS.ventStatus,
+    code: "north-vent-status",
+    name: "North vent status",
+    point_kind: "status",
+    metric_type: "vent_state",
+    data_type: "boolean",
+    unit: null,
+    reported_point_id: null,
+    status: "active",
+    // `false` is what the greenhouse reports, not an absence of a report.
+    state: { value: false, quality: "good", observed_at: "2026-01-04T09:05:00Z" },
+  },
+  {
+    id: POINT_IDS.lamp,
+    code: "north-lamp",
+    name: "North lamp",
+    point_kind: "control",
+    metric_type: "lamp_state",
+    data_type: "boolean",
+    unit: null,
+    reported_point_id: POINT_IDS.lampStatus,
+    status: "active",
+    state: { value: null, quality: "no_data", observed_at: null },
+  },
+  {
+    id: POINT_IDS.lampStatus,
+    code: "north-lamp-power-switch",
+    name: "North lamp power switch",
+    point_kind: "status",
+    metric_type: "lamp_state",
+    data_type: "boolean",
+    unit: null,
+    reported_point_id: null,
+    status: "active",
+    // Nothing has reported yet: "No reported state yet", and never a `false`
+    // the greenhouse did not send.
+    state: { value: null, quality: "no_data", observed_at: null },
+  },
+  {
+    id: POINT_IDS.dimmer,
+    code: "north-vent-dimmer",
+    name: "North vent dimmer",
+    point_kind: "control",
+    metric_type: "vent_position",
+    data_type: "float",
+    unit: "%",
+    reported_point_id: POINT_IDS.ventStatus,
+    status: "active",
+    state: { value: 40, quality: "good", observed_at: "2026-01-04T09:05:00Z" },
+  },
+  {
+    id: POINT_IDS.archivedPump,
+    code: "north-pump",
+    name: "North circulation pump",
+    point_kind: "control",
+    metric_type: "pump_state",
+    data_type: "boolean",
+    unit: null,
+    reported_point_id: POINT_IDS.pumpStatus,
+    // The document leaves archived points out by default. The portal does not
+    // rely on that: `status` is published, so it is checked.
+    status: "archived",
+    state: { value: false, quality: "stale", observed_at: "2026-01-03T09:05:00Z" },
+  },
+  {
+    id: POINT_IDS.pumpStatus,
+    code: "north-pump-status",
+    name: "North circulation pump status",
+    point_kind: "status",
+    metric_type: "pump_state",
+    data_type: "boolean",
+    unit: null,
+    reported_point_id: null,
+    status: "active",
+    state: { value: true, quality: "good", observed_at: "2026-01-04T09:05:00Z" },
+  },
+  {
+    id: POINT_IDS.heater,
+    code: "north-heater",
+    name: "North heater",
+    point_kind: "control",
+    metric_type: "heater_state",
+    data_type: "boolean",
+    unit: null,
+    // No feedback configured, which the creation operation requires.
+    reported_point_id: null,
+    status: "active",
+    state: { value: false, quality: "good", observed_at: "2026-01-04T09:05:00Z" },
+  },
+  {
+    id: POINT_IDS.interlock,
+    code: "north-frost-interlock",
+    name: "North frost interlock",
+    point_kind: "control",
+    metric_type: "interlock_state",
+    data_type: "boolean",
+    unit: null,
+    reported_point_id: POINT_IDS.interlockStatus,
+    status: "active",
+    state: { value: false, quality: "good", observed_at: "2026-01-04T09:05:00Z" },
+  },
+  {
+    id: POINT_IDS.interlockStatus,
+    code: "north-frost-interlock-status",
+    name: "North frost interlock status",
+    point_kind: "status",
+    metric_type: "interlock_state",
+    data_type: "boolean",
+    unit: null,
+    reported_point_id: null,
+    status: "active",
+    state: { value: false, quality: "good", observed_at: "2026-01-04T09:05:00Z" },
   },
 ];
 
@@ -473,6 +745,55 @@ export const leafWetnessHistory: readonly TelemetrySampleRead[] = [
   }),
 ];
 
+/** Command identifiers, as the contract types them. */
+export const COMMAND_IDS = {
+  ventOn: "dd000000-0000-4000-8000-000000000001",
+  lampOff: "dd000000-0000-4000-8000-000000000002",
+} as const;
+
+/** An idempotency key a test can send and assert on without generating one. */
+export const IDEMPOTENCY_KEY = "ee000000-0000-4000-8000-000000000001";
+
+/**
+ * Build one `CommandRead`.
+ *
+ * The defaults describe the pending manual command the vent fixture produces:
+ * a request that has been stored, has not been acknowledged, has not executed
+ * and has no rejection. Every field the schema requires is present, so a portal
+ * that reads one the contract does not publish fails here.
+ */
+export function manualCommand(overrides: Partial<CommandRead> = {}): CommandRead {
+  return {
+    id: COMMAND_IDS.ventOn,
+    source: "manual",
+    idempotency_key: IDEMPOTENCY_KEY,
+    control_zone_id: IDS.climateZone,
+    control_loop_id: null,
+    trigger_sample_id: null,
+    target_point_id: POINT_IDS.vent,
+    reported_point_id: POINT_IDS.ventStatus,
+    gateway_id: null,
+    desired_value: true,
+    state: "pending",
+    result_control_sample_id: null,
+    result_status_sample_id: null,
+    issued_at: "2026-01-04T09:06:00Z",
+    executed_at: null,
+    acknowledged_at: null,
+    rejection_reason: null,
+    created_at: "2026-01-04T09:06:00Z",
+    ...overrides,
+  };
+}
+
+/** The `ManualCommandAcceptanceRead` envelope one creation answers with. */
+export function commandAcceptance(
+  command: CommandRead = manualCommand(),
+  outcome: "created" | "existing" = "created",
+) {
+  return { outcome, command };
+}
+
 /** A topology and its monitoring data, as the fake backend will serve them. */
 export interface Dataset {
   readonly sites: readonly SiteRead[];
@@ -559,6 +880,21 @@ export function facilityConfigurationUrl(id: string): string {
 /** The URL the portal builds for one bounded telemetry window. */
 export function pointTelemetryUrl(pointId: string, limit = TELEMETRY_HISTORY_LIMIT): string {
   return `${V1}/points/${encodeURIComponent(pointId)}/telemetry?limit=${String(limit)}`;
+}
+
+/** The URL the portal posts one manual command to. Carries no query string. */
+export function commandsUrl(): string {
+  return `${V1}/commands`;
+}
+
+/** The URL the portal builds to read one command's lifecycle. */
+export function commandUrl(commandId: string): string {
+  return `${V1}/commands/${encodeURIComponent(commandId)}`;
+}
+
+/** The URL the portal builds to resolve one lost creation response. */
+export function commandByKeyUrl(idempotencyKey: string): string {
+  return `${V1}/commands?idempotency_key=${encodeURIComponent(idempotencyKey)}&limit=1`;
 }
 
 /**

@@ -822,6 +822,130 @@ a {
   margin-top: 0.5rem;
 }
 
+/* Manual control ----------------------------------------------------------
+ *
+ * An actuator card is a measurement card's sibling and shares its box. What it
+ * adds is separation: the reported state, the request and the command lifecycle
+ * are three blocks with three headings, because they are three different facts
+ * and a customer must never have to guess which one a number belongs to.
+ */
+
+.control__state {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  min-width: 0;
+}
+
+.control__state-heading {
+  margin: 0;
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+}
+
+.control__reported {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+/* "No reported state yet" is a state, not a reading: set apart by weight, size
+ * and words, never by colour alone. */
+.control__reported--absent {
+  font-size: 1.0625rem;
+  font-weight: 500;
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+.control__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* Actions grow to the full width of a narrow card so they stay comfortable to
+ * tap, and sit side by side once there is room. */
+.control__actions .button {
+  flex: 1 1 12rem;
+  align-self: stretch;
+}
+
+.control__command {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  min-width: 0;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.control__lifecycle {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.button--primary {
+  border-color: var(--accent);
+}
+
+/* Modal confirmation ------------------------------------------------------
+ *
+ * The dialog is sized in relative units and capped by the viewport, never by a
+ * fixed pixel width, so it fits a phone and a desktop without a second layout.
+ * It scrolls inside itself rather than making the page scroll sideways.
+ */
+
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgb(0 0 0 / 55%);
+}
+
+.modal__dialog {
+  width: min(100%, 32rem);
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  padding: 1.25rem;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.modal__dialog:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.modal__title {
+  margin: 0;
+  font-size: 1.125rem;
+}
+
+.modal__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.modal__actions .button {
+  flex: 1 1 12rem;
+  align-self: stretch;
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;

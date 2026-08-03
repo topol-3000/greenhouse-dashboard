@@ -89,6 +89,10 @@ export function parseConfigurationPoint(body: unknown): ConfigurationPoint {
     metric_type: requireString(record, "metric_type", context),
     data_type: requireContractEnum<PointDataType>(record, "data_type", context),
     unit: readNullableString(record, "unit"),
+    // The contract's one statement of which point reports a control point back.
+    // It is `null` on every point that is not a control point, and on a control
+    // point whose feedback has not been configured.
+    reported_point_id: readNullableString(record, "reported_point_id"),
     status: requireContractEnum<StatusEnum>(record, "status", context),
     state: parseConfigurationPointState(record["state"]),
   };

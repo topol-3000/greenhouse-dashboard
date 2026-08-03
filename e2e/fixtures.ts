@@ -106,6 +106,7 @@ interface ZonePointRow {
   point_kind: string;
   data_type: string;
   unit: string | null;
+  reported_point_id: string | null;
 }
 
 interface ConfigurationPointRow {
@@ -116,6 +117,7 @@ interface ConfigurationPointRow {
   metric_type: string;
   data_type: string;
   unit: string | null;
+  reported_point_id: string | null;
   status: "active" | "archived";
   state: { value?: unknown; quality: string; observed_at: string | null };
 }
@@ -169,6 +171,10 @@ export const E2E_IDS = {
   ventPoint: "bb000000-0000-4000-8000-000000000002",
   co2Point: "bb000000-0000-4000-8000-000000000003",
   soilMoisturePoint: "bb000000-0000-4000-8000-000000000004",
+  ventStatusPoint: "bb000000-0000-4000-8000-000000000008",
+  lampPoint: "bb000000-0000-4000-8000-000000000009",
+  lampStatusPoint: "bb000000-0000-4000-8000-00000000000a",
+  dimmerPoint: "bb000000-0000-4000-8000-00000000000b",
 } as const;
 
 const T0 = "2026-01-04T09:00:00Z";
@@ -261,6 +267,7 @@ export const DEFAULT_TOPOLOGY: TopologyDataset = {
       point_kind: "measurement",
       data_type: "float",
       unit: "degC",
+      reported_point_id: null,
     },
     {
       id: "aa000000-0000-4000-8000-000000000002",
@@ -274,6 +281,7 @@ export const DEFAULT_TOPOLOGY: TopologyDataset = {
       point_kind: "control",
       data_type: "boolean",
       unit: null,
+      reported_point_id: E2E_IDS.ventStatusPoint,
     },
     {
       id: "aa000000-0000-4000-8000-000000000003",
@@ -286,6 +294,7 @@ export const DEFAULT_TOPOLOGY: TopologyDataset = {
       point_kind: "measurement",
       data_type: "integer",
       unit: "ppm",
+      reported_point_id: null,
     },
     {
       id: "aa000000-0000-4000-8000-000000000004",
@@ -298,6 +307,60 @@ export const DEFAULT_TOPOLOGY: TopologyDataset = {
       point_kind: "measurement",
       data_type: "float",
       unit: null,
+      reported_point_id: null,
+    },
+    {
+      id: "aa000000-0000-4000-8000-000000000005",
+      control_zone_id: E2E_IDS.climateZone,
+      point_id: E2E_IDS.ventStatusPoint,
+      role: "status_feedback",
+      created_at: T0,
+      point_code: "north-vent-status",
+      point_name: "North vent status",
+      point_kind: "status",
+      data_type: "boolean",
+      unit: null,
+      reported_point_id: null,
+    },
+    {
+      id: "aa000000-0000-4000-8000-000000000006",
+      control_zone_id: E2E_IDS.climateZone,
+      point_id: E2E_IDS.lampPoint,
+      role: "control_output",
+      created_at: T0,
+      point_code: "north-lamp",
+      point_name: "North lamp",
+      point_kind: "control",
+      data_type: "boolean",
+      unit: null,
+      reported_point_id: E2E_IDS.lampStatusPoint,
+    },
+    {
+      id: "aa000000-0000-4000-8000-000000000007",
+      control_zone_id: E2E_IDS.climateZone,
+      point_id: E2E_IDS.lampStatusPoint,
+      // Named exactly like an actuator, and a status point.
+      role: "status_feedback",
+      created_at: T0,
+      point_code: "north-lamp-power-switch",
+      point_name: "North lamp power switch",
+      point_kind: "status",
+      data_type: "boolean",
+      unit: null,
+      reported_point_id: null,
+    },
+    {
+      id: "aa000000-0000-4000-8000-000000000008",
+      control_zone_id: E2E_IDS.climateZone,
+      point_id: E2E_IDS.dimmerPoint,
+      role: "control_output",
+      created_at: T0,
+      point_code: "north-vent-dimmer",
+      point_name: "North vent dimmer",
+      point_kind: "control",
+      data_type: "float",
+      unit: "%",
+      reported_point_id: E2E_IDS.ventStatusPoint,
     },
   ],
   configurations: [
@@ -335,6 +398,22 @@ export const DEFAULT_TOPOLOGY: TopologyDataset = {
               code: "north-soil-moisture",
               role: "secondary_measurement",
             },
+            {
+              point_id: E2E_IDS.ventStatusPoint,
+              code: "north-vent-status",
+              role: "status_feedback",
+            },
+            { point_id: E2E_IDS.lampPoint, code: "north-lamp", role: "control_output" },
+            {
+              point_id: E2E_IDS.lampStatusPoint,
+              code: "north-lamp-power-switch",
+              role: "status_feedback",
+            },
+            {
+              point_id: E2E_IDS.dimmerPoint,
+              code: "north-vent-dimmer",
+              role: "control_output",
+            },
           ],
         },
         {
@@ -355,6 +434,7 @@ export const DEFAULT_TOPOLOGY: TopologyDataset = {
           metric_type: "air_temperature",
           data_type: "float",
           unit: "degC",
+          reported_point_id: null,
           status: "active",
           state: { value: 21.4, quality: "good", observed_at: "2026-01-04T09:05:00Z" },
         },
@@ -365,8 +445,11 @@ export const DEFAULT_TOPOLOGY: TopologyDataset = {
           point_kind: "control",
           metric_type: "vent_position",
           data_type: "boolean",
+          reported_point_id: E2E_IDS.ventStatusPoint,
           unit: null,
           status: "active",
+          // The control point's own projection: neither a desired state nor a
+          // reported one in the contract, and rendered as neither.
           state: { value: true, quality: "good", observed_at: "2026-01-04T09:05:00Z" },
         },
         {
@@ -377,6 +460,7 @@ export const DEFAULT_TOPOLOGY: TopologyDataset = {
           metric_type: "co2",
           data_type: "integer",
           unit: "ppm",
+          reported_point_id: null,
           status: "active",
           // A measured zero, which is not the same as no reading.
           state: { value: 0, quality: "uncertain", observed_at: "2026-01-04T09:04:00Z" },
@@ -389,9 +473,61 @@ export const DEFAULT_TOPOLOGY: TopologyDataset = {
           metric_type: "soil_moisture",
           data_type: "float",
           unit: null,
+          reported_point_id: null,
           status: "active",
           // Never reported: the empty projection a point is created with.
           state: { value: null, quality: "no_data", observed_at: null },
+        },
+        {
+          id: E2E_IDS.ventStatusPoint,
+          code: "north-vent-status",
+          name: "North vent status",
+          point_kind: "status",
+          metric_type: "vent_state",
+          data_type: "boolean",
+          unit: null,
+          reported_point_id: null,
+          status: "active",
+          // `false` is what the greenhouse reports, not an absence of a report.
+          state: { value: false, quality: "good", observed_at: "2026-01-04T09:05:00Z" },
+        },
+        {
+          id: E2E_IDS.lampPoint,
+          code: "north-lamp",
+          name: "North lamp",
+          point_kind: "control",
+          metric_type: "lamp_state",
+          data_type: "boolean",
+          unit: null,
+          reported_point_id: E2E_IDS.lampStatusPoint,
+          status: "active",
+          state: { value: null, quality: "no_data", observed_at: null },
+        },
+        {
+          id: E2E_IDS.lampStatusPoint,
+          code: "north-lamp-power-switch",
+          name: "North lamp power switch",
+          point_kind: "status",
+          metric_type: "lamp_state",
+          data_type: "boolean",
+          unit: null,
+          reported_point_id: null,
+          status: "active",
+          state: { value: null, quality: "no_data", observed_at: null },
+        },
+        {
+          id: E2E_IDS.dimmerPoint,
+          code: "north-vent-dimmer",
+          name: "North vent dimmer",
+          point_kind: "control",
+          metric_type: "vent_position",
+          // A `float` control point: the command schema accepts a strict `bool`
+          // and nothing else, so it carries no action.
+          data_type: "float",
+          unit: "%",
+          reported_point_id: E2E_IDS.ventStatusPoint,
+          status: "active",
+          state: { value: 40, quality: "good", observed_at: "2026-01-04T09:05:00Z" },
         },
       ],
     },
@@ -653,5 +789,233 @@ export async function mockTopology(
       telemetryUnreachable = next;
     },
     requests: () => [...requests],
+  };
+}
+
+/* Manual control ---------------------------------------------------------- */
+
+interface CommandRow {
+  id: string;
+  source: string;
+  idempotency_key: string;
+  control_zone_id: string;
+  control_loop_id: string | null;
+  trigger_sample_id: string | null;
+  target_point_id: string;
+  reported_point_id: string;
+  gateway_id: string | null;
+  desired_value: boolean;
+  state: "pending" | "applied" | "rejected";
+  result_control_sample_id: string | null;
+  result_status_sample_id: string | null;
+  issued_at: string;
+  executed_at: string | null;
+  acknowledged_at: string | null;
+  rejection_reason: { code: string; message: string } | null;
+  created_at: string;
+}
+
+/** How the fake command service answers a creation request. */
+export type CreationMode = "created" | "refused" | "unreachable";
+
+/** What the greenhouse eventually reports about a command it was sent. */
+export type LifecycleMode = "pending" | "applied" | "rejected";
+
+export interface CommandController {
+  /** Change how the next creation request is answered. */
+  setCreationMode: (mode: CreationMode) => void;
+  /** Change what a command's state becomes on the next read. */
+  setLifecycle: (mode: LifecycleMode) => void;
+  /** Make reading a command fail while everything else answers. */
+  setReadUnreachable: (unreachable: boolean) => void;
+  /** Every command creation request the browser made, in order. */
+  creations: () => { key: string; body: unknown }[];
+  /** Every command path the browser asked for, in order. */
+  requests: () => string[];
+  /** The commands the service has stored. */
+  stored: () => CommandRow[];
+}
+
+/**
+ * Answer the portal's manual-control requests without a backend.
+ *
+ * It is a test double of the *published contract*: `POST /api/v1/commands`
+ * requires the `Idempotency-Key` header and answers `422` without it, `201` for
+ * a first creation and `200` with `outcome: "existing"` for a replay of the same
+ * key and body, and `409 idempotency_key_conflict` for the same key with a
+ * different one. `GET /api/v1/commands?idempotency_key=` resolves zero or one
+ * command, and `GET /api/v1/commands/{id}` reads one.
+ *
+ * Register it after {@link mockTopology}: Playwright tries the most recently
+ * registered route first, and the topology double matches all of `/api/v1`.
+ *
+ * @param page The page under test.
+ * @param dataset The topology whose zones and points commands may name.
+ * @returns A handle for steering creation, lifecycle and failures.
+ */
+export async function mockCommands(
+  page: Page,
+  dataset: TopologyDataset = DEFAULT_TOPOLOGY,
+): Promise<CommandController> {
+  let creationMode: CreationMode = "created";
+  let lifecycle: LifecycleMode = "pending";
+  let readUnreachable = false;
+  const stored: CommandRow[] = [];
+  const creations: { key: string; body: unknown }[] = [];
+  const requests: string[] = [];
+  let issued = 0;
+
+  const reportedPointOf = (targetPointId: string): string | null => {
+    for (const configuration of dataset.configurations) {
+      const point = configuration.points.find((row) => row.id === targetPointId);
+      if (point !== undefined) {
+        return point.reported_point_id;
+      }
+    }
+    return null;
+  };
+
+  await page.route("**/api/v1/commands**", async (route) => {
+    const url = new URL(route.request().url());
+    requests.push(url.pathname + url.search);
+    const request = route.request();
+
+    if (request.method() === "POST") {
+      const key = request.headers()["idempotency-key"];
+      const body = request.postDataJSON() as {
+        control_zone_id: string;
+        target_point_id: string;
+        desired_value: boolean;
+      };
+      creations.push({ key: key ?? "", body });
+
+      if (creationMode === "unreachable") {
+        await route.abort("connectionrefused");
+        return;
+      }
+      if (key === undefined) {
+        await json(route, { error: { code: "validation_error", message: "no", details: {} } }, 422);
+        return;
+      }
+      if (creationMode === "refused") {
+        await json(
+          route,
+          { error: { code: "validation_error", message: "Refused.", details: {} } },
+          422,
+        );
+        return;
+      }
+
+      const existing = stored.find((row) => row.idempotency_key === key);
+      if (existing !== undefined) {
+        const same =
+          existing.control_zone_id === body.control_zone_id &&
+          existing.target_point_id === body.target_point_id &&
+          existing.desired_value === body.desired_value;
+        if (!same) {
+          await json(
+            route,
+            { error: { code: "idempotency_key_conflict", message: "Different.", details: {} } },
+            409,
+          );
+          return;
+        }
+        // A replay writes nothing and enqueues nothing.
+        await json(route, { outcome: "existing", command: existing }, 200);
+        return;
+      }
+
+      const reported = reportedPointOf(body.target_point_id);
+      if (reported === null) {
+        await json(
+          route,
+          { error: { code: "not_found", message: "No target.", details: {} } },
+          404,
+        );
+        return;
+      }
+
+      issued += 1;
+      const command: CommandRow = {
+        id: `dd000000-0000-4000-8000-00000000000${String(issued)}`,
+        source: "manual",
+        idempotency_key: key,
+        control_zone_id: body.control_zone_id,
+        control_loop_id: null,
+        trigger_sample_id: null,
+        target_point_id: body.target_point_id,
+        reported_point_id: reported,
+        gateway_id: null,
+        desired_value: body.desired_value,
+        // Every command is written pending. Acceptance is acceptance of the
+        // request, never of the physical change.
+        state: "pending",
+        result_control_sample_id: null,
+        result_status_sample_id: null,
+        issued_at: "2026-01-04T09:06:00Z",
+        executed_at: null,
+        acknowledged_at: null,
+        rejection_reason: null,
+        created_at: "2026-01-04T09:06:00Z",
+      };
+      stored.push(command);
+      await json(route, { outcome: "created", command }, 201);
+      return;
+    }
+
+    if (readUnreachable) {
+      await route.abort("connectionrefused");
+      return;
+    }
+
+    const byKey = url.searchParams.get("idempotency_key");
+    if (byKey !== null) {
+      const found = stored.filter((row) => row.idempotency_key === byKey);
+      await json(route, { items: found });
+      return;
+    }
+
+    const detail = /^\/api\/v1\/commands\/([^/]+)$/.exec(url.pathname);
+    if (detail) {
+      const id = decodeURIComponent(detail[1]!);
+      const found = stored.find((row) => row.id === id);
+      if (found === undefined) {
+        await json(route, NOT_FOUND, 404);
+        return;
+      }
+      // The Edge's answer arrives between reads, exactly as it would in life.
+      if (lifecycle === "applied") {
+        found.state = "applied";
+        found.acknowledged_at = "2026-01-04T09:06:30Z";
+        found.executed_at = "2026-01-04T09:07:00Z";
+      } else if (lifecycle === "rejected") {
+        found.state = "rejected";
+        found.acknowledged_at = "2026-01-04T09:06:30Z";
+        found.executed_at = "2026-01-04T09:07:00Z";
+        found.rejection_reason = {
+          code: "actuator_unreachable",
+          message: "The gateway did not answer.",
+        };
+      }
+      await json(route, found);
+      return;
+    }
+
+    await json(route, { items: [...stored] });
+  });
+
+  return {
+    setCreationMode: (mode) => {
+      creationMode = mode;
+    },
+    setLifecycle: (mode) => {
+      lifecycle = mode;
+    },
+    setReadUnreachable: (next) => {
+      readUnreachable = next;
+    },
+    creations: () => [...creations],
+    requests: () => [...requests],
+    stored: () => stored.map((row) => ({ ...row })),
   };
 }

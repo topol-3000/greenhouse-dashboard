@@ -146,6 +146,7 @@ export function parseZonePointAssignment(body: unknown): ZonePointAssignmentRead
     point_kind: requireContractEnum(record, "point_kind", context),
     data_type: requireContractEnum(record, "data_type", context),
     unit: readNullableString(record, "unit"),
+    reported_point_id: readNullableString(record, "reported_point_id"),
   };
 }
 

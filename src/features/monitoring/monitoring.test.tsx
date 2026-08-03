@@ -82,9 +82,11 @@ describe("the measurement inventory", () => {
     // Both are named to read like measurements. `point_kind` says otherwise.
     expect(within(monitoring).queryByText("North air temperature vent")).toBeNull();
     expect(within(monitoring).queryByText("North humidity sensor")).toBeNull();
-    expect(document.querySelector(`[data-point-id="${POINT_IDS.vent}"]`)).toBeNull();
+    // The vent is a control point. Unit 4 gives it an actuator card elsewhere on
+    // the page; monitoring holds no card, no reading and no chart for it.
+    expect(monitoring.querySelector(`[data-point-id="${POINT_IDS.vent}"]`)).toBeNull();
     expect(
-      document.querySelector(`[data-point-id="${POINT_IDS.humiditySensorStatus}"]`),
+      monitoring.querySelector(`[data-point-id="${POINT_IDS.humiditySensorStatus}"]`),
     ).toBeNull();
 
     // Their state was in the response and reaches no screen.
