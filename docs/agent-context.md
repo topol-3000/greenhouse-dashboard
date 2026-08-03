@@ -4,74 +4,85 @@ Short, stable context for anyone — human or agent — changing this repository
 
 ## What this is
 
-A single-screen, read-only owner monitoring dashboard for the AI Greenhouse
-cloud backend. It answers one question: _what is my greenhouse reading right
-now, and what has it been reading recently?_
+The **AI Greenhouse Customer Portal**: the customer-facing web application for
+monitoring and manually operating one or more greenhouse facilities. It is a
+separate repository from `greenhouse` and ships as its own container.
 
-It is a separate repository from `greenhouse` and ships as its own container.
+Dashboard is a feature of the portal, owning the `/` route. It is not the
+product, and the application is not a standalone monitoring dashboard.
+
+## Current state
+
+The portal foundation. Delivered:
+
+- product identity, page and document titles;
+- a real client-side routing layer with an extensible route table;
+- the portal shell — brand, primary navigation, breadcrumb infrastructure,
+  location-aware page heading, global notification region, accessible mobile
+  navigation, responsive layout, focus handling;
+- a centralised API boundary with one configurable base URL;
+- cloud API availability from the backend's `/health`;
+- the Dashboard route as a truthful landing page;
+- reusable loading, empty, error, not-found and notification states.
+
+Not delivered, and not to be implied by any screen: topology loading or editing,
+sensor monitoring, telemetry history, actuator control, manual commands, command
+polling, activity history, recipes, grow cycles, automation, schedules,
+authentication, users, roles, tenants, billing and settings.
 
 ## Stack
 
-React 19 + TypeScript (strict) + Vite. TanStack Query v5 owns server state and
-polling. Recharts draws the charts. Vitest and Testing Library cover units
-and components; Playwright covers the browser. Nginx serves the built assets and
-reverse-proxies `/api/v1`.
+React 19 + TypeScript (strict) + Vite. React Router owns client-side routing.
+TanStack Query v5 owns server state and polling. Vitest and Testing Library cover
+units and components; Playwright covers the browser. Nginx serves the built
+assets, reverse-proxies the backend surface and owns the SPA fallback.
 
 ## Integration boundary
 
-The dashboard is an ordinary HTTP client of the `greenhouse` public API. It uses
-three read endpoints:
+The portal is an ordinary HTTP client of the `greenhouse` public API. In this
+unit it uses exactly one endpoint:
 
-| Purpose                                        | Endpoint                                             |
-| ---------------------------------------------- | ---------------------------------------------------- |
-| Facility list                                  | `GET /api/v1/facilities?status=active&limit=200`     |
-| Facility configuration and current point state | `GET /api/v1/facilities/{facility_id}/configuration` |
-| Point telemetry history                        | `GET /api/v1/points/{point_id}/telemetry?limit=100`  |
+| Purpose                | Endpoint      |
+| ---------------------- | ------------- |
+| Cloud API availability | `GET /health` |
 
 Rules that follow from that:
 
-- Requests are same-origin and relative. The backend host lives only in the
-  container's `GREENHOUSE_API_UPSTREAM`, never in the bundle.
-- No dashboard-specific backend endpoint exists or may be requested. If a screen
+- `/health` is unversioned in the backend and is a sibling of `/api/v1`, so both
+  are derived from one configured base URL and cannot drift apart.
+- The default base URL is empty, meaning same origin. The backend host lives in
+  the proxy's `GREENHOUSE_API_UPSTREAM`, not in the bundle.
+- `/health` answers `503` with a full health document. That body is read, not
+  discarded: a reachable backend reporting a problem is `Degraded`, which is not
+  the same as unreachable.
+- Response fields are consumed as published. Unknown additive fields are ignored
+  rather than rejected. The client invents no field and no aggregate contract.
+- No portal-specific backend endpoint exists or may be requested. If a screen
   seems to need one, that is a backend conversation, not a client workaround.
-- Response fields are consumed as published. The client invents no field, no
-  aggregate contract and no domain vocabulary.
-- Unknown additive fields are ignored rather than rejected.
-- Active measurement points are derived from `status` and `point_kind`; chart
-  eligibility from `data_type`. No point code is special-cased.
-- The history endpoint answers newest-first (`observed_at DESC, id DESC`). The
-  chart reverses it; the transport layer does not.
-- Every eligible numeric point is charted at once, in a responsive grid. There
-  is no chart selector; a point with no samples yet keeps its card and says so.
 
-## Polling
+## Availability model
 
-| Resource                        | Interval |
-| ------------------------------- | -------- |
-| Facility list                   | 30s      |
-| Selected facility configuration | 5s       |
-| Each numeric point's history    | 10s      |
+| State         | Meaning                                                       |
+| ------------- | ------------------------------------------------------------- |
+| `Checking`    | No answer yet. Never reported as unavailable.                 |
+| `Available`   | `status: ok` and `database: ok`.                              |
+| `Degraded`    | The backend answered but reported a problem.                  |
+| `Unavailable` | The request failed, or the portal's configuration is invalid. |
 
-One fetch per resource at a time. Every numeric point is charted, so history is
-one query per point on its own key and its own interval — a facility with four
-numeric points makes four history requests per tick. Selection changes abort
-superseded requests.
+Availability is polled every 30s and can be rechecked on demand. A change — and
+only a change — is announced in the global notification region.
 
 ## Failure model
 
-- **First load fails** — full error state with Retry.
-- **Refresh fails** — the last successful snapshot stays on screen, marked
-  stale, with Retry.
-- **Malformed item** — dropped and counted, surfaced as a partial-data notice.
-- **Malformed document** — controlled error state, never a blank screen.
-- **No current state** — an explicit no-data value, never a zero.
+- **The API is unavailable** — the shell stays fully usable and says so. There is
+  no blank error screen.
+- **The configuration is invalid** — the portal reports a misconfiguration in
+  place of the availability state rather than failing silently.
+- **A malformed response** — a controlled error state, never a blank screen.
+- **No data** — an explicit not-available state, never a synthetic value.
 
 ## Out of scope
 
-Authentication and RBAC, WebSocket/SSE, notifications, PWA/offline, any write or
-control action (create, edit, archive, commands, actuators, simulation
-lifecycle), grow journal and planting lifecycle, production hosting, and a
-reusable organisation-wide design system.
-
-Changing the `greenhouse` backend, its API, CORS policy, schema or migrations is
-out of scope for this repository.
+Changing the `greenhouse` backend, its API, CORS policy, schema or migrations.
+Changing `greenhouse-simulation-lab`. Serving this application from the backend's
+origin is a deployment concern owned here, not there.

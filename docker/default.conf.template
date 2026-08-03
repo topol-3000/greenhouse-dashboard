@@ -13,16 +13,18 @@ server {
     index index.html;
 
     # Container-local liveness. Not proxied, so it answers even when the
-    # greenhouse backend is unreachable — the dashboard is still being served.
+    # greenhouse backend is unreachable — the portal is still being served.
+    # The exact-match modifier keeps it distinct from the backend's own
+    # /health, which is proxied below.
     location = /healthz {
         access_log off;
         add_header Content-Type text/plain always;
         return 200 "ok\n";
     }
 
-    # The API boundary. `proxy_pass` carries no URI part on purpose: Nginx then
-    # forwards the original request URI unchanged, so both the path and the
-    # query string reach the backend exactly as the browser sent them.
+    # The versioned domain API. `proxy_pass` carries no URI part on purpose:
+    # Nginx then forwards the original request URI unchanged, so both the path
+    # and the query string reach the backend exactly as the browser sent them.
     location /api/v1 {
         proxy_pass ${GREENHOUSE_API_UPSTREAM};
         proxy_http_version 1.1;
@@ -38,7 +40,28 @@ server {
         proxy_read_timeout    30s;
 
         # A polling client should be told quickly that the backend is down, so
-        # it can show the stale state rather than hang.
+        # it can show the unavailable state rather than hang.
+        proxy_next_upstream off;
+    }
+
+    # The backend's health endpoint, which it publishes unversioned. It is how
+    # the portal reports cloud API availability, so it is part of the same
+    # same-origin boundary as /api/v1. Matched exactly: it must proxy /health
+    # and nothing else.
+    location = /health {
+        proxy_pass ${GREENHOUSE_API_UPSTREAM};
+        proxy_http_version 1.1;
+
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection        "";
+
+        proxy_connect_timeout 5s;
+        proxy_send_timeout    10s;
+        proxy_read_timeout    10s;
+
         proxy_next_upstream off;
     }
 
@@ -54,8 +77,9 @@ server {
         add_header Cache-Control "no-cache, must-revalidate" always;
     }
 
-    # SPA fallback. `/api/v1` is matched by its own prefix location above, so it
-    # is never swallowed by this rule.
+    # SPA fallback, so a browser refresh on any portal route serves the
+    # application rather than a 404. `/api/v1` and `/health` are matched by
+    # their own locations above, so they are never swallowed by this rule.
     location / {
         try_files $uri $uri/ /index.html;
     }

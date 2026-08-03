@@ -1,16 +1,28 @@
 /**
  * Rendering harness for component tests.
  *
- * `fetch` is replaced by a routing table keyed on the exact URL the client is
- * expected to build. A request to an unrouted URL rejects loudly, so a client
- * that changes its path or query silently is a failing test rather than a
- * silent 404 in production.
+ * `fetch` is replaced by a routing table keyed on the exact URL the API
+ * boundary is expected to build. A request to an unrouted URL rejects loudly,
+ * so a client that silently changes its path or query is a failing test rather
+ * than a silent 404 in production.
+ *
+ * The portal is mounted through the same providers the browser entry point
+ * uses, with a memory router in place of the browser router, so a test exercises
+ * the real shell rather than a stand-in for it.
  */
 
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient } from "@tanstack/react-query";
 import { render } from "@testing-library/react";
-import type { ReactElement } from "react";
+import { MemoryRouter } from "react-router";
 import { vi } from "vitest";
+import { App } from "../app/App";
+import { AppProviders } from "../app/AppProviders";
+
+/** The URL the portal builds for the backend's health endpoint. */
+export const HEALTH_URL = "/health";
+
+/** A healthy answer from the backend's published contract. */
+export const HEALTHY_BODY = { status: "ok", service: "greenhouse", database: "ok" } as const;
 
 /**
  * The URL a `fetch` call was made with.
@@ -30,6 +42,8 @@ export interface RouteReply {
   body?: unknown;
   /** Reject the request outright, standing in for an unreachable backend. */
   networkError?: boolean;
+  /** Never settle, so the caller's loading state can be observed. */
+  pending?: boolean;
 }
 
 /** A routing table, or a function of the call count for per-attempt answers. */
@@ -70,6 +84,11 @@ export function installFetchMock(initial: Router): FetchMock {
       return Promise.reject(new Error(`Unrouted request: ${url}`));
     }
     const reply = typeof route === "function" ? route(attempt) : route;
+    if (reply.pending) {
+      return new Promise<Response>(() => {
+        // Deliberately never settles.
+      });
+    }
     if (reply.networkError) {
       return Promise.reject(new TypeError("Failed to fetch"));
     }
@@ -108,10 +127,26 @@ export function createTestQueryClient(): QueryClient {
   });
 }
 
-/** Render a component inside a fresh query client. */
-export function renderWithQuery(ui: ReactElement, client = createTestQueryClient()) {
+export interface RenderPortalOptions {
+  /** The address the portal starts at. */
+  path?: string;
+  /** Routing table for `fetch`. Defaults to a healthy backend. */
+  routes?: Router;
+}
+
+/** Render the whole portal at an address, over a stubbed backend. */
+export function renderPortal(options: RenderPortalOptions = {}) {
+  const api = installFetchMock(options.routes ?? { [HEALTH_URL]: { body: HEALTHY_BODY } });
+  const client = createTestQueryClient();
   return {
+    api,
     client,
-    ...render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>),
+    ...render(
+      <AppProviders client={client}>
+        <MemoryRouter initialEntries={[options.path ?? "/"]}>
+          <App />
+        </MemoryRouter>
+      </AppProviders>,
+    ),
   };
 }
