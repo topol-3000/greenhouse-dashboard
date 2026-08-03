@@ -1,0 +1,4968 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "ai-greenhouse-api",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Health",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sites": {
+      "post": {
+        "tags": [
+          "sites"
+        ],
+        "summary": "Create Site",
+        "description": "Register a site.\n\nArgs:\n    payload: The site to create.\n    service: The site service for this request.\n\nReturns:\n    The created site, with HTTP 201.",
+        "operationId": "create_site_api_v1_sites_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SiteCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "sites"
+        ],
+        "summary": "List Sites",
+        "description": "List sites, oldest first.\n\nArgs:\n    service: The site service for this request.\n    params: The requested collection window.\n    site_status: Optional ``status`` filter from the query string.\n\nReturns:\n    The paginated envelope, ordered by ``created_at ASC, id ASC``.",
+        "operationId": "list_sites_api_v1_sites_get",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/StatusEnum"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Restrict the result to one lifecycle state.",
+              "title": "Status"
+            },
+            "description": "Restrict the result to one lifecycle state."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "description": "Number of items to return, between 1 and 200.",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "Number of items to return, between 1 and 200."
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Number of items to skip.",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "Number of items to skip."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_SiteRead_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sites/{site_id}": {
+      "get": {
+        "tags": [
+          "sites"
+        ],
+        "summary": "Get Site",
+        "description": "Read one site, archived ones included.\n\nArgs:\n    site_id: Identifier of the site to read.\n    service: The site service for this request.\n\nReturns:\n    The requested site.",
+        "operationId": "get_site_api_v1_sites__site_id__get",
+        "parameters": [
+          {
+            "name": "site_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Site Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "sites"
+        ],
+        "summary": "Update Site",
+        "description": "Update a site's name, timezone or status.\n\nArgs:\n    site_id: Identifier of the site to update.\n    payload: The fields to change.\n    service: The site service for this request.\n\nReturns:\n    The updated site.",
+        "operationId": "update_site_api_v1_sites__site_id__patch",
+        "parameters": [
+          {
+            "name": "site_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Site Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SiteUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/facilities": {
+      "post": {
+        "tags": [
+          "facilities"
+        ],
+        "summary": "Create Facility",
+        "description": "Register a facility inside a site.\n\nArgs:\n    payload: The facility to create.\n    service: The facility service for this request.\n\nReturns:\n    The created facility, with HTTP 201.",
+        "operationId": "create_facility_api_v1_facilities_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FacilityCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FacilityRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "facilities"
+        ],
+        "summary": "List Facilities",
+        "description": "List facilities, oldest first.\n\nArgs:\n    service: The facility service for this request.\n    params: The requested collection window.\n    site_id: Optional ``site_id`` filter from the query string.\n    facility_type: Optional ``facility_type`` filter from the query string.\n    facility_status: Optional ``status`` filter from the query string.\n\nReturns:\n    The paginated envelope, ordered by ``created_at ASC, id ASC``.",
+        "operationId": "list_facilities_api_v1_facilities_get",
+        "parameters": [
+          {
+            "name": "site_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Restrict the result to the facilities of one site.",
+              "title": "Site Id"
+            },
+            "description": "Restrict the result to the facilities of one site."
+          },
+          {
+            "name": "facility_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/FacilityType"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Restrict the result to one kind of facility.",
+              "title": "Facility Type"
+            },
+            "description": "Restrict the result to one kind of facility."
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/StatusEnum"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Restrict the result to one lifecycle state.",
+              "title": "Status"
+            },
+            "description": "Restrict the result to one lifecycle state."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "description": "Number of items to return, between 1 and 200.",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "Number of items to return, between 1 and 200."
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Number of items to skip.",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "Number of items to skip."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_FacilityRead_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/facilities/{facility_id}": {
+      "get": {
+        "tags": [
+          "facilities"
+        ],
+        "summary": "Get Facility",
+        "description": "Read one facility, archived ones included.\n\nArgs:\n    facility_id: Identifier of the facility to read.\n    service: The facility service for this request.\n\nReturns:\n    The requested facility.",
+        "operationId": "get_facility_api_v1_facilities__facility_id__get",
+        "parameters": [
+          {
+            "name": "facility_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Facility Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FacilityRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "facilities"
+        ],
+        "summary": "Update Facility",
+        "description": "Update a facility's name, type or status.\n\nArgs:\n    facility_id: Identifier of the facility to update.\n    payload: The fields to change.\n    service: The facility service for this request.\n\nReturns:\n    The updated facility.",
+        "operationId": "update_facility_api_v1_facilities__facility_id__patch",
+        "parameters": [
+          {
+            "name": "facility_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Facility Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FacilityUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FacilityRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/facilities/{facility_id}/configuration": {
+      "get": {
+        "tags": [
+          "facilities"
+        ],
+        "summary": "Get Facility Configuration",
+        "description": "Read a facility's whole configuration in one request.\n\nThe facility, its site, its zones with their composition and its points with\ntheir last known state, assembled from a fixed number of queries.\n\nArgs:\n    facility_id: Identifier of the facility to describe.\n    service: The configuration read service for this request.\n    include_archived: Whether archived zones and points are kept in the\n        document; they are left out by default.\n\nReturns:\n    The configuration document.",
+        "operationId": "get_facility_configuration_api_v1_facilities__facility_id__configuration_get",
+        "parameters": [
+          {
+            "name": "facility_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Facility Id"
+            }
+          },
+          {
+            "name": "include_archived",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Include archived zones and points in the document.",
+              "default": false,
+              "title": "Include Archived"
+            },
+            "description": "Include archived zones and points in the document."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FacilityConfigurationRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/control-zones": {
+      "post": {
+        "tags": [
+          "control-zones"
+        ],
+        "summary": "Create Control Zone",
+        "description": "Register a control zone inside a facility.\n\nArgs:\n    payload: The zone to create.\n    service: The control zone service for this request.\n\nReturns:\n    The created zone, with HTTP 201.",
+        "operationId": "create_control_zone_api_v1_control_zones_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ControlZoneCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlZoneRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "control-zones"
+        ],
+        "summary": "List Control Zones",
+        "description": "List control zones, oldest first.\n\nArgs:\n    service: The control zone service for this request.\n    params: The requested collection window.\n    facility_id: Optional ``facility_id`` filter from the query string.\n    zone_type: Optional ``zone_type`` filter from the query string.\n    zone_status: Optional ``status`` filter from the query string.\n\nReturns:\n    The paginated envelope, ordered by ``created_at ASC, id ASC``.",
+        "operationId": "list_control_zones_api_v1_control_zones_get",
+        "parameters": [
+          {
+            "name": "facility_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Restrict the result to the zones of one facility.",
+              "title": "Facility Id"
+            },
+            "description": "Restrict the result to the zones of one facility."
+          },
+          {
+            "name": "zone_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ZoneType"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Restrict the result to one kind of zone.",
+              "title": "Zone Type"
+            },
+            "description": "Restrict the result to one kind of zone."
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/StatusEnum"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Restrict the result to one lifecycle state.",
+              "title": "Status"
+            },
+            "description": "Restrict the result to one lifecycle state."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "description": "Number of items to return, between 1 and 200.",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "Number of items to return, between 1 and 200."
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Number of items to skip.",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "Number of items to skip."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_ControlZoneRead_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/control-zones/{zone_id}": {
+      "get": {
+        "tags": [
+          "control-zones"
+        ],
+        "summary": "Get Control Zone",
+        "description": "Read one control zone, archived ones included.\n\nArgs:\n    zone_id: Identifier of the zone to read.\n    service: The control zone service for this request.\n\nReturns:\n    The requested zone.",
+        "operationId": "get_control_zone_api_v1_control_zones__zone_id__get",
+        "parameters": [
+          {
+            "name": "zone_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Zone Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlZoneRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "control-zones"
+        ],
+        "summary": "Update Control Zone",
+        "description": "Update a control zone's name, type or status.\n\nArgs:\n    zone_id: Identifier of the zone to update.\n    payload: The fields to change.\n    service: The control zone service for this request.\n\nReturns:\n    The updated zone.",
+        "operationId": "update_control_zone_api_v1_control_zones__zone_id__patch",
+        "parameters": [
+          {
+            "name": "zone_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Zone Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ControlZoneUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlZoneRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/control-zones/{zone_id}/points": {
+      "post": {
+        "tags": [
+          "control-zones"
+        ],
+        "summary": "Create Zone Point Assignment",
+        "description": "Assign a point to a control zone under one role.\n\nArgs:\n    zone_id: Identifier of the zone to assign the point to.\n    payload: The point and the role it plays in the zone.\n    service: The assignment service for this request.\n\nReturns:\n    The created assignment enriched with the point's metadata, with\n    HTTP 201.",
+        "operationId": "create_zone_point_assignment_api_v1_control_zones__zone_id__points_post",
+        "parameters": [
+          {
+            "name": "zone_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Zone Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ZonePointAssignmentCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZonePointAssignmentRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "control-zones"
+        ],
+        "summary": "List Zone Point Assignments",
+        "description": "List a control zone's composition, oldest assignment first.\n\nArgs:\n    zone_id: Identifier of the zone whose composition to read.\n    service: The assignment service for this request.\n    params: The requested collection window.\n\nReturns:\n    The paginated envelope, ordered by ``created_at ASC, id ASC``.",
+        "operationId": "list_zone_point_assignments_api_v1_control_zones__zone_id__points_get",
+        "parameters": [
+          {
+            "name": "zone_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Zone Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "description": "Number of items to return, between 1 and 200.",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "Number of items to return, between 1 and 200."
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Number of items to skip.",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "Number of items to skip."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_ZonePointAssignmentRead_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/control-zones/{zone_id}/points/{assignment_id}": {
+      "delete": {
+        "tags": [
+          "control-zones"
+        ],
+        "summary": "Delete Zone Point Assignment",
+        "description": "Remove one point from a control zone's composition.\n\nThe point itself is untouched; only the link is removed. This is the one\nreal delete in the domain, and it is allowed precisely because an\nassignment carries no history worth keeping.\n\nArgs:\n    zone_id: Identifier of the zone to remove the point from.\n    assignment_id: Identifier of the assignment to remove.\n    service: The assignment service for this request.\n\nReturns:\n    An empty response with HTTP 204.",
+        "operationId": "delete_zone_point_assignment_api_v1_control_zones__zone_id__points__assignment_id__delete",
+        "parameters": [
+          {
+            "name": "zone_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Zone Id"
+            }
+          },
+          {
+            "name": "assignment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Assignment Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/points": {
+      "post": {
+        "tags": [
+          "points"
+        ],
+        "summary": "Create Point",
+        "description": "Register a point and its empty state projection.\n\nArgs:\n    payload: The point to create.\n    service: The point service for this request.\n\nReturns:\n    The created point, with HTTP 201.",
+        "operationId": "create_point_api_v1_points_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PointCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PointRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "points"
+        ],
+        "summary": "List Points",
+        "description": "List points, oldest first.\n\nArgs:\n    service: The point service for this request.\n    params: The requested collection window.\n    site_id: Optional ``site_id`` filter from the query string.\n    facility_id: Optional ``facility_id`` filter from the query string.\n    point_kind: Optional ``point_kind`` filter from the query string.\n    metric_type: Optional ``metric_type`` filter from the query string.\n    point_status: Optional ``status`` filter from the query string.\n\nReturns:\n    The paginated envelope, ordered by ``created_at ASC, id ASC``.",
+        "operationId": "list_points_api_v1_points_get",
+        "parameters": [
+          {
+            "name": "site_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Restrict the result to the points of one site.",
+              "title": "Site Id"
+            },
+            "description": "Restrict the result to the points of one site."
+          },
+          {
+            "name": "facility_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Restrict the result to the points of one facility.",
+              "title": "Facility Id"
+            },
+            "description": "Restrict the result to the points of one facility."
+          },
+          {
+            "name": "point_kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/PointKind"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Restrict the result to one role of point.",
+              "title": "Point Kind"
+            },
+            "description": "Restrict the result to one role of point."
+          },
+          {
+            "name": "metric_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 63,
+                  "pattern": "^[a-z0-9]([a-z0-9_-]{0,61}[a-z0-9])?$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Restrict the result to one measured quantity.",
+              "title": "Metric Type"
+            },
+            "description": "Restrict the result to one measured quantity."
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/StatusEnum"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Restrict the result to one lifecycle state.",
+              "title": "Status"
+            },
+            "description": "Restrict the result to one lifecycle state."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "description": "Number of items to return, between 1 and 200.",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "Number of items to return, between 1 and 200."
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Number of items to skip.",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "Number of items to skip."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_PointRead_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/points/{point_id}": {
+      "get": {
+        "tags": [
+          "points"
+        ],
+        "summary": "Get Point",
+        "description": "Read one point, archived ones included.\n\nArgs:\n    point_id: Identifier of the point to read.\n    service: The point service for this request.\n\nReturns:\n    The requested point.",
+        "operationId": "get_point_api_v1_points__point_id__get",
+        "parameters": [
+          {
+            "name": "point_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Point Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PointRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "points"
+        ],
+        "summary": "Update Point",
+        "description": "Update a point's name, unit, range or status.\n\nArgs:\n    point_id: Identifier of the point to update.\n    payload: The fields to change.\n    service: The point service for this request.\n\nReturns:\n    The updated point.",
+        "operationId": "update_point_api_v1_points__point_id__patch",
+        "parameters": [
+          {
+            "name": "point_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Point Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PointUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PointRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/points/{point_id}/state": {
+      "get": {
+        "tags": [
+          "points"
+        ],
+        "summary": "Get Point State",
+        "description": "Read the last known state of one point.\n\nUntil telemetry writes to it, the answer is the empty projection created\nwith the point: no value, and ``quality = \"no_data\"``.\n\nArgs:\n    point_id: Identifier of the point whose state to read.\n    service: The point service for this request.\n\nReturns:\n    The point's current-state projection.",
+        "operationId": "get_point_state_api_v1_points__point_id__state_get",
+        "parameters": [
+          {
+            "name": "point_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Point Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PointStateRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/points/{point_id}/telemetry": {
+      "get": {
+        "tags": [
+          "telemetry"
+        ],
+        "summary": "List Point Telemetry",
+        "description": "Return a bounded, deterministic history for one logical point.",
+        "operationId": "list_point_telemetry_api_v1_points__point_id__telemetry_get",
+        "parameters": [
+          {
+            "name": "point_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Point Id"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Inclusive lower bound on observed_at.",
+              "title": "From"
+            },
+            "description": "Inclusive lower bound on observed_at."
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Inclusive upper bound on observed_at.",
+              "title": "To"
+            },
+            "description": "Inclusive upper bound on observed_at."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000,
+              "minimum": 1,
+              "description": "Maximum number of samples to return.",
+              "default": 100,
+              "title": "Limit"
+            },
+            "description": "Maximum number of samples to return."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TelemetryHistoryRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/control-loops": {
+      "post": {
+        "tags": [
+          "control"
+        ],
+        "summary": "Create Control Loop",
+        "description": "Configure the one hysteresis loop of a climate zone.\n\nArgs:\n    payload: The loop to configure.\n    service: The control-loop service for this request.\n\nReturns:\n    The created loop, with HTTP 201.",
+        "operationId": "create_control_loop_api_v1_control_loops_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ControlLoopCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlLoopRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "control"
+        ],
+        "summary": "List Control Loops",
+        "description": "List configured loops, optionally restricted to one zone.\n\nArgs:\n    service: The control-loop service for this request.\n    params: The requested collection window.\n    control_zone_id: Restricts the result to one zone when given.\n\nReturns:\n    One page of loops in the shared collection envelope.",
+        "operationId": "list_control_loops_api_v1_control_loops_get",
+        "parameters": [
+          {
+            "name": "control_zone_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Control Zone Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "description": "Number of items to return, between 1 and 200.",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "Number of items to return, between 1 and 200."
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Number of items to skip.",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "Number of items to skip."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_ControlLoopRead_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/control-loops/{control_loop_id}": {
+      "get": {
+        "tags": [
+          "control"
+        ],
+        "summary": "Get Control Loop",
+        "description": "Read one control loop.\n\nArgs:\n    control_loop_id: The loop to read.\n    service: The control-loop service for this request.\n\nReturns:\n    The stored loop.",
+        "operationId": "get_control_loop_api_v1_control_loops__control_loop_id__get",
+        "parameters": [
+          {
+            "name": "control_loop_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Control Loop Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlLoopRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/commands": {
+      "get": {
+        "tags": [
+          "control"
+        ],
+        "summary": "List Commands",
+        "description": "Return a bounded, deterministic newest-first window of commands.\n\nArgs:\n    service: The command service for this request.\n    control_loop_id: Restricts the result to one loop when given.\n    trigger_sample_id: Restricts the result to one trigger when given.\n    limit: Maximum number of commands to return.\n\nReturns:\n    The matching commands in ``created_at DESC, id DESC`` order.",
+        "operationId": "list_commands_api_v1_commands_get",
+        "parameters": [
+          {
+            "name": "control_loop_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Restrict the result to the commands of one control loop.",
+              "title": "Control Loop Id"
+            },
+            "description": "Restrict the result to the commands of one control loop."
+          },
+          {
+            "name": "trigger_sample_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Restrict the result to the commands one measurement caused.",
+              "title": "Trigger Sample Id"
+            },
+            "description": "Restrict the result to the commands one measurement caused."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000,
+              "minimum": 1,
+              "description": "Maximum number of commands to return.",
+              "default": 100,
+              "title": "Limit"
+            },
+            "description": "Maximum number of commands to return."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommandListRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/commands/{command_id}": {
+      "get": {
+        "tags": [
+          "control"
+        ],
+        "summary": "Get Command",
+        "description": "Read one command and the identifiers its chain is followed by.\n\nArgs:\n    command_id: The command to read.\n    service: The command service for this request.\n\nReturns:\n    The stored command.",
+        "operationId": "get_command_api_v1_commands__command_id__get",
+        "parameters": [
+          {
+            "name": "command_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Command Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommandRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/gateways": {
+      "post": {
+        "tags": [
+          "gateway-management"
+        ],
+        "summary": "Provision Gateway",
+        "description": "Create a gateway or resolve an equivalent request by stable code.",
+        "operationId": "provision_gateway_api_v1_gateways_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GatewayCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayProvisioningRead"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayProvisioningRead"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/gateways/by-code/{code}": {
+      "get": {
+        "tags": [
+          "gateway-management"
+        ],
+        "summary": "Get Gateway By Code",
+        "description": "Resolve a gateway by its stable provisioning code.",
+        "operationId": "get_gateway_by_code_api_v1_gateways_by_code__code__get",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 63,
+              "pattern": "^[a-z0-9]([a-z0-9_-]{0,61}[a-z0-9])?$",
+              "title": "Code"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayRead"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      }
+    },
+    "/api/v1/gateways/{gateway_id}": {
+      "get": {
+        "tags": [
+          "gateway-management"
+        ],
+        "summary": "Get Gateway",
+        "description": "Read a gateway by the UUID used by the Edge data plane.",
+        "operationId": "get_gateway_api_v1_gateways__gateway_id__get",
+        "parameters": [
+          {
+            "name": "gateway_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Gateway Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayRead"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      }
+    },
+    "/api/v1/gateways/{gateway_id}/configuration": {
+      "get": {
+        "tags": [
+          "gateway-management"
+        ],
+        "summary": "Get Gateway Configuration",
+        "description": "Read the gateway's normalized functional configuration.",
+        "operationId": "get_gateway_configuration_api_v1_gateways__gateway_id__configuration_get",
+        "parameters": [
+          {
+            "name": "gateway_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Gateway Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayConfigurationRead"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      }
+    },
+    "/api/v1/gateways/{gateway_id}/points": {
+      "get": {
+        "tags": [
+          "gateway-management"
+        ],
+        "summary": "Get Gateway Points",
+        "description": "Read the gateway's complete current logical-point authorization.",
+        "operationId": "get_gateway_points_api_v1_gateways__gateway_id__points_get",
+        "parameters": [
+          {
+            "name": "gateway_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Gateway Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayAuthorizedPointsRead"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "gateway-management"
+        ],
+        "summary": "Authorize Gateway Points",
+        "description": "Add logical points without removing any existing authorization.",
+        "operationId": "authorize_gateway_points_api_v1_gateways__gateway_id__points_post",
+        "parameters": [
+          {
+            "name": "gateway_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Gateway Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GatewayPointAuthorizationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayPointAuthorizationResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      }
+    },
+    "/api/v1/edge/telemetry": {
+      "post": {
+        "tags": [
+          "edge"
+        ],
+        "summary": "Ingest Telemetry",
+        "description": "Ingest one fully atomic telemetry envelope.",
+        "operationId": "ingest_telemetry_api_v1_edge_telemetry_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EdgeTelemetryEnvelope"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdgeTelemetryIngestionResult"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdgeErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdgeErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdgeErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdgeErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/edge/gateways/{gateway_id}/commands": {
+      "get": {
+        "tags": [
+          "edge"
+        ],
+        "summary": "List Pending Commands",
+        "description": "Poll pending commands scoped to one gateway.",
+        "operationId": "list_pending_commands_api_v1_edge_gateways__gateway_id__commands_get",
+        "parameters": [
+          {
+            "name": "gateway_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Gateway Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdgeCommandList"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdgeErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdgeErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdgeErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdgeErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      }
+    },
+    "/api/v1/edge/gateways/{gateway_id}/commands/{command_id}/acknowledgement": {
+      "put": {
+        "tags": [
+          "edge"
+        ],
+        "summary": "Acknowledge Command",
+        "description": "Store or replay a terminal command acknowledgement.",
+        "operationId": "acknowledge_command_api_v1_edge_gateways__gateway_id__commands__command_id__acknowledgement_put",
+        "parameters": [
+          {
+            "name": "gateway_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Gateway Id"
+            }
+          },
+          {
+            "name": "command_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Command Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EdgeCommandAcknowledgement"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdgeCommandAcknowledgement"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdgeErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdgeErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdgeErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdgeErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CommandListRead": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CommandRead"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "CommandListRead",
+        "description": "A count-free collection of commands.\n\nNo total, like telemetry history and unlike the paged collections. The\ncommand list is a bounded newest-first window over an append-only table, and\na ``COUNT(*)`` over it would grow with the history while answering a\nquestion nobody asked."
+      },
+      "CommandRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "title": "Idempotency Key"
+          },
+          "control_loop_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Control Loop Id"
+          },
+          "trigger_sample_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Trigger Sample Id"
+          },
+          "target_point_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Target Point Id"
+          },
+          "reported_point_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Reported Point Id"
+          },
+          "gateway_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gateway Id"
+          },
+          "desired_value": {
+            "type": "boolean",
+            "title": "Desired Value"
+          },
+          "state": {
+            "$ref": "#/components/schemas/CommandState"
+          },
+          "result_control_sample_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result Control Sample Id"
+          },
+          "result_status_sample_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result Status Sample Id"
+          },
+          "issued_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Issued At"
+          },
+          "executed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Executed At"
+          },
+          "acknowledged_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acknowledged At"
+          },
+          "rejection_reason": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rejection Reason"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "idempotency_key",
+          "control_loop_id",
+          "trigger_sample_id",
+          "target_point_id",
+          "reported_point_id",
+          "gateway_id",
+          "desired_value",
+          "state",
+          "result_control_sample_id",
+          "result_status_sample_id",
+          "issued_at",
+          "executed_at",
+          "acknowledged_at",
+          "rejection_reason",
+          "created_at"
+        ],
+        "title": "CommandRead",
+        "description": "One applied command, with every identifier its chain is followed by.\n\nAll three sample identifiers are returned rather than joined into embedded\nsamples: the telemetry history endpoint already reads a sample, and\nduplicating it here would give one value two representations that could\ndisagree."
+      },
+      "CommandState": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "applied",
+          "rejected"
+        ],
+        "title": "CommandState",
+        "description": "Delivery lifecycle of a logical command."
+      },
+      "ConfigurationFacility": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "facility_type": {
+            "$ref": "#/components/schemas/FacilityType"
+          },
+          "status": {
+            "$ref": "#/components/schemas/StatusEnum"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "code",
+          "facility_type",
+          "status"
+        ],
+        "title": "ConfigurationFacility",
+        "description": "The facility the configuration document describes."
+      },
+      "ConfigurationPoint": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "point_kind": {
+            "$ref": "#/components/schemas/PointKind"
+          },
+          "metric_type": {
+            "type": "string",
+            "title": "Metric Type"
+          },
+          "data_type": {
+            "$ref": "#/components/schemas/PointDataType"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "status": {
+            "$ref": "#/components/schemas/StatusEnum"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ConfigurationPointState"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "code",
+          "name",
+          "point_kind",
+          "metric_type",
+          "data_type",
+          "unit",
+          "status",
+          "state"
+        ],
+        "title": "ConfigurationPoint",
+        "description": "One point of the configuration document, with its current state."
+      },
+      "ConfigurationPointState": {
+        "properties": {
+          "value": {
+            "title": "Value"
+          },
+          "quality": {
+            "$ref": "#/components/schemas/DataQuality"
+          },
+          "observed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "quality",
+          "observed_at"
+        ],
+        "title": "ConfigurationPointState",
+        "description": "The last known state of a point inside the configuration document.\n\nA point that has received no telemetry reads ``value = null``,\n``quality = \"no_data\"`` and ``observed_at = null``. ``received_at`` and\n``revision`` are left to ``GET /api/v1/points/{point_id}/state``: the\nconfiguration answers \"what is this growbox and what does it read\", not \"how\ndid this value get here\"."
+      },
+      "ConfigurationSite": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "timezone": {
+            "type": "string",
+            "title": "Timezone"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "code",
+          "timezone"
+        ],
+        "title": "ConfigurationSite",
+        "description": "The site of a facility, as it appears in the configuration document."
+      },
+      "ConfigurationZone": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "zone_type": {
+            "$ref": "#/components/schemas/ZoneType"
+          },
+          "status": {
+            "$ref": "#/components/schemas/StatusEnum"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/ConfigurationZonePoint"
+            },
+            "type": "array",
+            "title": "Points"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "code",
+          "zone_type",
+          "status",
+          "points"
+        ],
+        "title": "ConfigurationZone",
+        "description": "One control zone of the configuration document, with its composition."
+      },
+      "ConfigurationZonePoint": {
+        "properties": {
+          "point_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Point Id"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "role": {
+            "$ref": "#/components/schemas/ZonePointRole"
+          }
+        },
+        "type": "object",
+        "required": [
+          "point_id",
+          "code",
+          "role"
+        ],
+        "title": "ConfigurationZonePoint",
+        "description": "One link inside a zone of the configuration document.\n\nOnly the link is described here. The point's own fields appear once, in the\ndocument's ``points`` list, so that a point taking part in three zones is\nstill described once and cannot be described three inconsistent ways."
+      },
+      "ControlLoopCreate": {
+        "properties": {
+          "control_zone_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Control Zone Id"
+          },
+          "measurement_point_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Measurement Point Id"
+          },
+          "control_point_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Control Point Id"
+          },
+          "status_point_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Status Point Id"
+          },
+          "lower_threshold": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Lower Threshold"
+          },
+          "upper_threshold": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Upper Threshold"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "control_zone_id",
+          "measurement_point_id",
+          "control_point_id",
+          "status_point_id",
+          "lower_threshold",
+          "upper_threshold"
+        ],
+        "title": "ControlLoopCreate",
+        "description": "Body accepted by ``POST /api/v1/control-loops``.\n\nOnly the threshold ordering is checked here: both ends are always present\nin a creation body, so the rule needs nothing the schema cannot see. Every\nother rule needs the referenced zone and points and is applied by the\nservice, which reports it with its own error code."
+      },
+      "ControlLoopRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "control_zone_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Control Zone Id"
+          },
+          "measurement_point_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Measurement Point Id"
+          },
+          "control_point_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Control Point Id"
+          },
+          "status_point_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Status Point Id"
+          },
+          "policy_type": {
+            "$ref": "#/components/schemas/ControlPolicyType"
+          },
+          "lower_threshold": {
+            "type": "number",
+            "title": "Lower Threshold"
+          },
+          "upper_threshold": {
+            "type": "number",
+            "title": "Upper Threshold"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "control_zone_id",
+          "measurement_point_id",
+          "control_point_id",
+          "status_point_id",
+          "policy_type",
+          "lower_threshold",
+          "upper_threshold",
+          "created_at"
+        ],
+        "title": "ControlLoopRead",
+        "description": "Representation returned by every control-loop endpoint."
+      },
+      "ControlPolicyType": {
+        "type": "string",
+        "enum": [
+          "hysteresis-v1"
+        ],
+        "title": "ControlPolicyType",
+        "description": "Policy a control loop evaluates.\n\nOne member today. It is an enum rather than a constant string so that the\nstored value carries a ``CHECK`` constraint like every other enum column,\nand so a second policy arrives as a member instead of as a free-text value\nnothing validates."
+      },
+      "ControlZoneCreate": {
+        "properties": {
+          "facility_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Facility Id"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 63,
+            "pattern": "^[a-z0-9]([a-z0-9_-]{0,61}[a-z0-9])?$",
+            "title": "Code"
+          },
+          "zone_type": {
+            "$ref": "#/components/schemas/ZoneType"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "facility_id",
+          "name",
+          "code",
+          "zone_type"
+        ],
+        "title": "ControlZoneCreate",
+        "description": "Body accepted by ``POST /api/v1/control-zones``.\n\nThere is no ``site_id``: a zone reaches its site through its facility, and\naccepting a second, redundant parent would make the two contradictable."
+      },
+      "ControlZoneRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "facility_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Facility Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "zone_type": {
+            "$ref": "#/components/schemas/ZoneType"
+          },
+          "status": {
+            "$ref": "#/components/schemas/StatusEnum"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "facility_id",
+          "name",
+          "code",
+          "zone_type",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ControlZoneRead",
+        "description": "Representation of a control zone returned by every zone endpoint.\n\nNo ``site_id`` is exposed. Clients that need the site read it from the\nzone's facility, which is the only place it is stored."
+      },
+      "ControlZoneUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "zone_type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ZoneType"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StatusEnum"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "facility_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Facility Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ControlZoneUpdate",
+        "description": "Body accepted by ``PATCH /api/v1/control-zones/{zone_id}``.\n\nOnly the fields present in the request are applied, so an omitted field and\nan explicit ``null`` both leave the stored value untouched.\n\n``code`` and ``facility_id`` are declared even though neither can be\nchanged. Accepting them here is what lets the service answer with HTTP 409\n``immutable_field``, naming the refused field, instead of the generic HTTP\n422 that an unexpected field would produce."
+      },
+      "DataQuality": {
+        "type": "string",
+        "enum": [
+          "no_data",
+          "good",
+          "uncertain",
+          "bad",
+          "stale",
+          "out_of_range",
+          "sensor_fault",
+          "simulated",
+          "manually_entered"
+        ],
+        "title": "DataQuality",
+        "description": "Trustworthiness of a value, carried by the value rather than logged apart.\n\n``NO_DATA`` is the state every point starts in; the rest are the vocabulary\ntelemetry writes with."
+      },
+      "EdgeCommandAcknowledgement": {
+        "properties": {
+          "contract_version": {
+            "type": "string",
+            "const": "1.0",
+            "title": "Contract Version"
+          },
+          "gateway_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Gateway Id"
+          },
+          "command_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Command Id"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/EdgeCommandOutcome"
+          },
+          "acknowledged_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Acknowledged At"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/EdgeRejectionReason",
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "contract_version",
+          "gateway_id",
+          "command_id",
+          "outcome",
+          "acknowledged_at"
+        ],
+        "title": "EdgeCommandAcknowledgement",
+        "description": "Terminal acknowledgement resource identified by gateway and command."
+      },
+      "EdgeCommandList": {
+        "properties": {
+          "contract_version": {
+            "type": "string",
+            "const": "1.0",
+            "title": "Contract Version",
+            "default": "1.0"
+          },
+          "gateway_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Gateway Id"
+          },
+          "commands": {
+            "items": {
+              "$ref": "#/components/schemas/EdgePendingCommand"
+            },
+            "type": "array",
+            "title": "Commands"
+          }
+        },
+        "type": "object",
+        "required": [
+          "gateway_id",
+          "commands"
+        ],
+        "title": "EdgeCommandList",
+        "description": "Pending commands visible to one gateway."
+      },
+      "EdgeCommandOutcome": {
+        "type": "string",
+        "enum": [
+          "applied",
+          "rejected"
+        ],
+        "title": "EdgeCommandOutcome",
+        "description": "Terminal command outcomes."
+      },
+      "EdgeErrorDetail": {
+        "properties": {
+          "location": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "location",
+          "message"
+        ],
+        "title": "EdgeErrorDetail",
+        "description": "Safe field-level validation detail."
+      },
+      "EdgeErrorResponse": {
+        "properties": {
+          "contract_version": {
+            "type": "string",
+            "const": "1.0",
+            "title": "Contract Version",
+            "default": "1.0"
+          },
+          "error": {
+            "$ref": "#/components/schemas/EdgeErrorValue"
+          }
+        },
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "title": "EdgeErrorResponse",
+        "description": "Error envelope published by contract v1."
+      },
+      "EdgeErrorValue": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "gateway_not_found",
+              "gateway_inactive",
+              "point_not_found",
+              "point_inactive",
+              "gateway_point_forbidden",
+              "telemetry_message_conflict",
+              "command_not_found",
+              "command_not_pending",
+              "command_acknowledgement_conflict",
+              "validation_error"
+            ],
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Message"
+          },
+          "details": {
+            "items": {
+              "$ref": "#/components/schemas/EdgeErrorDetail"
+            },
+            "type": "array",
+            "title": "Details"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "EdgeErrorValue",
+        "description": "Public Edge error value."
+      },
+      "EdgePendingCommand": {
+        "properties": {
+          "command_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Command Id"
+          },
+          "point_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Point Id"
+          },
+          "reported_point_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Reported Point Id"
+          },
+          "data_type": {
+            "$ref": "#/components/schemas/PointDataType"
+          },
+          "desired_value": {
+            "title": "Desired Value"
+          },
+          "issued_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Issued At"
+          },
+          "state": {
+            "type": "string",
+            "const": "pending",
+            "title": "State",
+            "default": "pending"
+          }
+        },
+        "type": "object",
+        "required": [
+          "command_id",
+          "point_id",
+          "reported_point_id",
+          "data_type",
+          "desired_value",
+          "issued_at"
+        ],
+        "title": "EdgePendingCommand",
+        "description": "One pending command in the exact public representation."
+      },
+      "EdgeRejectionReason": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Message"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "EdgeRejectionReason",
+        "description": "Stable machine code and human explanation of a rejection."
+      },
+      "EdgeSourceKind": {
+        "type": "string",
+        "enum": [
+          "sensor",
+          "actuator",
+          "controller",
+          "operator",
+          "derived"
+        ],
+        "title": "EdgeSourceKind",
+        "description": "Kinds of producer represented by contract v1."
+      },
+      "EdgeTelemetryEnvelope": {
+        "properties": {
+          "contract_version": {
+            "type": "string",
+            "const": "1.0",
+            "title": "Contract Version"
+          },
+          "gateway_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Gateway Id"
+          },
+          "batch_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Batch Id"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/EdgeTelemetryMessage"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Messages"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "contract_version",
+          "gateway_id",
+          "messages"
+        ],
+        "title": "EdgeTelemetryEnvelope",
+        "description": "One to 100 messages submitted by one gateway."
+      },
+      "EdgeTelemetryIngestionResult": {
+        "properties": {
+          "contract_version": {
+            "type": "string",
+            "const": "1.0",
+            "title": "Contract Version",
+            "default": "1.0"
+          },
+          "gateway_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Gateway Id"
+          },
+          "batch_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Batch Id"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/EdgeTelemetryResultItem"
+            },
+            "type": "array",
+            "title": "Results"
+          }
+        },
+        "type": "object",
+        "required": [
+          "gateway_id",
+          "results"
+        ],
+        "title": "EdgeTelemetryIngestionResult",
+        "description": "Ordered result for one telemetry envelope."
+      },
+      "EdgeTelemetryMessage": {
+        "properties": {
+          "message_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Message Id"
+          },
+          "point_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Point Id"
+          },
+          "data_type": {
+            "$ref": "#/components/schemas/PointDataType"
+          },
+          "value": {
+            "title": "Value"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Observed At"
+          },
+          "quality": {
+            "$ref": "#/components/schemas/EdgeTelemetryQuality"
+          },
+          "source": {
+            "$ref": "#/components/schemas/EdgeTelemetrySource"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "message_id",
+          "point_id",
+          "data_type",
+          "value",
+          "observed_at",
+          "quality",
+          "source"
+        ],
+        "title": "EdgeTelemetryMessage",
+        "description": "One producer-owned telemetry message."
+      },
+      "EdgeTelemetryQuality": {
+        "type": "string",
+        "enum": [
+          "good",
+          "uncertain",
+          "bad",
+          "stale",
+          "out_of_range",
+          "sensor_fault",
+          "simulated",
+          "manually_entered"
+        ],
+        "title": "EdgeTelemetryQuality",
+        "description": "Submitted qualities; ``no_data`` is deliberately absent."
+      },
+      "EdgeTelemetryResultItem": {
+        "properties": {
+          "message_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Message Id"
+          },
+          "sample_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Sample Id"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/TelemetryWriteOutcome"
+          },
+          "received_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Received At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message_id",
+          "sample_id",
+          "outcome",
+          "received_at"
+        ],
+        "title": "EdgeTelemetryResultItem",
+        "description": "Stored identity and outcome of one submitted message."
+      },
+      "EdgeTelemetrySource": {
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/EdgeSourceKind"
+          },
+          "id": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "title": "Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "id"
+        ],
+        "title": "EdgeTelemetrySource",
+        "description": "Generic provenance metadata."
+      },
+      "FacilityConfigurationRead": {
+        "properties": {
+          "facility": {
+            "$ref": "#/components/schemas/ConfigurationFacility"
+          },
+          "site": {
+            "$ref": "#/components/schemas/ConfigurationSite"
+          },
+          "control_zones": {
+            "items": {
+              "$ref": "#/components/schemas/ConfigurationZone"
+            },
+            "type": "array",
+            "title": "Control Zones"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/ConfigurationPoint"
+            },
+            "type": "array",
+            "title": "Points"
+          }
+        },
+        "type": "object",
+        "required": [
+          "facility",
+          "site",
+          "control_zones",
+          "points"
+        ],
+        "title": "FacilityConfigurationRead",
+        "description": "Response of ``GET /api/v1/facilities/{facility_id}/configuration``.\n\nThe whole growbox in one answer: what it is, where it stands, how it is\ndivided into zones and which points those zones read and drive. It is a read\nmodel assembled from a fixed number of queries, not a serialised ORM graph —\nthe entities keep referring to each other by identifier, and this document\nis where they are brought together."
+      },
+      "FacilityCreate": {
+        "properties": {
+          "site_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Site Id"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 63,
+            "pattern": "^[a-z0-9]([a-z0-9_-]{0,61}[a-z0-9])?$",
+            "title": "Code"
+          },
+          "facility_type": {
+            "$ref": "#/components/schemas/FacilityType"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "site_id",
+          "name",
+          "code",
+          "facility_type"
+        ],
+        "title": "FacilityCreate",
+        "description": "Body accepted by ``POST /api/v1/facilities``."
+      },
+      "FacilityRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "site_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Site Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "facility_type": {
+            "$ref": "#/components/schemas/FacilityType"
+          },
+          "status": {
+            "$ref": "#/components/schemas/StatusEnum"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "site_id",
+          "name",
+          "code",
+          "facility_type",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "FacilityRead",
+        "description": "Representation of a facility returned by every facility endpoint."
+      },
+      "FacilityType": {
+        "type": "string",
+        "enum": [
+          "growbox",
+          "greenhouse",
+          "rack",
+          "seedling_room",
+          "utility"
+        ],
+        "title": "FacilityType",
+        "description": "Kind of growing or infrastructure object a facility represents."
+      },
+      "FacilityUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "facility_type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FacilityType"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StatusEnum"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "site_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Site Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "FacilityUpdate",
+        "description": "Body accepted by ``PATCH /api/v1/facilities/{facility_id}``.\n\nOnly the fields present in the request are applied, so an omitted field and\nan explicit ``null`` both leave the stored value untouched.\n\n``code`` and ``site_id`` are declared even though neither can be changed.\nAccepting them here is what lets the service answer with HTTP 409\n``immutable_field``, naming the refused field, instead of the generic HTTP\n422 that an unexpected field would produce."
+      },
+      "GatewayAuthorizedPointsRead": {
+        "properties": {
+          "gateway_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Gateway Id"
+          },
+          "point_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Point Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "gateway_id",
+          "point_ids"
+        ],
+        "title": "GatewayAuthorizedPointsRead",
+        "description": "Normalized current point authorization for one gateway."
+      },
+      "GatewayConfigurationRead": {
+        "properties": {
+          "gateway_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Gateway Id"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "site_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Site Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "gateway_id",
+          "code",
+          "site_id"
+        ],
+        "title": "GatewayConfigurationRead",
+        "description": "Normalized fields that define a gateway's functional configuration."
+      },
+      "GatewayCreate": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 63,
+            "pattern": "^[a-z0-9]([a-z0-9_-]{0,61}[a-z0-9])?$",
+            "title": "Code"
+          },
+          "site_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Site Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "code",
+          "site_id"
+        ],
+        "title": "GatewayCreate",
+        "description": "Configuration accepted by the idempotent gateway provisioning operation."
+      },
+      "GatewayErrorResponse": {
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/GatewayErrorValue"
+          }
+        },
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "title": "GatewayErrorResponse",
+        "description": "Documented management-plane error response."
+      },
+      "GatewayErrorValue": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "details": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Details"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "message",
+          "details"
+        ],
+        "title": "GatewayErrorValue",
+        "description": "One stable error in the common API envelope."
+      },
+      "GatewayPointAuthorizationOutcome": {
+        "type": "string",
+        "enum": [
+          "authorized",
+          "already_authorized"
+        ],
+        "title": "GatewayPointAuthorizationOutcome",
+        "description": "Effect of one requested point authorization."
+      },
+      "GatewayPointAuthorizationRead": {
+        "properties": {
+          "point_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Point Id"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/GatewayPointAuthorizationOutcome"
+          }
+        },
+        "type": "object",
+        "required": [
+          "point_id",
+          "outcome"
+        ],
+        "title": "GatewayPointAuthorizationRead",
+        "description": "Outcome for one distinct point in an additive authorization request."
+      },
+      "GatewayPointAuthorizationRequest": {
+        "properties": {
+          "point_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 1000,
+            "minItems": 1,
+            "title": "Point Ids"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "point_ids"
+        ],
+        "title": "GatewayPointAuthorizationRequest",
+        "description": "Points to add to a gateway's authorization set."
+      },
+      "GatewayPointAuthorizationResult": {
+        "properties": {
+          "gateway_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Gateway Id"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/GatewayPointAuthorizationRead"
+            },
+            "type": "array",
+            "title": "Points"
+          }
+        },
+        "type": "object",
+        "required": [
+          "gateway_id",
+          "points"
+        ],
+        "title": "GatewayPointAuthorizationResult",
+        "description": "Result of applying an additive point-authorization request."
+      },
+      "GatewayProvisioningOutcome": {
+        "type": "string",
+        "enum": [
+          "created",
+          "existing"
+        ],
+        "title": "GatewayProvisioningOutcome",
+        "description": "Whether an idempotent provisioning request created or resolved a gateway."
+      },
+      "GatewayProvisioningRead": {
+        "properties": {
+          "outcome": {
+            "$ref": "#/components/schemas/GatewayProvisioningOutcome"
+          },
+          "gateway": {
+            "$ref": "#/components/schemas/GatewayRead"
+          },
+          "configuration": {
+            "$ref": "#/components/schemas/GatewayConfigurationRead"
+          }
+        },
+        "type": "object",
+        "required": [
+          "outcome",
+          "gateway",
+          "configuration"
+        ],
+        "title": "GatewayProvisioningRead",
+        "description": "Result of create-or-resolve gateway provisioning."
+      },
+      "GatewayRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "site_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Site Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/StatusEnum"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "code",
+          "site_id",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "GatewayRead",
+        "description": "Administrative representation of one gateway resource."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "unavailable"
+            ],
+            "title": "Status"
+          },
+          "service": {
+            "type": "string",
+            "title": "Service"
+          },
+          "database": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "unavailable"
+            ],
+            "title": "Database"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "service",
+          "database"
+        ],
+        "title": "HealthResponse"
+      },
+      "Page_ControlLoopRead_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ControlLoopRead"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[ControlLoopRead]"
+      },
+      "Page_ControlZoneRead_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ControlZoneRead"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[ControlZoneRead]"
+      },
+      "Page_FacilityRead_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FacilityRead"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[FacilityRead]"
+      },
+      "Page_PointRead_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PointRead"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[PointRead]"
+      },
+      "Page_SiteRead_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SiteRead"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[SiteRead]"
+      },
+      "Page_ZonePointAssignmentRead_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ZonePointAssignmentRead"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[ZonePointAssignmentRead]"
+      },
+      "PointCreate": {
+        "properties": {
+          "site_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Site Id"
+          },
+          "facility_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Facility Id"
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 63,
+            "pattern": "^[a-z0-9]([a-z0-9_-]{0,61}[a-z0-9])?$",
+            "title": "Code"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "point_kind": {
+            "$ref": "#/components/schemas/PointKind"
+          },
+          "metric_type": {
+            "type": "string",
+            "maxLength": 63,
+            "pattern": "^[a-z0-9]([a-z0-9_-]{0,61}[a-z0-9])?$",
+            "title": "Metric Type"
+          },
+          "data_type": {
+            "$ref": "#/components/schemas/PointDataType"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 32,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "min_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Value"
+          },
+          "max_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Value"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "site_id",
+          "code",
+          "name",
+          "point_kind",
+          "metric_type",
+          "data_type"
+        ],
+        "title": "PointCreate",
+        "description": "Body accepted by ``POST /api/v1/points``.\n\nThe relationship between ``data_type``, ``unit`` and the range is not\nchecked here. Those rules produce their own error codes —\n``unit_not_allowed``, ``range_not_allowed`` — which a schema validator\ncannot express, so the service applies them. The one rule kept at this level\nis the ordering of the range, because both ends are always visible in a\ncreation body."
+      },
+      "PointDataType": {
+        "type": "string",
+        "enum": [
+          "float",
+          "integer",
+          "boolean",
+          "string"
+        ],
+        "title": "PointDataType",
+        "description": "Type of the values a point carries.\n\nGoverns how :attr:`PointCurrentState.value` is interpreted, which is why\none ``jsonb`` column can serve numeric, boolean and textual points without\na table per type."
+      },
+      "PointKind": {
+        "type": "string",
+        "enum": [
+          "measurement",
+          "control",
+          "status",
+          "derived"
+        ],
+        "title": "PointKind",
+        "description": "Role a point plays in the system.\n\nOne table with this column, rather than separate tables per kind: a\nmeasurement and a control point differ in how they are used, not in what\nthey are, and every rule that refers to points has to span all four."
+      },
+      "PointRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "site_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Site Id"
+          },
+          "facility_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Facility Id"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "point_kind": {
+            "$ref": "#/components/schemas/PointKind"
+          },
+          "metric_type": {
+            "type": "string",
+            "title": "Metric Type"
+          },
+          "data_type": {
+            "$ref": "#/components/schemas/PointDataType"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "min_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Value"
+          },
+          "max_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Value"
+          },
+          "status": {
+            "$ref": "#/components/schemas/StatusEnum"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "site_id",
+          "facility_id",
+          "code",
+          "name",
+          "point_kind",
+          "metric_type",
+          "data_type",
+          "unit",
+          "min_value",
+          "max_value",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "PointRead",
+        "description": "Representation of a point returned by every point endpoint.\n\nCarries no value and no physical address. Both omissions are the point of\nthe entity: the value lives in :class:`PointStateRead`, and the hardware\nbehind it can arrive later without this representation changing."
+      },
+      "PointStateRead": {
+        "properties": {
+          "point_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Point Id"
+          },
+          "value": {
+            "title": "Value"
+          },
+          "observed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observed At"
+          },
+          "received_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Received At"
+          },
+          "quality": {
+            "$ref": "#/components/schemas/DataQuality"
+          },
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "point_id",
+          "observed_at",
+          "received_at",
+          "quality",
+          "revision",
+          "updated_at"
+        ],
+        "title": "PointStateRead",
+        "description": "Representation returned by ``GET /api/v1/points/{point_id}/state``.\n\nA point that has received no telemetry answers with ``value = null`` and\n``quality = \"no_data\"``. No endpoint writes this projection: it is filled\nonly through the telemetry write boundary."
+      },
+      "PointUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 32,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "min_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Value"
+          },
+          "max_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Value"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StatusEnum"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "site_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Site Id"
+          },
+          "facility_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Facility Id"
+          },
+          "point_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Point Kind"
+          },
+          "metric_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metric Type"
+          },
+          "data_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Type"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "PointUpdate",
+        "description": "Body accepted by ``PATCH /api/v1/points/{point_id}``.\n\nOnly the fields present in the request are applied. Unlike the topology\nschemas, an explicit ``null`` is *not* the same as omitting a field here:\n``unit``, ``min_value`` and ``max_value`` are nullable columns, so sending\n``{\"min_value\": null}`` clears the lower bound while leaving it out keeps\nit. The service reads ``model_fields_set`` to tell the two apart.\n\nEvery field the point's meaning depends on is declared even though none can\nbe changed, and declared with a permissive type on purpose. Accepting\n``{\"point_kind\": \"vibes\"}`` as a string is what lets the service answer with\nHTTP 409 ``immutable_field`` — the honest reason for the refusal — instead\nof the HTTP 422 an enum would produce for a value that was never going to be\napplied anyway."
+      },
+      "SiteCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 63,
+            "pattern": "^[a-z0-9]([a-z0-9_-]{0,61}[a-z0-9])?$",
+            "title": "Code"
+          },
+          "timezone": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Timezone",
+            "default": "UTC"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "code"
+        ],
+        "title": "SiteCreate",
+        "description": "Body accepted by ``POST /api/v1/sites``."
+      },
+      "SiteRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "timezone": {
+            "type": "string",
+            "title": "Timezone"
+          },
+          "status": {
+            "$ref": "#/components/schemas/StatusEnum"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "code",
+          "timezone",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "SiteRead",
+        "description": "Representation of a site returned by every site endpoint."
+      },
+      "SiteUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "timezone": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timezone"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StatusEnum"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "SiteUpdate",
+        "description": "Body accepted by ``PATCH /api/v1/sites/{site_id}``.\n\nOnly the fields present in the request are applied, so an omitted field and\nan explicit ``null`` both leave the stored value untouched.\n\n``code`` is declared even though it cannot be changed. Accepting it here is\nwhat lets the service answer with HTTP 409 ``immutable_field`` instead of\nthe generic HTTP 422 that an unexpected field would produce."
+      },
+      "StatusEnum": {
+        "type": "string",
+        "enum": [
+          "active",
+          "archived"
+        ],
+        "title": "StatusEnum",
+        "description": "Lifecycle of an entity. Rows are archived instead of being deleted."
+      },
+      "TelemetryHistoryRead": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TelemetrySampleRead"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "TelemetryHistoryRead",
+        "description": "A count-free collection of telemetry samples."
+      },
+      "TelemetrySampleRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "point_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Point Id"
+          },
+          "value": {
+            "title": "Value"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 32,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Observed At"
+          },
+          "received_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Received At"
+          },
+          "quality": {
+            "$ref": "#/components/schemas/DataQuality"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "point_id",
+          "value",
+          "unit",
+          "observed_at",
+          "received_at",
+          "quality"
+        ],
+        "title": "TelemetrySampleRead",
+        "description": "One stored measurement returned unchanged by the history API."
+      },
+      "TelemetryWriteOutcome": {
+        "type": "string",
+        "enum": [
+          "recorded_current",
+          "duplicate",
+          "out_of_order"
+        ],
+        "title": "TelemetryWriteOutcome",
+        "description": "What the write boundary did with an offered sample.\n\nA producer used to be told nothing: the sample was accepted either way, and\n\"accepted\" covered three different things. Automation needs them apart,\nbecause only the first one is new information about the point — a replay and\na late arrival describe a state the system has already reacted to, and\nre-deciding on either would act twice on one measurement.\n\nAttributes:\n    RECORDED_CURRENT: The sample was new and became the current state.\n    DUPLICATE: The identifier was already recorded; nothing changed.\n    OUT_OF_ORDER: The sample was recorded in history, but an equal or newer\n        measurement already holds the current state."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "ZonePointAssignmentCreate": {
+        "properties": {
+          "point_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Point Id"
+          },
+          "role": {
+            "$ref": "#/components/schemas/ZonePointRole"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "point_id",
+          "role"
+        ],
+        "title": "ZonePointAssignmentCreate",
+        "description": "Body accepted by ``POST /api/v1/control-zones/{zone_id}/points``.\n\nThere is no ``control_zone_id``: the zone comes from the path, and\naccepting a second, contradictable copy of it in the body would only create\na way for the two to disagree."
+      },
+      "ZonePointAssignmentRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "control_zone_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Control Zone Id"
+          },
+          "point_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Point Id"
+          },
+          "role": {
+            "$ref": "#/components/schemas/ZonePointRole"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "point_code": {
+            "type": "string",
+            "title": "Point Code"
+          },
+          "point_name": {
+            "type": "string",
+            "title": "Point Name"
+          },
+          "point_kind": {
+            "$ref": "#/components/schemas/PointKind"
+          },
+          "data_type": {
+            "$ref": "#/components/schemas/PointDataType"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "control_zone_id",
+          "point_id",
+          "role",
+          "created_at",
+          "point_code",
+          "point_name",
+          "point_kind",
+          "data_type",
+          "unit"
+        ],
+        "title": "ZonePointAssignmentRead",
+        "description": "Representation of one zone-point assignment.\n\nThe point's own fields are copied in rather than referenced, because a\nclient listing a zone's composition wants to read it without a request per\nlink. The copy is deliberately partial: what a point *means* is answered by\n``GET /api/v1/points/{point_id}``, and duplicating the whole entity here\nwould make this endpoint a second, competing source of it."
+      },
+      "ZonePointRole": {
+        "type": "string",
+        "enum": [
+          "primary_measurement",
+          "secondary_measurement",
+          "control_output",
+          "status_feedback",
+          "safety_interlock",
+          "derived_indicator"
+        ],
+        "title": "ZonePointRole",
+        "description": "Part a point plays inside the zone it is assigned to.\n\nThe role is a property of the *link*, not of the point: the same air\ntemperature point can be the primary measurement of a climate zone and a\nsafety interlock of a safety zone at the same time."
+      },
+      "ZoneType": {
+        "type": "string",
+        "enum": [
+          "climate",
+          "irrigation",
+          "lighting",
+          "measurement",
+          "nutrient_solution",
+          "safety"
+        ],
+        "title": "ZoneType",
+        "description": "Aspect of a facility a control zone measures or controls."
+      }
+    }
+  }
+}
