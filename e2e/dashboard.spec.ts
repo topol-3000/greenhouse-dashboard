@@ -2,13 +2,19 @@
  * Desktop browser smoke flow over the production bundle.
  *
  * This is the acceptance path end to end: choose a facility, read every active
- * measurement point, inspect a numeric point's history, watch new telemetry
- * arrive through polling, and survive a backend outage with a stale snapshot
- * and a working Retry.
+ * measurement point, inspect every numeric point's history side by side, watch
+ * new telemetry arrive through polling, and survive a backend outage with a
+ * stale snapshot and a working Retry.
  */
 
+import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
-import { HUMIDITY_POINT_ID, mockApi, OTHER_FACILITY_ID } from "./fixtures";
+import { mockApi, OTHER_FACILITY_ID } from "./fixtures";
+
+/** One point's chart card in the history grid. */
+function chartFor(page: Page, pointCode: string) {
+  return page.locator(`[data-testid="history-chart"][data-point-code="${pointCode}"]`);
+}
 
 test.describe("owner monitoring", () => {
   test("shows a facility's measurement points and charts a numeric one", async ({ page }) => {
@@ -34,21 +40,28 @@ test.describe("owner monitoring", () => {
     await expect(humidity.getByTestId("card-value")).toHaveText("—");
 
     // The chart is present with a text summary beside it.
-    await expect(page.getByTestId("chart-summary")).toContainText(
+    const temperatureChart = chartFor(page, "air_temperature");
+    await expect(temperatureChart.getByTestId("chart-summary")).toContainText(
       "100 samples for Air temperature",
     );
-    await expect(page.getByTestId("history-chart").locator("svg").first()).toBeVisible();
+    await expect(temperatureChart.locator("svg").first()).toBeVisible();
   });
 
-  test("offers only numeric points for charting", async ({ page }) => {
+  test("charts every numeric point at once, and no other point", async ({ page }) => {
     await mockApi(page);
     await page.goto("/");
 
-    await expect(page.getByTestId("chart-summary")).toBeVisible();
-    const options = page.getByLabel("Charted measurement").locator("option");
+    const charts = page.getByTestId("history-chart");
+    await expect(charts).toHaveCount(2);
 
-    await expect(options).toHaveCount(2);
-    await expect(options).toHaveText(["Air temperature (°C)", "Air humidity (%)"]);
+    // Each chart names itself; there is no selector to pick one.
+    await expect(charts.getByRole("heading", { level: 3 })).toHaveText([
+      "Air temperature (°C)",
+      "Air humidity (%)",
+    ]);
+    // A boolean measurement point has a card but no numeric axis.
+    await expect(chartFor(page, "fan_running")).toHaveCount(0);
+    await expect(page.getByLabel("Charted measurement")).toHaveCount(0);
   });
 
   test("picks up new telemetry through polling without a reload", async ({ page }) => {
@@ -113,16 +126,19 @@ test.describe("owner monitoring", () => {
   test("drives the primary controls with the keyboard alone", async ({ page }) => {
     await mockApi(page);
     await page.goto("/");
-    await expect(page.getByTestId("chart-summary")).toBeVisible();
+    const temperatureChart = chartFor(page, "air_temperature");
+    await expect(temperatureChart.getByTestId("chart-summary")).toBeVisible();
 
     await page.keyboard.press("Tab");
     await expect(page.getByLabel("Active facility")).toBeFocused();
 
+    // The only other control is each chart's own sample table toggle.
     await page.keyboard.press("Tab");
-    await expect(page.getByLabel("Charted measurement")).toBeFocused();
+    const tableToggle = temperatureChart.getByRole("button", { name: "Show sample table" });
+    await expect(tableToggle).toBeFocused();
 
-    await page.getByLabel("Charted measurement").selectOption(HUMIDITY_POINT_ID);
-    await expect(page.getByTestId("chart-summary")).toContainText("Air humidity");
+    await page.keyboard.press("Enter");
+    await expect(temperatureChart.getByRole("table")).toBeVisible();
   });
 
   test("only ever requests same-origin /api/v1 URLs", async ({ page }) => {
@@ -135,7 +151,7 @@ test.describe("owner monitoring", () => {
     });
 
     await page.goto("/");
-    await expect(page.getByTestId("chart-summary")).toBeVisible();
+    await expect(chartFor(page, "air_temperature").getByTestId("chart-summary")).toBeVisible();
 
     expect(requested.length).toBeGreaterThan(0);
     const origin = new URL(page.url()).origin;

@@ -13,7 +13,7 @@ It is a separate repository from `greenhouse` and ships as its own container.
 ## Stack
 
 React 19 + TypeScript (strict) + Vite. TanStack Query v5 owns server state and
-polling. Recharts draws the one chart. Vitest and Testing Library cover units
+polling. Recharts draws the charts. Vitest and Testing Library cover units
 and components; Playwright covers the browser. Nginx serves the built assets and
 reverse-proxies `/api/v1`.
 
@@ -41,6 +41,8 @@ Rules that follow from that:
   eligibility from `data_type`. No point code is special-cased.
 - The history endpoint answers newest-first (`observed_at DESC, id DESC`). The
   chart reverses it; the transport layer does not.
+- Every eligible numeric point is charted at once, in a responsive grid. There
+  is no chart selector; a point with no samples yet keeps its card and says so.
 
 ## Polling
 
@@ -48,9 +50,12 @@ Rules that follow from that:
 | ------------------------------- | -------- |
 | Facility list                   | 30s      |
 | Selected facility configuration | 5s       |
-| Selected point history          | 10s      |
+| Each numeric point's history    | 10s      |
 
-One fetch per resource at a time. Selection changes abort superseded requests.
+One fetch per resource at a time. Every numeric point is charted, so history is
+one query per point on its own key and its own interval — a facility with four
+numeric points makes four history requests per tick. Selection changes abort
+superseded requests.
 
 ## Failure model
 

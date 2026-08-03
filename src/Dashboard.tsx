@@ -2,9 +2,10 @@
  * The owner monitoring screen.
  *
  * One screen, read-only. It selects a facility, shows every active measurement
- * point with its current reading, and charts the last 100 samples of one
- * numeric point. It offers no create, edit, archive, command or simulation
- * control, because the backend contract it speaks is a read contract.
+ * point with its current reading, and charts the last 100 samples of every
+ * numeric point side by side. It offers no create, edit, archive, command or
+ * simulation control, because the backend contract it speaks is a read
+ * contract.
  *
  * The failure rule that shapes the whole component: a *refresh* failure keeps
  * the last successful snapshot on screen and marks it stale, while a *first
@@ -17,22 +18,20 @@ import { useCallback, useMemo, useState } from "react";
 import {
   useFacilitiesQuery,
   useFacilityConfigurationQuery,
-  usePointTelemetryQuery,
+  usePointTelemetryQueries,
 } from "./api/queries";
 import { describeError } from "./api/errors";
 import { LoadingPanel, MessagePanel } from "./components/Message";
 import { FacilitySelector } from "./components/FacilitySelector";
-import { HistoryChart } from "./components/HistoryChart";
+import { HistoryChartCard } from "./components/HistoryChartCard";
 import { MeasurementCards } from "./components/MeasurementCards";
-import { PointSelector } from "./components/PointSelector";
 import type { ConnectionTone } from "./components/StatusBanner";
 import { StatusBanner } from "./components/StatusBanner";
 import { formatInstant, humaniseToken } from "./domain/format";
-import { activeMeasurementPoints, numericMeasurementPoints, toChartSamples } from "./domain/points";
+import { activeMeasurementPoints, numericMeasurementPoints } from "./domain/points";
 
 export function Dashboard() {
   const [chosenFacilityId, setChosenFacilityId] = useState<string | null>(null);
-  const [chosenPointId, setChosenPointId] = useState<string | null>(null);
 
   const facilities = useFacilitiesQuery();
   const facilityItems = useMemo(() => facilities.data?.items ?? [], [facilities.data]);
@@ -59,38 +58,34 @@ export function Dashboard() {
     [document_],
   );
 
-  const selectedPointId = useMemo(() => {
-    if (chosenPointId !== null && numericPoints.some((point) => point.id === chosenPointId)) {
-      return chosenPointId;
-    }
-    return numericPoints[0]?.id ?? null;
-  }, [chosenPointId, numericPoints]);
-
-  const selectedPoint = numericPoints.find((point) => point.id === selectedPointId) ?? null;
-
-  const telemetry = usePointTelemetryQuery(selectedPointId);
-  const chartSamples = useMemo(() => toChartSamples(telemetry.data?.items ?? []), [telemetry.data]);
+  // Every numeric point is charted, so every numeric point polls its own
+  // history. The results come back in the order the ids went in, which is what
+  // lets each point be paired with its own query below.
+  const numericPointIds = useMemo(() => numericPoints.map((point) => point.id), [numericPoints]);
+  const telemetries = usePointTelemetryQueries(numericPointIds);
 
   const handleSelectFacility = useCallback((facilityId: string) => {
     setChosenFacilityId(facilityId);
-    // The previous point belonged to the previous facility; clearing it lets
-    // the new facility's first numeric point take over.
-    setChosenPointId(null);
   }, []);
 
   const handleRetry = useCallback(() => {
     void facilities.refetch();
     void configuration.refetch();
-    void telemetry.refetch();
-  }, [facilities, configuration, telemetry]);
+    for (const telemetry of telemetries) {
+      void telemetry.refetch();
+    }
+  }, [facilities, configuration, telemetries]);
 
-  const retrying = facilities.isFetching || configuration.isFetching || telemetry.isFetching;
+  const telemetryFetching = telemetries.some((telemetry) => telemetry.isFetching);
+  const telemetryError = telemetries.find((telemetry) => telemetry.error)?.error ?? null;
+
+  const retrying = facilities.isFetching || configuration.isFetching || telemetryFetching;
 
   // Connectivity is derived from the queries themselves; there is no separate
   // health probe, because /health is not part of the proxied /api/v1 surface.
-  const anyError = facilities.isError || configuration.isError || telemetry.isError;
+  const anyError = facilities.isError || configuration.isError || telemetryError !== null;
   const haveSnapshot = facilities.data !== undefined || configuration.data !== undefined;
-  const firstError = facilities.error ?? configuration.error ?? telemetry.error;
+  const firstError = facilities.error ?? configuration.error ?? telemetryError;
 
   let tone: ConnectionTone;
   let bannerMessage: string;
@@ -112,7 +107,6 @@ export function Dashboard() {
   }
 
   const partialPoints = document_?.malformed_point_count ?? 0;
-  const partialSamples = telemetry.data?.malformed_sample_count ?? 0;
 
   return (
     <div className="app">
@@ -222,39 +216,18 @@ export function Dashboard() {
                   there is nothing to chart.
                 </MessagePanel>
               ) : (
-                <>
-                  <div className="controls">
-                    <PointSelector
-                      points={numericPoints}
-                      selectedId={selectedPointId}
-                      onSelect={setChosenPointId}
-                    />
-                  </div>
-
-                  {telemetry.isPending ? (
-                    <LoadingPanel label="Loading samples…" />
-                  ) : telemetry.isError && telemetry.data === undefined ? (
-                    <MessagePanel
-                      title="Cannot load history"
-                      tone="error"
-                      onRetry={handleRetry}
-                      retryLabel="Retry loading history"
-                      retrying={retrying}
-                    >
-                      {describeError(telemetry.error)}
-                    </MessagePanel>
-                  ) : selectedPoint ? (
-                    <>
-                      {partialSamples > 0 ? (
-                        <p className="notice" data-testid="partial-samples-notice">
-                          {partialSamples} sample{partialSamples === 1 ? "" : "s"} could not be read
-                          and {partialSamples === 1 ? "was" : "were"} left out of the chart.
-                        </p>
-                      ) : null}
-                      <HistoryChart point={selectedPoint} samples={chartSamples} />
-                    </>
-                  ) : null}
-                </>
+                <ul className="chart-grid" aria-label="Measurement history">
+                  {numericPoints.map((point, index) => (
+                    <li key={point.id} className="chart-grid__cell">
+                      <HistoryChartCard
+                        point={point}
+                        query={telemetries[index]!}
+                        onRetry={handleRetry}
+                        retrying={retrying}
+                      />
+                    </li>
+                  ))}
+                </ul>
               )}
             </section>
           </>

@@ -2,8 +2,8 @@
 
 A standalone, read-only monitoring dashboard for the AI Greenhouse cloud
 backend. Pick a facility, see every active measurement point with its current
-reading, and inspect the last 100 samples of a numeric point on a chart. New
-telemetry appears on its own through bounded polling.
+reading, and inspect the last 100 samples of every numeric point on its own
+chart. New telemetry appears on its own through bounded polling.
 
 **Read-only boundary.** This application only reads the `greenhouse` public HTTP
 API. It creates, updates, archives and commands nothing — there is no way to
@@ -84,11 +84,12 @@ Each empty state is deliberate and visible, never a blank screen:
 | ------------------------------------------------- | -------- |
 | Facility list                                     | 30 s     |
 | Selected facility configuration and current state | 5 s      |
-| Selected point telemetry history                  | 10 s     |
+| Each numeric point's telemetry history            | 10 s     |
 
 Polling is per-resource through TanStack Query; there is no global interval loop
-and only one request per resource is ever in flight. Changing facility or point
-aborts the superseded request.
+and only one request per resource is ever in flight. Every numeric point is
+charted, so each one polls its own history on its own key. Changing facility
+aborts the superseded requests.
 
 If a **refresh** fails, the last successful snapshot stays on screen and the
 header marks it `Stale` with a Retry button. If the **first** load fails, you get
@@ -149,7 +150,9 @@ Known limitations:
 
 - The JavaScript bundle is around 594 kB (≈177 kB gzipped), dominated by the
   charting library; it is not code-split.
-- Only one numeric point is charted at a time.
+- Every numeric point is charted at once, so history costs one request per
+  numeric point every 10s. A facility with many numeric points polls
+  proportionally harder.
 - Facility selection is local UI state and is not persisted across reloads.
 - The connectivity indicator is derived from the API queries themselves; the
   backend's `/health` endpoint is outside the proxied `/api/v1` surface and is

@@ -1,10 +1,16 @@
 /**
  * The history chart for one numeric measurement point.
  *
- * One series, so there is no legend: the heading names the point. The chart is
- * never the only source of the data — a text summary sits above it and the full
- * sample table is available underneath, which is also what makes the reading
- * available to a screen reader and in forced-colors mode.
+ * One series, so there is no legend: the heading names the point. Every numeric
+ * point gets its own card in the history grid, so the heading is what tells the
+ * charts apart — a point with no samples yet keeps its card and says so, rather
+ * than vanishing from the grid.
+ *
+ * The chart is never the only source of the data — a text summary sits above it
+ * and the full sample table is available underneath, which is also what makes
+ * the reading available to a screen reader and in forced-colors mode. The
+ * summary is the figure's `figcaption` and therefore its last child, with CSS
+ * ordering it back under the heading.
  */
 
 import { useId, useState } from "react";
@@ -58,27 +64,42 @@ export function HistoryChart({ point, samples }: HistoryChartProps) {
   const tableId = useId();
   const unitSuffix = point.unit ? ` ${point.unit}` : "";
 
+  const heading = (
+    <h3 className="chart__title">
+      {point.name}
+      {point.unit ? <span className="chart__unit"> ({point.unit})</span> : null}
+    </h3>
+  );
+
   if (samples.length === 0) {
     return (
-      <p className="chart-empty" data-testid="chart-empty">
-        No numeric samples have been recorded for {point.name} yet.
-      </p>
+      <figure className="chart" data-testid="history-chart" data-point-code={point.code}>
+        {heading}
+        <p className="chart-empty" data-testid="chart-empty">
+          No numeric samples have been recorded for {point.name} yet.
+        </p>
+      </figure>
     );
   }
 
   return (
-    <figure className="chart" data-testid="history-chart">
-      <figcaption className="chart__summary" data-testid="chart-summary">
-        {summary.count} sample{summary.count === 1 ? "" : "s"} for {point.name}. Latest{" "}
-        {formatNumber(summary.latest)}
-        {unitSuffix}, ranging {formatNumber(summary.min)}–{formatNumber(summary.max)}
-        {unitSuffix} between {formatInstant(summary.firstObservedAt)} and{" "}
-        {formatInstant(summary.lastObservedAt)}.
-      </figcaption>
+    <figure className="chart" data-testid="history-chart" data-point-code={point.code}>
+      {heading}
 
       <div className="chart__plot" role="img" aria-label={`Line chart of ${point.name} over time.`}>
         <ResponsiveContainer width="100%" height={280}>
-          <LineChart data={samples} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+          {/*
+            Recharts' own accessibility layer puts a focusable
+            `role="application"` svg inside this `role="img"` wrapper, which
+            contradicts it: the drawing is presentational here, and the summary
+            and the sample table are what carry the data. Left on, every chart
+            would also add a dead tab stop between the charts' real controls.
+          */}
+          <LineChart
+            data={samples}
+            margin={{ top: 8, right: 16, bottom: 8, left: 0 }}
+            accessibilityLayer={false}
+          >
             <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="3 3" vertical={false} />
             <XAxis
               dataKey="timestamp"
@@ -150,6 +171,14 @@ export function HistoryChart({ point, samples }: HistoryChartProps) {
           </table>
         </div>
       ) : null}
+
+      <figcaption className="chart__summary" data-testid="chart-summary">
+        {summary.count} sample{summary.count === 1 ? "" : "s"} for {point.name}. Latest{" "}
+        {formatNumber(summary.latest)}
+        {unitSuffix}, ranging {formatNumber(summary.min)}–{formatNumber(summary.max)}
+        {unitSuffix} between {formatInstant(summary.firstObservedAt)} and{" "}
+        {formatInstant(summary.lastObservedAt)}.
+      </figcaption>
     </figure>
   );
 }
