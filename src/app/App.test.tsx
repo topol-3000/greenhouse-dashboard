@@ -9,6 +9,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
+import { backendRoutes, DEFAULT_DATASET, EMPTY_DATASET } from "../test/fixtures";
 import { HEALTH_URL, HEALTHY_BODY, renderPortal } from "../test/harness";
 
 const PORTAL_NAME = "AI Greenhouse Customer Portal";
@@ -45,7 +46,9 @@ describe("the Customer Portal shell", () => {
   });
 
   it("renders a portal-styled 404 for an unknown address", async () => {
-    renderPortal({ path: "/facilities/does-not-exist" });
+    // An address the route table does not publish at all — distinct from a
+    // published route whose resource the cloud API does not have.
+    renderPortal({ path: "/no-such-section" });
 
     expect(screen.getByRole("heading", { level: 1, name: "Page not found" })).toBeInTheDocument();
     expect(
@@ -63,15 +66,15 @@ describe("the Customer Portal shell", () => {
     expect(await screen.findByTestId("dashboard-page")).toBeInTheDocument();
   });
 
-  it("offers only working routes in the primary navigation", async () => {
+  it("offers exactly the working Dashboard and Greenhouses routes", async () => {
     renderPortal();
 
     const navigation = screen.getByRole("navigation", { name: "Primary" });
     const links = within(navigation).getAllByRole("link");
-    expect(links.map((link) => link.textContent)).toEqual(["Dashboard"]);
+    expect(links.map((link) => link.textContent)).toEqual(["Dashboard", "Greenhouses"]);
 
     // Nothing unbuilt is advertised anywhere in the shell.
-    for (const absent of ["Sites", "Facilities", "Activity", "Settings", "Users", "Billing"]) {
+    for (const absent of ["Monitoring", "Control", "Activity", "Settings", "Users", "Billing"]) {
       expect(within(navigation).queryByText(absent)).toBeNull();
     }
 
@@ -153,7 +156,9 @@ describe("cloud API availability", () => {
   });
 
   it("stays usable when the cloud API cannot be reached", async () => {
-    const { api } = renderPortal({ routes: { [HEALTH_URL]: { networkError: true } } });
+    const { api } = renderPortal({
+      routes: backendRoutes(DEFAULT_DATASET, { [HEALTH_URL]: { networkError: true } }),
+    });
 
     await waitFor(() => {
       expect(screen.getByTestId("api-status")).toHaveTextContent("Cloud API: Unavailable");
@@ -169,7 +174,7 @@ describe("cloud API availability", () => {
     ).toBeInTheDocument();
 
     // And the user can act on it: rechecking really issues another request.
-    api.setRoutes({ [HEALTH_URL]: { body: HEALTHY_BODY } });
+    api.setRoutes(backendRoutes(DEFAULT_DATASET, { [HEALTH_URL]: { body: HEALTHY_BODY } }));
     await userEvent.click(screen.getByRole("button", { name: "Check again" }));
 
     await waitFor(() => {
@@ -187,7 +192,7 @@ describe("cloud API availability", () => {
     const region = screen.getByTestId("notification-region");
     expect(region).toBeEmptyDOMElement();
 
-    api.setRoutes({ [HEALTH_URL]: { networkError: true } });
+    api.setRoutes(backendRoutes(DEFAULT_DATASET, { [HEALTH_URL]: { networkError: true } }));
     await userEvent.click(screen.getByRole("button", { name: "Check again" }));
 
     await waitFor(() => {
@@ -200,35 +205,41 @@ describe("cloud API availability", () => {
 });
 
 describe("truthfulness of the landing page", () => {
-  it("renders no greenhouse, telemetry or command data", async () => {
+  it("renders no telemetry, actuator state or command data", async () => {
     renderPortal();
-    await screen.findByTestId("dashboard-page");
+    await screen.findByTestId("dashboard-topology");
 
     const text = document.body.textContent ?? "";
 
-    // No invented domain vocabulary or fixture names.
-    for (const forbidden of ["Basil", "Growbox", "Facility 1", "Zone", "Command", "Actuator"]) {
+    for (const forbidden of ["Setpoint", "Actuator", "Command", "Automation", "Simulation"]) {
       expect(text).not.toContain(forbidden);
     }
     // No readings: a number with a unit would have to have come from somewhere.
     expect(text).not.toMatch(/\d+(\.\d+)?\s?(°C|°F|%RH|lx|ppm|kPa)/);
-    // No fabricated counters.
-    expect(text).not.toMatch(/\d+\s+(facilities|sites|zones|points|commands|samples)/i);
-
-    // The page says so plainly instead.
-    expect(
-      screen.getByRole("heading", { name: "Nothing has been loaded yet" }),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/Nothing on this page is sample data/)).toBeInTheDocument();
   });
 
-  it("asks the backend for nothing but its health endpoint", async () => {
+  it("shows no count at all when the cloud API reports no topology", async () => {
+    renderPortal({ routes: backendRoutes(EMPTY_DATASET) });
+    await screen.findByTestId("dashboard-topology-empty");
+
+    const text = document.body.textContent ?? "";
+    expect(text).not.toMatch(/\d+\s+(facilities|sites|zones|points|commands|samples)/i);
+    expect(screen.getByText(/Nothing is invented to fill the gap/)).toBeInTheDocument();
+  });
+
+  it("asks the backend only for health and the topology collections", async () => {
     const { api } = renderPortal();
-    await screen.findByTestId("dashboard-page");
+    await screen.findByTestId("dashboard-topology");
 
     await waitFor(() => {
       expect(api.calls.length).toBeGreaterThan(0);
     });
-    expect(new Set(api.calls)).toEqual(new Set([HEALTH_URL]));
+    expect(new Set(api.calls)).toEqual(
+      new Set([
+        HEALTH_URL,
+        "/api/v1/sites?limit=200&offset=0",
+        "/api/v1/facilities?limit=200&offset=0",
+      ]),
+    );
   });
 });

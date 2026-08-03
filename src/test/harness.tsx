@@ -17,12 +17,9 @@ import { MemoryRouter } from "react-router";
 import { vi } from "vitest";
 import { App } from "../app/App";
 import { AppProviders } from "../app/AppProviders";
+import { backendRoutes, HEALTH_URL, HEALTHY_BODY } from "./fixtures";
 
-/** The URL the portal builds for the backend's health endpoint. */
-export const HEALTH_URL = "/health";
-
-/** A healthy answer from the backend's published contract. */
-export const HEALTHY_BODY = { status: "ok", service: "greenhouse", database: "ok" } as const;
+export { HEALTH_URL, HEALTHY_BODY };
 
 /**
  * The URL a `fetch` call was made with.
@@ -130,13 +127,17 @@ export function createTestQueryClient(): QueryClient {
 export interface RenderPortalOptions {
   /** The address the portal starts at. */
   path?: string;
-  /** Routing table for `fetch`. Defaults to a healthy backend. */
+  /**
+   * Routing table for `fetch`. Defaults to a healthy backend serving the
+   * default topology fixture, so a test that is not about the backend does not
+   * have to describe one.
+   */
   routes?: Router;
 }
 
 /** Render the whole portal at an address, over a stubbed backend. */
 export function renderPortal(options: RenderPortalOptions = {}) {
-  const api = installFetchMock(options.routes ?? { [HEALTH_URL]: { body: HEALTHY_BODY } });
+  const api = installFetchMock(options.routes ?? backendRoutes());
   const client = createTestQueryClient();
   return {
     api,

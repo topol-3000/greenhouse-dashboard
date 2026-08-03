@@ -8,13 +8,14 @@
  */
 
 import { expect, test } from "@playwright/test";
-import { mockHealth } from "./fixtures";
+import { mockHealth, mockTopology } from "./fixtures";
 
 const PORTAL_NAME = "AI Greenhouse Customer Portal";
 
 test.describe("the Customer Portal", () => {
   test("opens as the Customer Portal with a working dashboard route", async ({ page }) => {
     await mockHealth(page);
+    await mockTopology(page);
     await page.goto("/");
 
     await expect(page).toHaveTitle(`Dashboard · ${PORTAL_NAME}`);
@@ -23,11 +24,13 @@ test.describe("the Customer Portal", () => {
     await expect(page.getByTestId("dashboard-page")).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Primary" }).getByRole("link")).toHaveText([
       "Dashboard",
+      "Greenhouses",
     ]);
   });
 
   test("shows that the cloud API is available", async ({ page }) => {
     await mockHealth(page);
+    await mockTopology(page);
     await page.goto("/");
 
     await expect(page.getByTestId("api-status")).toHaveText("Cloud API: Available");
@@ -36,6 +39,8 @@ test.describe("the Customer Portal", () => {
 
   test("stays usable when the cloud API is unreachable", async ({ page }) => {
     const health = await mockHealth(page, "unreachable");
+    const topology = await mockTopology(page);
+    topology.setUnreachable(true);
     await page.goto("/");
 
     await expect(page.getByTestId("api-status")).toHaveText("Cloud API: Unavailable");
@@ -44,7 +49,10 @@ test.describe("the Customer Portal", () => {
     await expect(page.getByRole("link", { name: PORTAL_NAME })).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Primary" })).toBeVisible();
     await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Nothing has been loaded yet" })).toBeVisible();
+    // The topology read failed too, and says so without replacing the portal.
+    await expect(page.getByTestId("request-error")).toContainText(
+      "Your greenhouses could not be loaded",
+    );
 
     // Rechecking recovers, and the change is announced.
     health.setMode("available");
@@ -57,6 +65,7 @@ test.describe("the Customer Portal", () => {
     page,
   }) => {
     await mockHealth(page);
+    await mockTopology(page);
     await page.goto("/no-such-page");
 
     await expect(page.getByRole("heading", { level: 1, name: "Page not found" })).toBeVisible();
@@ -71,20 +80,22 @@ test.describe("the Customer Portal", () => {
     await expect(page).toHaveURL(/\/$/);
   });
 
-  test("renders no greenhouse, telemetry or command data", async ({ page }) => {
+  test("renders no telemetry, actuator or command data", async ({ page }) => {
     await mockHealth(page);
+    await mockTopology(page);
     await page.goto("/");
     await expect(page.getByTestId("dashboard-page")).toBeVisible();
 
     const text = (await page.locator("body").innerText()).toLowerCase();
-    for (const forbidden of ["basil", "growbox", "actuator", "setpoint", "telemetry sample"]) {
+    for (const forbidden of ["actuator", "setpoint", "telemetry sample", "command"]) {
       expect(text).not.toContain(forbidden);
     }
     expect(text).not.toMatch(/\d+(\.\d+)?\s?(°c|°f|lx|ppm|kpa)/);
   });
 
-  test("asks the backend for nothing but its health endpoint", async ({ page }) => {
+  test("asks the backend only for health and the published topology paths", async ({ page }) => {
     await mockHealth(page);
+    await mockTopology(page);
     const requested: string[] = [];
     page.on("request", (request) => {
       const url = new URL(request.url());
@@ -95,16 +106,24 @@ test.describe("the Customer Portal", () => {
 
     await page.goto("/");
     await expect(page.getByTestId("api-status")).toHaveText("Cloud API: Available");
+    await expect(page.getByTestId("dashboard-topology")).toBeVisible();
 
     expect(requested.length).toBeGreaterThan(0);
 
-    // One endpoint, and same-origin: the default build carries no backend host.
+    // Same-origin only: the default build carries no backend host.
     const origin = new URL(page.url()).origin;
-    expect(new Set(requested)).toEqual(new Set([`${origin}/health`]));
+    expect(new Set(requested)).toEqual(
+      new Set([
+        `${origin}/health`,
+        `${origin}/api/v1/sites?limit=200&offset=0`,
+        `${origin}/api/v1/facilities?limit=200&offset=0`,
+      ]),
+    );
   });
 
   test("drives the shell with the keyboard alone", async ({ page }) => {
     await mockHealth(page);
+    await mockTopology(page);
     await page.goto("/");
     await expect(page.getByTestId("dashboard-page")).toBeVisible();
 

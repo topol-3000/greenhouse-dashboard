@@ -17,3 +17,23 @@ export function formatInstant(epochMs: number): string {
     timeStyle: "medium",
   });
 }
+
+/**
+ * Present a contract enum value as a label without changing what it means.
+ *
+ * The backend's vocabulary is kept: `nutrient_solution` is shown as "Nutrient
+ * solution", never renamed to something the API did not say. The transform is
+ * mechanical — underscores become spaces and the first letter is capitalised —
+ * so a value the portal has never seen still renders instead of falling through
+ * a lookup table into a blank.
+ *
+ * @param value The value exactly as the API sent it.
+ * @returns The label to display.
+ */
+export function formatContractValue(value: string): string {
+  const spaced = value.replaceAll("_", " ").trim();
+  if (spaced === "") {
+    return value;
+  }
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}

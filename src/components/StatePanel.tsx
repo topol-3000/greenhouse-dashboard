@@ -19,6 +19,14 @@ interface StatePanelProps {
   action?: ReactNode;
   /** Heading level, so a panel never breaks the page's heading order. */
   headingLevel?: 2 | 3;
+  /**
+   * Announce the panel to assistive technology. A failure the user did not ask
+   * for is an `alert`; a state they navigated to announces itself by being the
+   * page, and passing nothing is right.
+   */
+  role?: "alert" | "status";
+  /** Test hook, so a state can be identified without matching on its prose. */
+  testId?: string;
 }
 
 export function StatePanel({
@@ -27,10 +35,16 @@ export function StatePanel({
   tone = "neutral",
   action,
   headingLevel = 3,
+  role,
+  testId,
 }: StatePanelProps) {
   const Heading = headingLevel === 2 ? "h2" : "h3";
   return (
-    <div className={`panel panel--${tone}`}>
+    <div
+      className={`panel panel--${tone}`}
+      {...(role ? { role } : {})}
+      {...(testId ? { "data-testid": testId } : {})}
+    >
       <Heading className="panel__title">{title}</Heading>
       {children ? <div className="panel__body">{children}</div> : null}
       {action}

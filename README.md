@@ -4,19 +4,25 @@ The customer-facing web application for AI Greenhouse: the place a customer
 monitors and manually operates one or more greenhouse facilities.
 
 This repository is the portal, not a single screen. **Dashboard** is one feature
-inside it and owns the `/` route; later units add facility, control-zone and
-activity features alongside it.
+inside it and owns the `/` route; **Greenhouses**, the Facility workspace and the
+ControlZone workspace sit alongside it.
 
 ## What this release contains
 
-This is the portal foundation. It delivers the application shell — identity,
-routing, navigation, breadcrumbs, notifications, the responsive layout, the
-shared UI states and the API boundary — plus a Dashboard route that reports
-whether the cloud API is reachable.
+The portal foundation, plus **read-only greenhouse topology**. On top of the
+application shell — identity, routing, navigation, breadcrumbs, notifications,
+the responsive layout, the shared UI states and the API boundary — it loads the
+customer's real Site → Facility → ControlZone structure from the cloud API and
+lets them navigate it.
 
-It deliberately contains **no** greenhouse data. The portal reads one endpoint,
-the backend's `/health`, and renders nothing that the backend did not say. There
-are no sample facilities, no placeholder readings and no invented statistics.
+Everything on screen came from the cloud API. There are no sample facilities, no
+placeholder readings and no invented statistics; when the API returns nothing,
+the portal says so rather than filling the page.
+
+Topology is **read-only** here: nothing in the portal creates, edits or deletes
+a site, a facility or a control zone. Monitoring, manual control, Activity
+history and authentication are not part of this release — see
+[Not implemented yet](#not-implemented-yet).
 
 ## Repository boundaries
 
@@ -142,16 +148,17 @@ tables, and this portal invents nothing to fill them.
 ## Commands
 
 ```bash
-npm run format:check   # Prettier check
-npm run format         # Prettier write
-npm run lint           # ESLint
-npm run typecheck      # strict TypeScript, no emit
-npm run test           # Vitest unit and component suite
-npm run test:coverage  # the same, with a coverage summary
-npm run build          # production Vite build
-npm run preview        # serve the production build on :4173
-npm run e2e            # Playwright desktop + narrow viewport
-npm run dev            # Vite dev server on :5173
+npm run format:check         # Prettier check
+npm run format               # Prettier write
+npm run lint                 # ESLint
+npm run typecheck            # strict TypeScript, no emit
+npm run test                 # Vitest unit and component suite
+npm run test:coverage        # the same, with a coverage summary
+npm run build                # production Vite build
+npm run preview              # serve the production build on :4173
+npm run e2e                  # Playwright desktop + narrow viewport
+npm run dev                  # Vite dev server on :5173
+npm run generate:api-types   # regenerate src/api/schema.ts from openapi.json
 ```
 
 Reproducibly, in Docker:
@@ -161,21 +168,32 @@ docker compose run --rm test   # format, lint, typecheck, unit/component tests
 docker compose run --rm e2e    # Playwright, in the official browser image
 ```
 
-The browser suite serves the real production build and answers the backend's
-`/health` from fixtures, so it needs no backend and no shared mutable state.
+The browser suite serves the real production build and answers `/health` and the
+topology endpoints from contract-faithful fixtures inside the browser, so it
+needs no backend, no sibling repository and no shared mutable state. Use the
+Docker command when the local machine lacks the browser's system libraries.
+
+Nested routes are client-side addresses, so **whatever serves the bundle must
+answer every path with `index.html`**. The repository's Nginx runtime and
+`vite preview` both do; a host that does not will 404 on a refresh of
+`/facilities/…`.
 
 ## Application structure
 
 ```text
 src/
   app/         bootstrap, providers, router mounting, route tree
-  api/         base URL configuration, HTTP boundary, health contract, queries
+  api/         base URL, HTTP boundary, generated + narrowed contract types,
+               decoding, pagination, health and topology requests, queries
   components/  reusable presentational UI (panels, status, notifications)
   features/
     dashboard/ the Dashboard feature and its route component
+    topology/  Greenhouses, Facility and ControlZone screens, the facility
+               switcher and their view models
   layouts/     the portal shell: header, navigation, breadcrumbs, main region
   routes/      the route table and the 404 page
   shared/      cross-feature utilities (notifications channel, formatting)
+  test/        test support only: the render harness and contract-valid fixtures
 ```
 
 Routes are described as data in `src/routes/routes.tsx`. The router, the primary
@@ -187,19 +205,90 @@ normalisation, one place where cancellation is honoured, and one place a token
 will be attached when authentication exists. Presentational components make no
 requests.
 
-[`openapi.json`](openapi.json) is the backend's published contract, kept here for
-reference and as the input a generated client or generated types would use in a
-later unit.
+`src/test/fixtures.ts` and `e2e/fixtures.ts` are **test support only**. Nothing
+under `src/` outside the tests imports them, there is no demo or seed mode, and
+production code never falls back to a fixture: a request the cloud API does not
+answer is an error state on screen, not sample data.
 
 ## Routes
 
-| Route | What it is                                                       |
-| ----- | ---------------------------------------------------------------- |
-| `/`   | Dashboard — the portal landing page and cloud API availability   |
-| `*`   | The portal's 404 page, rendered inside the shell with a way back |
+| Route                                   | What it is                                                            |
+| --------------------------------------- | --------------------------------------------------------------------- |
+| `/`                                     | Dashboard — cloud API availability and the API's own topology counts  |
+| `/sites`                                | Greenhouses — every site and the facilities inside it                 |
+| `/facilities/:facilityId`               | Facility workspace — the facility, its site and its control zones     |
+| `/facilities/:facilityId/zones/:zoneId` | ControlZone workspace — the zone, its parents and its point inventory |
+| `*`                                     | The portal's 404 page, rendered inside the shell with a way back      |
 
-Navigation lists only routes that work. There is no placeholder entry for a
-feature that has not been built.
+The primary navigation offers **Dashboard** and **Greenhouses** only: the two
+routes that work without a resource. The nested routes are reached by link, by
+the facility switcher, or by their own address — they are shareable, they
+survive a refresh, and browser back and forward behave normally, because the URL
+is the only source of the selected facility and control zone.
+
+There is no placeholder entry for a feature that has not been built.
+
+### How the portal presents the topology
+
+```text
+Site            → a card on /sites, with its code, time zone and status
+└── Facility    → a link into /facilities/:facilityId
+    └── ControlZone → a link into /facilities/:facilityId/zones/:zoneId
+```
+
+The parentage shown is the parentage the API states — `FacilityRead.site_id` and
+`ControlZoneRead.facility_id`. Nothing is inferred from a name, a code or the
+shape of an address, and a control zone whose `facility_id` is not the facility
+in the URL is refused rather than drawn under the wrong parent.
+
+A site with no facilities, a facility with no control zones and a cloud API with
+no topology at all are each stated in words. So is an incomplete read: if a
+collection is larger than the portal's bounded pagination walk, the screen says
+how much of it is being shown instead of presenting a partial list as the whole.
+
+## Backend integration
+
+[`openapi.json`](openapi.json) is the backend contract this repository is built
+against, and the only contract it is built against. It is checked in, and the
+TypeScript types at the API boundary are generated from it:
+
+```bash
+npm run generate:api-types   # openapi.json → src/api/schema.ts, formatted
+```
+
+`src/api/schema.ts` is generated and committed; do not edit it by hand. Refresh
+`openapi.json`, re-run the command, and a field the backend renamed becomes a
+TypeScript error rather than an empty space on a screen.
+`src/api/contract.ts` narrows that output to the schemas this portal consumes and
+documents the mapping.
+
+| Purpose                             | Operation                                    | Schema                          |
+| ----------------------------------- | -------------------------------------------- | ------------------------------- |
+| Cloud API availability              | `GET /health`                                | `HealthResponse`                |
+| List sites                          | `GET /api/v1/sites`                          | `Page[SiteRead]`                |
+| Resolve one site                    | `GET /api/v1/sites/{site_id}`                | `SiteRead`                      |
+| List facilities, optionally by site | `GET /api/v1/facilities?site_id=`            | `Page[FacilityRead]`            |
+| Resolve one facility                | `GET /api/v1/facilities/{facility_id}`       | `FacilityRead`                  |
+| List a facility's control zones     | `GET /api/v1/control-zones?facility_id=`     | `Page[ControlZoneRead]`         |
+| Resolve one control zone            | `GET /api/v1/control-zones/{zone_id}`        | `ControlZoneRead`               |
+| A control zone's point composition  | `GET /api/v1/control-zones/{zone_id}/points` | `Page[ZonePointAssignmentRead]` |
+
+Notes that follow from the contract:
+
+- every collection answers the `Page` envelope — `items`, `total`, `limit`,
+  `offset` — with `limit` capped at 200. The portal walks the pages up to a hard
+  bound and reports an incomplete read rather than guessing;
+- counts shown on the Dashboard are the backend's own `Page.total`, not a number
+  this portal added up from the pages it happened to receive;
+- a deep link resolves its resource with the contract's direct lookup, so
+  opening `/facilities/{id}` does not list every facility first;
+- filtering is done by the backend through `site_id` and `facility_id`, not by
+  the browser after the fact;
+- a `404` — and a `422` for an identifier that is not the UUID the contract
+  requires — is a resource-level "not in the cloud API" state on the page, never
+  a full-page outage;
+- `GET /api/v1/facilities/{facility_id}/configuration` is deliberately **not**
+  used: it carries live point state, and this release is topology only.
 
 ## Accessibility and responsiveness
 
@@ -219,9 +308,10 @@ Named here so nothing above is mistaken for a promise that has been kept:
 - **Authentication.** There is no sign-in, no token, no user and no role. The
   portal shows whatever the cloud API it is configured against reports, and the
   API boundary carries a place to attach a token rather than a fake one.
-- Site, facility and control-zone loading, and topology editing.
-- Sensor monitoring, telemetry history and charts.
-- Actuator controls, manual commands and command polling.
+- **Topology editing.** Sites, facilities and control zones are read-only here.
+  There is no create, edit or delete, and no button that pretends there is.
+- Sensor monitoring, telemetry history, freshness and charts.
+- Actuator state, actuator controls, manual commands and command polling.
 - Activity history, recipes, grow cycles, automation and schedules.
 - Users, tenants, billing and settings screens.
 
