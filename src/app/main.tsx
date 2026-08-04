@@ -12,6 +12,10 @@ import { BrowserRouter } from "react-router";
 import { App } from "./App";
 import { AppProviders } from "./AppProviders";
 import { createQueryClient } from "./queryClient";
+// Order matters. CoreUI first, then the greenhouse theme that reshapes it, then
+// the feature layer that still owns the portal's own cards, tables and modals.
+import "@coreui/coreui/dist/css/coreui.min.css";
+import "../styles/theme.css";
 import "../styles.css";
 
 const container = document.getElementById("root");

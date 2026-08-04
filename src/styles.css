@@ -1,63 +1,15 @@
 /*
- * The Customer Portal's baseline visual system.
+ * The Customer Portal's feature layer.
  *
- * One set of tokens for typography, spacing and colour; one page container; one
- * set of navigation, panel and status treatments. Later portal features are
- * expected to compose these rather than introduce a parallel look.
+ * The design tokens, the CoreUI mapping and the application shell live in
+ * `styles/theme.css`; what remains here is the panel, card, table, chart,
+ * control and Activity treatment the feature pages still use. It composes the
+ * same tokens, so both layers change appearance together.
  *
- * Colours are declared once and re-stepped for dark mode rather than inverted,
- * so contrast holds in both. No state is signalled by colour alone: every
- * status carries its own words.
+ * This layer is loaded after CoreUI so that, where a class name is shared —
+ * `.card`, `.table`, `.modal` — the portal's own rule is the one that applies.
+ * No state is signalled by colour alone: every status carries its own words.
  */
-
-:root {
-  color-scheme: light dark;
-
-  --surface-0: #f4f4f2;
-  --surface-1: #fcfcfb;
-  --surface-2: #eceae5;
-  --border: #d5d3cc;
-  --text-primary: #0b0b0b;
-  --text-secondary: #52514e;
-
-  --accent: #2a78d6;
-
-  --tone-good: #006c3f;
-  --tone-good-bg: #dff2e6;
-  --tone-warning: #8a4b00;
-  --tone-warning-bg: #fbebd6;
-  --tone-neutral: #52514e;
-  --tone-neutral-bg: #eceae5;
-  --tone-error: #a11f1d;
-  --tone-error-bg: #fbe4e3;
-
-  --radius: 10px;
-  --gap: 1rem;
-  --page-width: 72rem;
-  --page-inline: 1rem;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --surface-0: #121211;
-    --surface-1: #1a1a19;
-    --surface-2: #232322;
-    --border: #3a3a38;
-    --text-primary: #ffffff;
-    --text-secondary: #c3c2b7;
-
-    --accent: #3987e5;
-
-    --tone-good: #7fd6a4;
-    --tone-good-bg: #10321f;
-    --tone-warning: #f0b878;
-    --tone-warning-bg: #3a2710;
-    --tone-neutral: #c3c2b7;
-    --tone-neutral-bg: #2a2a28;
-    --tone-error: #f09a98;
-    --tone-error-bg: #3a1615;
-  }
-}
 
 * {
   box-sizing: border-box;
@@ -81,6 +33,7 @@ body {
 code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.9375em;
+  color: var(--text-primary);
   background: var(--surface-2);
   border-radius: 4px;
   padding: 0.0625rem 0.25rem;
@@ -93,216 +46,6 @@ a {
 :where(a, button, select, [tabindex]):focus-visible {
   outline: 3px solid var(--accent);
   outline-offset: 2px;
-}
-
-/* Shell ------------------------------------------------------------------ */
-
-.portal {
-  min-height: 100vh;
-  min-height: 100dvh;
-  display: flex;
-  flex-direction: column;
-}
-
-.skip-link {
-  position: absolute;
-  left: -100vw;
-  top: 0;
-  z-index: 10;
-  padding: 0.75rem 1rem;
-  background: var(--surface-1);
-  border: 1px solid var(--border);
-  border-radius: 0 0 var(--radius) 0;
-  font-weight: 600;
-}
-
-.skip-link:focus {
-  left: 0;
-}
-
-.portal__header {
-  background: var(--surface-1);
-  border-bottom: 1px solid var(--border);
-}
-
-.portal__bar {
-  max-width: var(--page-width);
-  margin: 0 auto;
-  padding: 0.75rem var(--page-inline);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-}
-
-.portal__bar-end {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-  color: var(--text-primary);
-  text-decoration: none;
-}
-
-.brand__mark {
-  width: 1.5rem;
-  height: 1.5rem;
-  flex: none;
-  border-radius: 6px;
-  background: var(--accent);
-}
-
-.brand__words {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.2;
-}
-
-.brand__product {
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
-
-.brand__suffix {
-  font-size: 0.8125rem;
-  color: var(--text-secondary);
-}
-
-.nav-toggle {
-  font: inherit;
-  font-weight: 600;
-  color: var(--text-primary);
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 0.5rem 0.875rem;
-  min-height: 2.75rem;
-  cursor: pointer;
-}
-
-/* Primary navigation ----------------------------------------------------- */
-
-.portal-nav {
-  border-top: 1px solid var(--border);
-}
-
-/*
- * The collapsed menu is removed from the layout, not merely hidden, so its
- * links leave the tab order too. Above the breakpoint the toggle disappears and
- * the navigation is always shown.
- */
-.portal-nav[data-open="false"] {
-  display: none;
-}
-
-.portal-nav__list {
-  max-width: var(--page-width);
-  margin: 0 auto;
-  padding: 0.5rem var(--page-inline);
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.portal-nav__link {
-  display: block;
-  padding: 0.5rem 0.75rem;
-  min-height: 2.75rem;
-  border-radius: var(--radius);
-  color: var(--text-secondary);
-  font-weight: 600;
-  text-decoration: none;
-  border-bottom: 2px solid transparent;
-}
-
-.portal-nav__link:hover {
-  background: var(--surface-2);
-  color: var(--text-primary);
-}
-
-.portal-nav__link--active {
-  color: var(--text-primary);
-  background: var(--surface-2);
-  border-bottom-color: var(--accent);
-}
-
-@media (min-width: 48rem) {
-  .nav-toggle {
-    display: none;
-  }
-
-  .portal-nav[data-open="false"] {
-    display: block;
-  }
-
-  .portal-nav__list {
-    flex-direction: row;
-    gap: 0.5rem;
-  }
-
-  .portal-nav__link {
-    display: flex;
-    align-items: center;
-  }
-}
-
-/* Main region ------------------------------------------------------------ */
-
-.portal__main {
-  flex: 1;
-}
-
-.portal__content {
-  max-width: var(--page-width);
-  margin: 0 auto;
-  padding: 1.5rem var(--page-inline) 3rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-.portal__heading {
-  margin: 0;
-  font-size: 1.75rem;
-  letter-spacing: -0.01em;
-}
-
-.portal__footer {
-  border-top: 1px solid var(--border);
-  background: var(--surface-1);
-}
-
-.portal__footer p {
-  max-width: var(--page-width);
-  margin: 0 auto;
-  padding: 1rem var(--page-inline);
-  color: var(--text-secondary);
-  font-size: 0.8125rem;
-}
-
-.breadcrumbs__list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-}
-
-.breadcrumbs__item + .breadcrumbs__item::before {
-  content: "/";
-  margin-right: 0.5rem;
-  color: var(--text-secondary);
 }
 
 /* Content blocks --------------------------------------------------------- */
@@ -666,6 +409,8 @@ a {
   border-collapse: collapse;
   width: 100%;
   font-size: 0.875rem;
+  /* CoreUI's own `.table` adds a bottom margin inside the scroll box. */
+  margin-bottom: 0;
 }
 
 .table th,
@@ -903,7 +648,8 @@ a {
 .modal {
   position: fixed;
   inset: 0;
-  z-index: 20;
+  /* Above the shell's own layers, including the off-canvas sidebar. */
+  z-index: 1050;
   display: flex;
   align-items: center;
   justify-content: center;

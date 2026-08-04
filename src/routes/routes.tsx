@@ -18,6 +18,7 @@
  * heading, the document title and the trail with real names in them.
  */
 
+import { cilHistory, cilLeaf, cilSpeedometer } from "@coreui/icons";
 import type { ReactElement } from "react";
 import { matchRoutes } from "react-router";
 import { ActivityPage } from "../features/activity/ActivityPage";
@@ -57,6 +58,13 @@ export interface PortalRoute {
   readonly element: ReactElement;
   /** Whether the primary navigation offers this route. */
   readonly inPrimaryNavigation: boolean;
+  /**
+   * The icon the sidebar draws beside the label, as CoreUI publishes it.
+   *
+   * Decoration only, and only for a route the navigation offers: the label is
+   * always present, so nothing here carries meaning on its own.
+   */
+  readonly navigationIcon?: string[];
   /** The route this one sits under, for breadcrumbs. */
   readonly parentPath?: string;
 }
@@ -68,6 +76,7 @@ export const portalRoutes: readonly PortalRoute[] = [
     description: "Portal overview and cloud API availability.",
     element: <DashboardPage />,
     inPrimaryNavigation: true,
+    navigationIcon: cilSpeedometer,
   },
   {
     path: GREENHOUSES_PATH,
@@ -75,6 +84,7 @@ export const portalRoutes: readonly PortalRoute[] = [
     description: "Your sites and the facilities inside them.",
     element: <GreenhousesPage />,
     inPrimaryNavigation: true,
+    navigationIcon: cilLeaf,
     parentPath: HOME_PATH,
   },
   {
@@ -83,6 +93,7 @@ export const portalRoutes: readonly PortalRoute[] = [
     description: "The commands a control zone has been sent, and what became of them.",
     element: <ActivityPage />,
     inPrimaryNavigation: true,
+    navigationIcon: cilHistory,
     parentPath: HOME_PATH,
   },
   {

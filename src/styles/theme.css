@@ -1,0 +1,438 @@
+/*
+ * The greenhouse theme, and the application shell built on CoreUI.
+ *
+ * Three things live here, in this order:
+ *
+ *   1. the product's design tokens, declared once per theme;
+ *   2. the mapping of CoreUI's own variables onto those tokens, so CoreUI's
+ *      components and the portal's own feature styles cannot drift apart;
+ *   3. the shell layout — header, sidebar, content and footer.
+ *
+ * Both layers are switched by one attribute. `data-coreui-theme` is what
+ * CoreUI's stylesheet reads, and it is what the tokens below key off, so the
+ * appearance selector repaints the whole portal rather than half of it. There
+ * is no `prefers-color-scheme` rule here on purpose: `auto` is resolved in the
+ * application and published as that same attribute, so a media query would be a
+ * second, disagreeing source of truth.
+ *
+ * The direction is greenhouse green as the accent, a graphite sidebar and
+ * restrained neutral content surfaces. No state is signalled by colour alone:
+ * every status carries its own words, and the active navigation entry carries
+ * `aria-current` as well as a highlight.
+ */
+
+/* 1. Tokens ---------------------------------------------------------------- */
+
+:root,
+[data-coreui-theme="light"] {
+  --surface-0: #f4f6f3;
+  --surface-1: #ffffff;
+  --surface-2: #e8ebe6;
+  --border: #d2d7cf;
+  --text-primary: #101410;
+  --text-secondary: #4d544c;
+
+  --accent: #1f7a4d;
+  --accent-rgb: 31, 122, 77;
+  --accent-strong: #17603c;
+  --accent-contrast: #ffffff;
+  --accent-subtle: #e2f0e8;
+
+  --tone-good: #0f6b3f;
+  --tone-good-bg: #dff2e6;
+  --tone-warning: #8a4b00;
+  --tone-warning-bg: #fbebd6;
+  --tone-neutral: #4d544c;
+  --tone-neutral-bg: #e8ebe6;
+  --tone-error: #a11f1d;
+  --tone-error-bg: #fbe4e3;
+
+  --radius: 10px;
+  --gap: 1rem;
+  --page-width: 80rem;
+  --page-inline: 1.25rem;
+}
+
+[data-coreui-theme="dark"] {
+  --surface-0: #101311;
+  --surface-1: #191d1a;
+  --surface-2: #232823;
+  --border: #39403a;
+  --text-primary: #ffffff;
+  --text-secondary: #bcc3bb;
+
+  --accent: #5cc98e;
+  --accent-rgb: 92, 201, 142;
+  --accent-strong: #8adcb0;
+  --accent-contrast: #08130d;
+  --accent-subtle: #16301f;
+
+  --tone-good: #7fd6a4;
+  --tone-good-bg: #10321f;
+  --tone-warning: #f0b878;
+  --tone-warning-bg: #3a2710;
+  --tone-neutral: #bcc3bb;
+  --tone-neutral-bg: #2a2f29;
+  --tone-error: #f09a98;
+  --tone-error-bg: #3a1615;
+}
+
+/*
+ * The sidebar is graphite in both themes, so the navigation is one fixed,
+ * recognisable surface rather than something that changes identity with the
+ * page behind it.
+ */
+:root {
+  --sidebar-bg: #1b211e;
+  --sidebar-border: #2b332e;
+  --sidebar-text: rgba(255, 255, 255, 0.82);
+  --sidebar-text-strong: #ffffff;
+  --sidebar-hover-bg: rgba(255, 255, 255, 0.08);
+  --sidebar-active-bg: #1f7a4d;
+}
+
+/* 2. CoreUI, expressed in those tokens ------------------------------------- */
+
+/*
+ * These declarations sit on `:root` and are loaded after CoreUI's own
+ * `:root, [data-coreui-theme=light]` and `[data-coreui-theme=dark]` blocks.
+ * Specificity is equal, so source order wins, and because the right-hand sides
+ * are tokens the values follow the active theme without being restated.
+ */
+:root {
+  --cui-primary: var(--accent);
+  --cui-primary-rgb: var(--accent-rgb);
+  --cui-primary-contrast: var(--accent-contrast);
+  --cui-link-color: var(--accent);
+  --cui-link-color-rgb: var(--accent-rgb);
+  --cui-link-hover-color: var(--accent-strong);
+
+  --cui-body-bg: var(--surface-0);
+  --cui-body-color: var(--text-primary);
+  --cui-secondary-color: var(--text-secondary);
+  --cui-emphasis-color: var(--text-primary);
+  --cui-border-color: var(--border);
+  --cui-secondary-bg: var(--surface-2);
+  --cui-tertiary-bg: var(--surface-1);
+  --cui-focus-ring-color: rgb(var(--accent-rgb) / 40%);
+
+  --cui-border-radius: var(--radius);
+  --cui-body-font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/* 3. Shell ----------------------------------------------------------------- */
+
+.portal {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.skip-link {
+  position: absolute;
+  left: -100vw;
+  top: 0;
+  z-index: 1040;
+  padding: 0.75rem 1rem;
+  background: var(--surface-1);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 0 0 var(--radius) 0;
+  font-weight: 600;
+}
+
+.skip-link:focus {
+  left: 0;
+}
+
+/* Header ------------------------------------------------------------------ */
+
+.portal-header {
+  --cui-header-bg: var(--surface-1);
+  --cui-header-padding-y: 0.5rem;
+  --cui-header-border-color: var(--border);
+  z-index: 1020;
+}
+
+.portal-header__bar {
+  gap: 0.5rem 0.75rem;
+  padding-inline: var(--page-inline);
+}
+
+.portal-header__end {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/*
+ * Below the sidebar breakpoint the header is two rows: the brand and the menu
+ * toggle, then the portal's state. Above it the toggle is gone and the two
+ * remaining groups share one row.
+ */
+@media (max-width: 991.98px) {
+  .portal-header__end {
+    flex: 1 0 100%;
+  }
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  color: var(--text-primary);
+  text-decoration: none;
+  min-width: 0;
+}
+
+.brand__mark {
+  width: 1.75rem;
+  height: 1.75rem;
+  flex: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
+}
+
+.brand__words {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+  min-width: 0;
+}
+
+.brand__product {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.brand__suffix {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+.nav-toggle {
+  font: inherit;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.875rem;
+  min-height: 2.75rem;
+  cursor: pointer;
+}
+
+/* Appearance selector ----------------------------------------------------- */
+
+.appearance {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 0.125rem;
+  padding: 0.1875rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+
+.appearance__option {
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 2.25rem;
+  padding: 0.25rem 0.75rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.appearance__option:hover {
+  color: var(--text-primary);
+}
+
+/*
+ * The selected appearance is stated by `aria-pressed`, and shown here by a
+ * filled pill — a shape and a weight change, not a hue on its own.
+ */
+.appearance__option[aria-pressed="true"] {
+  background: var(--surface-1);
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.appearance__icon {
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+}
+
+/* Body: sidebar beside the content ---------------------------------------- */
+
+.portal__body {
+  flex: 1;
+  display: flex;
+  align-items: stretch;
+  min-height: 0;
+}
+
+.portal-sidebar {
+  --cui-sidebar-bg: var(--sidebar-bg);
+  --cui-sidebar-color: var(--sidebar-text);
+  border-inline-end: 1px solid var(--sidebar-border);
+}
+
+.portal-nav {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/*
+ * CoreUI declares the whole `--cui-sidebar-nav-*` set on `.sidebar-nav` itself,
+ * so the overrides have to land on that same element — an ancestor's value is
+ * shadowed by the component's own declaration.
+ */
+.portal-nav .sidebar-nav {
+  --cui-sidebar-nav-link-color: var(--sidebar-text);
+  --cui-sidebar-nav-link-hover-color: var(--sidebar-text-strong);
+  --cui-sidebar-nav-link-hover-bg: var(--sidebar-hover-bg);
+  --cui-sidebar-nav-link-active-color: #ffffff;
+  --cui-sidebar-nav-link-active-bg: var(--sidebar-active-bg);
+  --cui-sidebar-nav-link-icon-color: rgba(255, 255, 255, 0.62);
+  --cui-sidebar-nav-link-hover-icon-color: var(--sidebar-text-strong);
+  --cui-sidebar-nav-link-active-icon-color: #ffffff;
+  --cui-sidebar-nav-link-padding-y: 0.6875rem;
+  --cui-sidebar-nav-link-border-radius: var(--radius);
+  --cui-sidebar-nav-gap: 0.25rem;
+}
+
+.portal-nav .nav-link {
+  /* Comfortably tappable, and wide enough that the label never truncates. */
+  min-height: 2.75rem;
+  font-weight: 600;
+}
+
+.portal-nav__label {
+  min-width: 0;
+}
+
+/*
+ * Below CoreUI's sidebar breakpoint the sidebar is off-canvas. A closed menu is
+ * removed from the layout rather than slid out of sight, so its links leave the
+ * tab order and the accessibility tree with it.
+ */
+@media (max-width: 991.98px) {
+  .portal-sidebar[data-open="false"] {
+    display: none;
+  }
+
+  .portal-sidebar[data-open="true"] {
+    box-shadow: 0 0 2rem rgb(0 0 0 / 45%);
+  }
+}
+
+@media (min-width: 992px) {
+  .nav-toggle {
+    display: none;
+  }
+}
+
+.portal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1034;
+  background: rgb(0 0 0 / 50%);
+}
+
+@media (min-width: 992px) {
+  .portal-backdrop {
+    display: none;
+  }
+}
+
+/* Content and footer ------------------------------------------------------ */
+
+.portal__pane {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.portal__main {
+  flex: 1;
+  min-width: 0;
+}
+
+.portal__content {
+  max-width: var(--page-width);
+  margin: 0 auto;
+  padding: 1.5rem var(--page-inline) 3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.portal__heading {
+  margin: 0;
+  font-size: 1.75rem;
+  letter-spacing: -0.01em;
+}
+
+.portal-footer {
+  --cui-footer-bg: var(--surface-1);
+  --cui-footer-border-color: var(--border);
+  padding-inline: var(--page-inline);
+}
+
+.portal-footer p {
+  max-width: var(--page-width);
+  margin: 0 auto;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+}
+
+/* Breadcrumbs ------------------------------------------------------------- */
+
+.breadcrumbs .breadcrumb {
+  --cui-breadcrumb-margin-bottom: 0;
+  --cui-breadcrumb-font-size: 0.875rem;
+  --cui-breadcrumb-divider-color: var(--text-secondary);
+  --cui-breadcrumb-item-active-color: var(--text-secondary);
+  flex-wrap: wrap;
+}
+
+/* Narrow viewports -------------------------------------------------------- */
+
+@media (max-width: 36rem) {
+  /*
+   * The appearance labels leave the layout but stay in the accessibility tree,
+   * so each button keeps the same accessible name at every viewport.
+   */
+  .appearance__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .appearance__option {
+    padding-inline: 0.5rem;
+  }
+
+  .brand__suffix {
+    font-size: 0.75rem;
+  }
+}

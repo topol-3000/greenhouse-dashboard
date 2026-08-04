@@ -128,13 +128,105 @@ test.describe("the Customer Portal", () => {
     await page.goto("/");
     await expect(page.getByTestId("dashboard-page")).toBeVisible();
 
+    // The shell leads with the way past it and the way home.
     await page.keyboard.press("Tab");
     await expect(page.getByRole("link", { name: "Skip to main content" })).toBeFocused();
 
     await page.keyboard.press("Tab");
     await expect(page.getByRole("link", { name: PORTAL_NAME })).toBeFocused();
 
+    // Then the header's own controls, and then the sidebar. Everything in
+    // between is reachable, so no control is stranded off the keyboard path.
     await page.keyboard.press("Tab");
-    await expect(page.getByRole("link", { name: "Dashboard" })).toBeFocused();
+    await expect(page.getByRole("button", { name: "Light" })).toBeFocused();
+
+    await page.keyboard.press("Tab");
+    await page.keyboard.press("Tab");
+    await expect(page.getByRole("button", { name: "Auto" })).toBeFocused();
+
+    await page.keyboard.press("Tab");
+    await expect(
+      page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Dashboard" }),
+    ).toBeFocused();
+  });
+
+  test("shows the sidebar, the header, the breadcrumbs and the footer together", async ({
+    page,
+  }) => {
+    await mockHealth(page);
+    await mockTopology(page);
+    await page.goto("/sites");
+
+    const navigation = page.getByRole("navigation", { name: "Primary" });
+    await expect(navigation).toBeVisible();
+    // On a wide screen the sidebar is persistent: no toggle is needed to reach
+    // the navigation, and the toggle itself is out of the way.
+    await expect(page.getByRole("button", { name: "Menu" })).toBeHidden();
+
+    // The current destination is stated, not only coloured.
+    await expect(navigation.getByRole("link", { name: "Greenhouses" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    await expect(navigation.getByRole("link", { name: "Dashboard" })).not.toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+
+    await expect(
+      page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Dashboard" }),
+    ).toBeVisible();
+    await expect(page.getByRole("contentinfo")).toContainText(PORTAL_NAME);
+    await expect(page.getByRole("banner")).toBeVisible();
+  });
+});
+
+test.describe("appearance", () => {
+  /** The theme the portal has painted on the document. */
+  const paintedTheme = (page: import("@playwright/test").Page) =>
+    page.locator("html").getAttribute("data-coreui-theme");
+
+  test("switches between light, dark and auto, and remembers the choice", async ({ page }) => {
+    await mockHealth(page);
+    await mockTopology(page);
+    await page.emulateMedia({ colorScheme: "light" });
+    await page.goto("/");
+    await expect(page.getByTestId("dashboard-page")).toBeVisible();
+
+    const group = page.getByRole("group", { name: "Appearance" });
+    await expect(group.getByRole("button")).toHaveText(["Light", "Dark", "Auto"]);
+    await expect(group.getByRole("button", { name: "Auto" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(await paintedTheme(page)).toBe("light");
+
+    await group.getByRole("button", { name: "Dark" }).click();
+    expect(await paintedTheme(page)).toBe("dark");
+
+    // The preference survives a reload, and it is applied before the first
+    // paint rather than corrected afterwards.
+    await page.reload();
+    expect(await paintedTheme(page)).toBe("dark");
+    await expect(group.getByRole("button", { name: "Dark" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    await group.getByRole("button", { name: "Auto" }).click();
+    expect(await paintedTheme(page)).toBe("light");
+  });
+
+  test("follows the system's own colour scheme while auto is selected", async ({ page }) => {
+    await mockHealth(page);
+    await mockTopology(page);
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.goto("/");
+    await expect(page.getByTestId("dashboard-page")).toBeVisible();
+
+    expect(await paintedTheme(page)).toBe("dark");
+
+    await page.emulateMedia({ colorScheme: "light" });
+    await expect(page.locator("html")).toHaveAttribute("data-coreui-theme", "light");
   });
 });

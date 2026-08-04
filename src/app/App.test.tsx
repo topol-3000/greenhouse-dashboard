@@ -85,28 +85,83 @@ describe("the Customer Portal shell", () => {
     }
   });
 
+  it("marks the current route in the navigation, and only the current route", async () => {
+    renderPortal({ path: "/sites" });
+
+    const navigation = screen.getByRole("navigation", { name: "Primary" });
+    expect(within(navigation).getByRole("link", { name: "Greenhouses" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    // A nested route is not the Dashboard, and the landing entry must not claim
+    // to be active underneath everything else.
+    expect(within(navigation).getByRole("link", { name: "Dashboard" })).not.toHaveAttribute(
+      "aria-current",
+    );
+
+    await userEvent.click(within(navigation).getByRole("link", { name: "Activity" }));
+    expect(within(navigation).getByRole("link", { name: "Activity" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(within(navigation).getByRole("link", { name: "Greenhouses" })).not.toHaveAttribute(
+      "aria-current",
+    );
+  });
+
+  it("moves focus to the new page heading after a navigation", async () => {
+    renderPortal();
+
+    await userEvent.click(
+      within(screen.getByRole("navigation", { name: "Primary" })).getByRole("link", {
+        name: "Activity",
+      }),
+    );
+
+    const heading = screen.getByRole("heading", { level: 1, name: "Activity" });
+    expect(heading).toHaveFocus();
+  });
+
   it("keeps the mobile navigation accessible from the keyboard", async () => {
     renderPortal();
 
     const toggle = screen.getByRole("button", { name: "Menu" });
     const navigation = screen.getByRole("navigation", { name: "Primary" });
+    // The collapsible region is the sidebar the navigation sits in; the
+    // stylesheet takes it out of the layout, and its links out of the tab
+    // order, whenever it is closed at a narrow width.
+    const sidebar = navigation.closest("[data-open]");
 
     expect(toggle).toHaveAttribute("aria-expanded", "false");
     expect(toggle).toHaveAttribute("aria-controls", navigation.id);
-    expect(navigation).toHaveAttribute("data-open", "false");
+    expect(sidebar).toHaveAttribute("data-open", "false");
 
     await userEvent.click(toggle);
     expect(screen.getByRole("button", { name: "Close menu" })).toHaveAttribute(
       "aria-expanded",
       "true",
     );
-    expect(navigation).toHaveAttribute("data-open", "true");
+    expect(sidebar).toHaveAttribute("data-open", "true");
 
     // Escape closes the menu and hands focus back to the control that opened it.
     await userEvent.keyboard("{Escape}");
     const reopened = screen.getByRole("button", { name: "Menu" });
     expect(reopened).toHaveAttribute("aria-expanded", "false");
     expect(reopened).toHaveFocus();
+    expect(sidebar).toHaveAttribute("data-open", "false");
+  });
+
+  it("closes the open menu when a navigation happens inside it", async () => {
+    renderPortal();
+
+    await userEvent.click(screen.getByRole("button", { name: "Menu" }));
+    const navigation = screen.getByRole("navigation", { name: "Primary" });
+    expect(navigation.closest("[data-open]")).toHaveAttribute("data-open", "true");
+
+    await userEvent.click(within(navigation).getByRole("link", { name: "Greenhouses" }));
+
+    expect(await screen.findByTestId("greenhouses-page")).toBeInTheDocument();
+    expect(navigation.closest("[data-open]")).toHaveAttribute("data-open", "false");
   });
 
   it("reaches the main region with the skip link", () => {
