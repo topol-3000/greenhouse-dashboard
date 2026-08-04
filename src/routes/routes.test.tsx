@@ -47,14 +47,17 @@ describe("the route table", () => {
     expect(pageTitleFor("/facilities")).toBe(NOT_FOUND_TITLE);
   });
 
-  it("offers exactly the working Dashboard and Greenhouses entries", () => {
+  it("offers exactly the working Dashboard, Greenhouses and Activity entries", () => {
     const paths = new Set(portalRoutes.map((route) => route.path));
     for (const route of primaryNavigationRoutes) {
       expect(paths.has(route.path)).toBe(true);
     }
+    // Activity comes after Greenhouses, and the table's order is the
+    // navigation's order.
     expect(primaryNavigationRoutes.map((route) => route.title)).toEqual([
       "Dashboard",
       "Greenhouses",
+      "Activity",
     ]);
     // A parameterised route is reachable by link, never offered as a
     // destination the navigation could send someone to with no resource.

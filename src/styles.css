@@ -946,6 +946,156 @@ a {
   align-self: stretch;
 }
 
+/* Activity ----------------------------------------------------------------
+ *
+ * One markup for every viewport. A command row is a button containing labelled
+ * fields; on a narrow screen the fields stack and read as a card, and from
+ * `48rem` the same fields become aligned columns. Nothing is duplicated for one
+ * width and hidden at the other, so the phone and the desktop cannot drift into
+ * showing different things — and the row stays a real button, so it is operable
+ * by keyboard at both.
+ */
+
+.activity-filters {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 48rem) {
+  .activity-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 72rem) {
+  .activity-filters {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.activity-filters .switcher {
+  max-width: none;
+}
+
+.activity-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.activity-list__item {
+  min-width: 0;
+}
+
+.activity-row {
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  width: 100%;
+  min-width: 0;
+  /* Comfortably past the 44px touch target minimum on a phone. */
+  min-height: 3rem;
+  display: grid;
+  gap: 0.5rem 1rem;
+  grid-template-columns: minmax(0, 1fr);
+  padding: 0.875rem 1rem;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.activity-row:hover {
+  border-color: var(--accent);
+}
+
+.activity-row--selected {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.activity-row__field {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.activity-row__label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+}
+
+.activity-row__value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.activity-row__name {
+  font-weight: 600;
+}
+
+.activity-row__identifier {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.activity-row__hint {
+  display: block;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+.activity-row__state {
+  font-weight: 600;
+}
+
+.activity-row__receipt {
+  display: block;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+.activity-row__receipt--received {
+  color: var(--text-primary);
+}
+
+.activity-row__open {
+  align-self: center;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+@media (min-width: 60rem) {
+  .activity-row {
+    grid-template-columns:
+      minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 1.5fr)
+      auto;
+    align-items: start;
+  }
+
+  /*
+   * The rejection reason and a completion time are the only fields that are not
+   * always present, so they take the full width of a second line rather than
+   * shifting every other column between one row and the next.
+   */
+  .activity-row__field--rejection,
+  .activity-row__field--lifecycle {
+    min-width: 0;
+  }
+
+  .activity-row__field--rejection {
+    grid-column: 1 / -1;
+  }
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;

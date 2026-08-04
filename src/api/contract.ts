@@ -126,6 +126,59 @@
  * whether a submission whose response was lost exists — "the key is unique, so
  * the answer carries zero or one command".
  *
+ * ## Command activity operations
+ *
+ * | Purpose                                | Operation                                             | Schema                           |
+ * | -------------------------------------- | ----------------------------------------------------- | -------------------------------- |
+ * | One zone's command window              | `GET /api/v1/commands?control_zone_id=&target_point_id=&source=&limit=` | `CommandListRead` |
+ * | One command's authoritative detail     | `GET /api/v1/commands/{command_id}`                    | `CommandRead`                    |
+ * | Labels, and the reported point's state | `GET /api/v1/facilities/{facility_id}/configuration`   | `FacilityConfigurationRead`      |
+ *
+ * ### What the command-list contract does promise
+ *
+ * Unlike telemetry history, the list operation documents its own order: "Return
+ * a bounded, deterministic newest-first window of commands […] Ordering is
+ * `created_at DESC, id DESC` and is enforced by the query itself, so repeated
+ * calls return the same window." Two things follow. The portal may truthfully
+ * call the answer the most recent commands for the filters, because the backend
+ * applies the order *before* the `limit`. And it must not re-sort the answer,
+ * because a client-side order could only disagree with the one the contract
+ * guarantees.
+ *
+ * What it still does not promise is completeness. `CommandListRead` is `items`
+ * alone — "no total, like telemetry history and unlike the paged collections" —
+ * so there is no cursor, no page after this one and no count of what was left
+ * out. Activity is therefore a bounded newest-first window that says so, and it
+ * offers no pagination the contract could not honour.
+ *
+ * ### Which filters exist, and which deliberately do not
+ *
+ * The operation's own query parameters are `control_zone_id`, `control_loop_id`,
+ * `trigger_sample_id`, `target_point_id`, `source`, `idempotency_key` and
+ * `limit`. Activity uses the zone, the target point and the source, and it adds
+ * none of its own.
+ *
+ * In particular there is **no `facility_id` filter and no `state` filter**. A
+ * facility-wide feed would have to be assembled from one request per zone, and a
+ * lifecycle filter would have to be applied to an already-limited window — which
+ * would silently turn "the 100 most recent commands, then the pending ones" into
+ * something a customer would read as "the pending commands". Neither is offered.
+ *
+ * ### Which labels come from where
+ *
+ * `CommandRead` carries identifiers, not names: `control_zone_id`,
+ * `target_point_id` and `reported_point_id` are UUIDs. The facility
+ * configuration document is what resolves them into the zone's name and the
+ * points' names and codes, in one request for the whole facility rather than one
+ * request per command. When it cannot resolve one, the command is still shown
+ * with the identifier the API published — a label the portal cannot resolve is
+ * never a reason to hide a command that exists.
+ *
+ * The same document carries the reported point's own last state, which is why
+ * Activity needs no per-row state request and no `GET /points/{id}/state` of its
+ * own: one point's state has one representation across monitoring, manual
+ * control and activity, and cannot disagree with itself.
+ *
  * ## Relationships, as the contract states them
  *
  * `FacilityRead.site_id` and `ControlZoneRead.facility_id` are the only
@@ -289,6 +342,18 @@ export const TERMINAL_COMMAND_STATES: readonly CommandState[] = [
 
 /** `source` of a command a customer asked for rather than a control loop. */
 export const MANUAL_COMMAND_SOURCE: CommandSource = "manual";
+
+/**
+ * `source` of a command the greenhouse's own control system asked for.
+ *
+ * `CommandSource` is persisted rather than derived from `control_loop_id IS
+ * NULL`, in the contract's own words, so this is read from `source` and never
+ * inferred from whether a loop identifier happens to be present.
+ */
+export const CONTROL_LOOP_COMMAND_SOURCE: CommandSource = "control_loop";
+
+/** The largest command window one request may ask for, from its `limit` schema. */
+export const MAX_COMMAND_LIMIT = 1000;
 
 /** The header `POST /api/v1/commands` requires, spelled as the contract does. */
 export const IDEMPOTENCY_KEY_HEADER = "Idempotency-Key";

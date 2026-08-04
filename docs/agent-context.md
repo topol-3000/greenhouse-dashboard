@@ -14,7 +14,8 @@ product, and the application is not a standalone monitoring dashboard.
 ## Current state
 
 The portal foundation, read-only topology, read-only monitoring inside a control
-zone, and limited manual control of that zone's actuators. Delivered:
+zone, limited manual control of that zone's actuators, and its read-only command
+activity. Delivered:
 
 - product identity, page and document titles;
 - a real client-side routing layer with an extensible route table, including
@@ -38,12 +39,19 @@ zone, and limited manual control of that zone's actuators. Delivered:
   boolean `control_output` points that name a reported point, their reported
   state, explicit on/off actions behind a confirmation, one idempotent
   `POST /api/v1/commands`, and bounded observation of that command's lifecycle;
+- an Activity route: one control zone's bounded, newest-first window of
+  commands, manual and automatic, with the source, the requested value, the
+  lifecycle and the Edge receipt kept apart; a URL-backed site, facility, zone,
+  source, control-point and command selection; and one command's authoritative
+  details, followed for a bounded time while it is non-terminal;
 - reusable loading, refresh, empty, error, resource-not-found, relationship-
   mismatch and notification states.
 
 Not delivered, and not to be implied by any screen: topology or point creation,
-editing and deletion; non-boolean actuator control of any kind; command history
-and activity; alerts; thresholds and "normal/warning/critical" verdicts;
+editing and deletion; non-boolean actuator control of any kind; command
+cancellation, retry or resubmission; a facility-wide or customer-wide command
+feed; generic audit or system events; alerts; thresholds and
+"normal/warning/critical" verdicts;
 agronomic recommendations; target ranges; recipes; grow cycles; runtime targets;
 automation and schedules; control-loop creation or visualisation; device
 provisioning, gateway status and any direct Edge or device communication;
@@ -63,18 +71,19 @@ The portal is an ordinary HTTP client of the `greenhouse` public API. The
 checked-in `openapi.json` is the contract, and `src/api/schema.ts` is generated
 from it by `npm run generate:api-types`. The endpoints in use:
 
-| Purpose                      | Endpoint                                             |
-| ---------------------------- | ---------------------------------------------------- |
-| Cloud API availability       | `GET /health`                                        |
-| Sites                        | `GET /api/v1/sites`, `…/{site_id}`                   |
-| Facilities                   | `GET /api/v1/facilities`, `…/{facility_id}`          |
-| Control zones                | `GET /api/v1/control-zones`, `…/{zone_id}`           |
-| A zone's point composition   | `GET /api/v1/control-zones/{zone_id}/points`         |
-| Measurements and their state | `GET /api/v1/facilities/{facility_id}/configuration` |
-| One point's telemetry window | `GET /api/v1/points/{point_id}/telemetry?limit=200`  |
-| Create one manual command    | `POST /api/v1/commands`                              |
-| One command's lifecycle      | `GET /api/v1/commands/{command_id}`                  |
-| Resolve a lost creation      | `GET /api/v1/commands?idempotency_key=&limit=1`      |
+| Purpose                      | Endpoint                                                                |
+| ---------------------------- | ----------------------------------------------------------------------- |
+| Cloud API availability       | `GET /health`                                                           |
+| Sites                        | `GET /api/v1/sites`, `…/{site_id}`                                      |
+| Facilities                   | `GET /api/v1/facilities`, `…/{facility_id}`                             |
+| Control zones                | `GET /api/v1/control-zones`, `…/{zone_id}`                              |
+| A zone's point composition   | `GET /api/v1/control-zones/{zone_id}/points`                            |
+| Measurements and their state | `GET /api/v1/facilities/{facility_id}/configuration`                    |
+| One point's telemetry window | `GET /api/v1/points/{point_id}/telemetry?limit=200`                     |
+| Create one manual command    | `POST /api/v1/commands`                                                 |
+| One command's lifecycle      | `GET /api/v1/commands/{command_id}`                                     |
+| Resolve a lost creation      | `GET /api/v1/commands?idempotency_key=&limit=1`                         |
+| One zone's command window    | `GET /api/v1/commands?control_zone_id=&target_point_id=&source=&limit=` |
 
 Rules that follow from that:
 
@@ -122,6 +131,29 @@ Rules that follow from that:
 - command lifecycle polling is 5 seconds, stops at a terminal state, a `404` or
   a `422`, and is bounded by a 2-minute client observation window that ends in
   "still unconfirmed" rather than "failed";
+- `GET /api/v1/commands` is the only command-history operation, and it publishes
+  its own order: "a bounded, deterministic newest-first window […] Ordering is
+  `created_at DESC, id DESC` and is enforced by the query itself". So Activity
+  may truthfully call the answer the most recent commands, and must not re-sort
+  it. `CommandListRead` still carries no total and no cursor, so the window is
+  bounded, says it is bounded, and offers no page after it;
+- Activity is scoped to one control zone because the operation is. Its filters
+  are `control_zone_id`, `target_point_id` and `source`, and no other. There is
+  **no `facility_id` filter and no `state` filter**: a facility feed would be one
+  request per zone, and a lifecycle filter applied in the browser would present a
+  subset of a limited window as a result. Neither is simulated;
+- a command's identifiers are resolved to names through the facility
+  configuration document already cached by the zone workspace — one request for
+  the whole facility, never one per row, and no `GET /points/{id}/state` per
+  command. A label the document cannot resolve is shown as the identifier the API
+  published; a command is never hidden because its label is missing;
+- `acknowledged_at` is displayed beside the lifecycle and never as part of it.
+  "Acknowledgement is not a state": a pending, acknowledged command is `pending`,
+  the raw enum stays on screen, and receipt is never rendered as success;
+- a `command` in an Activity address is a claim, not evidence. It is read through
+  `GET /api/v1/commands/{command_id}` and adopted only if its `control_zone_id`
+  is the zone selected; otherwise the portal says the command belongs elsewhere
+  and shows none of it;
 - `TelemetryHistoryRead` is `items` alone — no total, no cursor — and the
   operation documents no ordering and no selection rule for `limit`. So the
   portal sorts by `observed_at` itself, asks for a fixed 200-sample window, and

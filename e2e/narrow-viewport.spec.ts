@@ -9,10 +9,18 @@
  */
 
 import { expect, test } from "@playwright/test";
-import { E2E_IDS, mockCommands, mockHealth, mockTopology } from "./fixtures";
+import {
+  E2E_COMMAND_IDS,
+  E2E_IDS,
+  SEEDED_COMMANDS,
+  mockCommands,
+  mockHealth,
+  mockTopology,
+} from "./fixtures";
 
 const FACILITY_URL = `/facilities/${E2E_IDS.northGreenhouse}`;
 const ZONE_URL = `${FACILITY_URL}/zones/${E2E_IDS.climateZone}`;
+const ZONE_ACTIVITY = `/activity?site=${E2E_IDS.riversideSite}&facility=${E2E_IDS.northGreenhouse}&zone=${E2E_IDS.climateZone}`;
 
 /** How far the document can be scrolled horizontally, in pixels. */
 async function horizontalOverflow(page: import("@playwright/test").Page): Promise<number> {
@@ -119,10 +127,10 @@ test.describe("the portal shell at phone width", () => {
       "true",
     );
 
-    // Both offered routes are there, and reachable from the opened menu.
-    await expect(navigationLinks).toHaveText(["Dashboard", "Greenhouses"]);
+    // Every offered route is there, and reachable from the opened menu.
+    await expect(navigationLinks).toHaveText(["Dashboard", "Greenhouses", "Activity"]);
     await navigationLinks.last().click();
-    await expect(page.getByRole("heading", { level: 1, name: "Greenhouses" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Activity" })).toBeVisible();
   });
 
   test("keeps the availability indicator and content in one column", async ({ page }) => {
@@ -140,6 +148,62 @@ test.describe("the portal shell at phone width", () => {
     for (const width of widths) {
       expect(width).toBeLessThanOrEqual(viewport.width);
     }
+  });
+});
+
+test.describe("Activity at phone width", () => {
+  test("stacks the command rows and shows the same facts as a wide screen", async ({ page }) => {
+    await mockHealth(page);
+    await mockTopology(page);
+    await mockCommands(page, undefined, SEEDED_COMMANDS);
+    await page.goto(ZONE_ACTIVITY);
+
+    await expect(page.getByTestId("activity-list")).toBeVisible();
+    expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);
+
+    const viewport = page.viewportSize()!;
+    const widths = await page
+      .getByTestId("activity-list")
+      .getByRole("button")
+      .evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().width));
+    expect(widths.length).toBe(4);
+    for (const width of widths) {
+      expect(width).toBeLessThanOrEqual(viewport.width);
+    }
+
+    // One markup for every viewport: the phone shows the same fields the
+    // desktop does, not a reduced version of them.
+    const row = page.getByTestId(`activity-row-${E2E_COMMAND_IDS.lampOnAutomatic}`);
+    await expect(row.getByTestId("activity-row-source")).toContainText("Automatic");
+    await expect(row.getByTestId("activity-row-desired")).toContainText("On");
+    await expect(row.getByTestId("activity-row-state")).toContainText("Pending");
+    await expect(row.getByTestId("activity-row-receipt")).toContainText("Received");
+
+    // Comfortably tappable rather than a table squeezed past usability.
+    const box = await row.boundingBox();
+    expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+  });
+
+  test("fits the command details on the screen", async ({ page }) => {
+    await mockHealth(page);
+    await mockTopology(page);
+    await mockCommands(page, undefined, SEEDED_COMMANDS);
+    await page.goto(`${ZONE_ACTIVITY}&command=${E2E_COMMAND_IDS.ventOffRejected}`);
+
+    const dialog = page.getByRole("dialog", { name: "Command details" });
+    await expect(dialog).toBeVisible();
+    expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);
+
+    const viewport = page.viewportSize()!;
+    const box = await dialog.boundingBox();
+    expect(box?.width ?? 0).toBeLessThanOrEqual(viewport.width);
+    expect(box?.height ?? 0).toBeLessThanOrEqual(viewport.height);
+
+    // A UUID and a rejection message wrap rather than widen the page.
+    await expect(dialog.getByTestId("command-details-rejection")).toContainText(
+      "actuator_interlocked",
+    );
+    expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);
   });
 });
 

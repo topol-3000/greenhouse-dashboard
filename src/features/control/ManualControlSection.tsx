@@ -24,6 +24,8 @@ interface ManualControlSectionProps {
   zoneName: string;
   facilityName: string | undefined;
   siteName: string | undefined;
+  /** The facility in the address, passed through so a command links to Activity. */
+  facilityId: string;
   control: ZoneManualControl;
 }
 
@@ -31,6 +33,7 @@ export function ManualControlSection({
   zoneName,
   facilityName,
   siteName,
+  facilityId,
   control,
 }: ManualControlSectionProps) {
   const { submission, observation } = control;
@@ -152,6 +155,7 @@ export function ManualControlSection({
                 <CommandProgressPanel
                   submission={submission}
                   observation={observation}
+                  facilityId={facilityId}
                   onRetryAmbiguous={control.retryAmbiguous}
                   onLookUpAmbiguous={control.lookUpAmbiguous}
                   onRecheck={observation.recheck}

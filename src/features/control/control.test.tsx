@@ -108,7 +108,7 @@ describe("the controllable inventory on screen", () => {
       within(navigation)
         .getAllByRole("link")
         .map((link) => link.textContent),
-    ).toEqual(["Dashboard", "Greenhouses"]);
+    ).toEqual(["Dashboard", "Greenhouses", "Activity"]);
   });
 
   it("labels the section and offers actions only where the contract proves them", async () => {
@@ -982,9 +982,12 @@ describe("what manual control does not add", () => {
     const control = await screen.findByTestId("manual-control");
     await within(control).findByTestId("actuator-cards");
 
+    // Command history lives on the Activity route. The workspace shows the one
+    // command the customer created here and nothing resembling a feed.
+    expect(screen.queryByTestId("activity-list")).toBeNull();
+
     const page = screen.getByTestId("control-zone-page").textContent ?? "";
     for (const forbidden of [
-      "Activity",
       "Schedule",
       "Alert",
       "Automation",
@@ -998,12 +1001,15 @@ describe("what manual control does not add", () => {
     }
   });
 
-  it("keeps the primary navigation to exactly two routes", async () => {
+  it("adds no navigation entry of its own", async () => {
     renderPortal({ path: ZONE_URL });
     await screen.findByTestId("actuator-cards");
 
+    // Dashboard, Greenhouses and Activity. Manual control is a section of a
+    // zone's workspace and is reached through the topology, never from the
+    // primary navigation.
     const navigation = screen.getByRole("navigation", { name: "Primary" });
-    expect(within(navigation).getAllByRole("link")).toHaveLength(2);
+    expect(within(navigation).getAllByRole("link")).toHaveLength(3);
     expect(within(navigation).queryByRole("link", { name: /control/i })).toBeNull();
   });
 });

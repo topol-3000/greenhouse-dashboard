@@ -216,6 +216,62 @@ export async function fetchCommand(
 }
 
 /**
+ * The exact-match filters `GET /api/v1/commands` accepts, as Activity uses them.
+ *
+ * Every field is one of the operation's own query parameters. There is no
+ * client-side filter here and none is added elsewhere: a filter the contract
+ * does not publish would turn a bounded server-side window into a subset of a
+ * subset, which is not something a screen could describe truthfully.
+ */
+export interface CommandListFilters {
+  /** `control_zone_id`. Activity is always scoped to one zone. */
+  readonly controlZoneId: string;
+  /** `target_point_id`, when one actuator was chosen. */
+  readonly targetPointId?: string | undefined;
+  /** `source`, when the customer narrowed to manual or automatic commands. */
+  readonly source?: CommandSource | undefined;
+  /** `limit`, the size of the window asked for. */
+  readonly limit: number;
+}
+
+/**
+ * Read one bounded window of commands.
+ *
+ * The operation documents both the order and its stability: "Return a bounded,
+ * deterministic newest-first window of commands […] Ordering is `created_at
+ * DESC, id DESC` and is enforced by the query itself, so repeated calls return
+ * the same window." That is what lets the portal call the answer the most recent
+ * commands rather than "some commands"; nothing is re-sorted here, because
+ * re-sorting a window the backend already ordered could only disagree with it.
+ *
+ * `CommandListRead` is `items` alone — no total and no cursor — so the window is
+ * never presented as a complete history and no page after it is offered.
+ *
+ * @param filters The zone, and any narrowing the customer asked for.
+ * @param options Cancellation.
+ * @returns The matching commands, newest first.
+ * @throws {ApiError} As the operation documents.
+ */
+export async function fetchCommands(
+  filters: CommandListFilters,
+  options: ControlRequestOptions = {},
+): Promise<CommandListRead> {
+  // Built in a fixed order so one set of filters is always one URL, which is
+  // also what makes the query cacheable rather than re-fetched per render.
+  const query: Record<string, string | number> = { control_zone_id: filters.controlZoneId };
+  if (filters.targetPointId !== undefined) {
+    query["target_point_id"] = filters.targetPointId;
+  }
+  if (filters.source !== undefined) {
+    query["source"] = filters.source;
+  }
+  query["limit"] = filters.limit;
+
+  const payload = await getJson(COMMANDS_PATH, { signal: options.signal, query });
+  return parseCommandList(payload.body);
+}
+
+/**
  * Resolve the one command an idempotency key identifies, if it exists.
  *
  * This is the contract's own answer to a lost creation response: "the key is

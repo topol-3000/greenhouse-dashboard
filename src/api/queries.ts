@@ -20,8 +20,13 @@
 
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { CommandRead, ManualCommandOutcome } from "./contract";
-import type { ManualCommandAcceptance, ManualCommandRequest } from "./control";
-import { createManualCommand, fetchCommand, isTerminalCommandState } from "./control";
+import type { CommandListFilters, ManualCommandAcceptance, ManualCommandRequest } from "./control";
+import {
+  createManualCommand,
+  fetchCommand,
+  fetchCommands,
+  isTerminalCommandState,
+} from "./control";
 import { fetchHealth } from "./health";
 import { fetchFacilityConfiguration, fetchPointTelemetry } from "./monitoring";
 import {
@@ -96,6 +101,32 @@ export const COMMAND_POLL_MS = 5_000;
 export const COMMAND_STALE_MS = 2_000;
 
 /**
+ * Commands requested per Activity window.
+ *
+ * The operation caps `limit` at 1000 and defaults to 100. The portal asks for
+ * that documented default: large enough to be a useful history of one zone,
+ * small enough to render on a phone, and — because the backend orders by
+ * `created_at DESC, id DESC` before applying the limit — genuinely the most
+ * recent commands rather than an arbitrary subset.
+ *
+ * There is no page after it. `CommandListRead` publishes no total and no cursor,
+ * so the screen says the window is bounded instead of offering a page the
+ * contract could not honour.
+ */
+export const ACTIVITY_COMMAND_LIMIT = 100;
+
+/**
+ * How long one Activity window is treated as fresh, in milliseconds.
+ *
+ * Activity is history rather than live state, and it is not polled: the one
+ * thing a customer watches change is the command they opened, and that is
+ * followed by its own bounded lifecycle query. Moving between filters and back
+ * therefore reads the cache, and a customer who wants a newer window asks for
+ * one.
+ */
+export const ACTIVITY_STALE_MS = 30_000;
+
+/**
  * How long the portal keeps checking a command that has not settled.
  *
  * The contract defines no timeout for delivery: a command stays `pending` until
@@ -148,6 +179,16 @@ export const queryKeys = {
     ["monitoring", "point-telemetry", pointId, limit] as const,
   control: () => ["control"] as const,
   command: (commandId: string) => ["control", "commands", "detail", commandId] as const,
+  commandList: (filters: CommandListFilters) =>
+    [
+      "control",
+      "commands",
+      "list",
+      filters.controlZoneId,
+      filters.targetPointId ?? null,
+      filters.source ?? null,
+      filters.limit,
+    ] as const,
 };
 
 /**
@@ -371,13 +412,17 @@ export function useManualCommandMutation() {
  * traffic for every transient failure.
  *
  * @param commandId The command to follow, or `undefined` for none.
- * @param observationStartedAt When observation began, in epoch milliseconds.
+ * @param observationStartedAt When observation began, in epoch milliseconds, for
+ *   a caller that stamps its own window. `undefined` means the caller owns the
+ *   window entirely and signals its end through {@link stopped} — the interval
+ *   then asks only whether the command has reached a terminal state. Either way
+ *   the window is bounded; this is which side of the boundary holds the clock.
  * @param stopped Whether the caller has already decided the window is over, so
  *   the last scheduled interval cannot slip one more request past it.
  */
 export function useCommandQuery(
   commandId: string | undefined,
-  observationStartedAt: number,
+  observationStartedAt: number | undefined,
   stopped: boolean,
 ) {
   const id = identifier(commandId);
@@ -391,9 +436,36 @@ export function useCommandQuery(
       if (stopped || isResourceMissing(query.state.error)) {
         return false;
       }
-      return shouldKeepObservingCommand(query.state.data, observationStartedAt, Date.now())
+      const now = Date.now();
+      return shouldKeepObservingCommand(query.state.data, observationStartedAt ?? now, now)
         ? COMMAND_POLL_MS
         : false;
     },
+  });
+}
+
+/**
+ * Read one bounded window of a control zone's commands.
+ *
+ * Deliberately not polled. The window is history, and the one command whose
+ * state a customer is waiting on is the one they opened — which
+ * {@link useCommandQuery} follows on its own bounded interval. A feed refreshing
+ * itself every few seconds would cost a request per interval per open tab and
+ * would move rows under the reader while they were reading them.
+ *
+ * The filters are the query key, so narrowing to one actuator and widening again
+ * reads the cache rather than asking twice, and a late answer for filters the
+ * customer has moved away from can never be rendered as the current window.
+ *
+ * @param filters The zone, and any narrowing the customer asked for.
+ * @param enabled Whether the selection is resolved enough to ask. It is false
+ *   until a zone is known, and while a `?point=` filter is still unverified.
+ */
+export function useCommandListQuery(filters: CommandListFilters, enabled: boolean) {
+  return useQuery({
+    queryKey: queryKeys.commandList(filters),
+    queryFn: ({ signal }) => fetchCommands(filters, { signal }),
+    enabled: enabled && identifier(filters.controlZoneId) !== undefined,
+    staleTime: ACTIVITY_STALE_MS,
   });
 }

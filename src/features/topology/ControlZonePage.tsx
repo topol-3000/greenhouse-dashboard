@@ -235,6 +235,7 @@ export function ControlZonePage() {
         zoneName={zone.name}
         facilityName={facility?.name}
         siteName={site?.name}
+        facilityId={facilityId}
         control={control}
       />
     </div>

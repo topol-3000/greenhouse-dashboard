@@ -20,6 +20,7 @@
 
 import type { ReactElement } from "react";
 import { matchRoutes } from "react-router";
+import { ActivityPage } from "../features/activity/ActivityPage";
 import { DashboardPage } from "../features/dashboard/DashboardPage";
 import { ControlZonePage } from "../features/topology/ControlZonePage";
 import { FacilityPage } from "../features/topology/FacilityPage";
@@ -30,6 +31,9 @@ export const HOME_PATH = "/";
 
 /** The Sites and Facilities overview. */
 export const GREENHOUSES_PATH = "/sites";
+
+/** The read-only command activity of one control zone. */
+export const ACTIVITY_PATH = "/activity";
 
 /** One facility's read-only workspace. */
 export const FACILITY_PATH = "/facilities/:facilityId";
@@ -70,6 +74,14 @@ export const portalRoutes: readonly PortalRoute[] = [
     title: "Greenhouses",
     description: "Your sites and the facilities inside them.",
     element: <GreenhousesPage />,
+    inPrimaryNavigation: true,
+    parentPath: HOME_PATH,
+  },
+  {
+    path: ACTIVITY_PATH,
+    title: "Activity",
+    description: "The commands a control zone has been sent, and what became of them.",
+    element: <ActivityPage />,
     inPrimaryNavigation: true,
     parentPath: HOME_PATH,
   },
@@ -143,6 +155,27 @@ export function facilityPath(facilityId: string): string {
 /** The address of one control zone's workspace inside a facility. */
 export function controlZonePath(facilityId: string, zoneId: string): string {
   return `${facilityPath(facilityId)}/zones/${encodeURIComponent(zoneId)}`;
+}
+
+/**
+ * The address of the Activity route, carrying a selection.
+ *
+ * Only parameters with a value are written, so an address never claims a
+ * selection that was not made, and `?` is omitted entirely when there is none.
+ *
+ * @param selection The Activity search parameters to carry, by name.
+ * @returns The Activity address.
+ */
+export function activityPath(selection: Readonly<Record<string, string | undefined>> = {}): string {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(selection)) {
+    const trimmed = value?.trim();
+    if (trimmed !== undefined && trimmed !== "") {
+      search.set(key, trimmed);
+    }
+  }
+  const suffix = search.toString();
+  return suffix === "" ? ACTIVITY_PATH : `${ACTIVITY_PATH}?${suffix}`;
 }
 
 /**
