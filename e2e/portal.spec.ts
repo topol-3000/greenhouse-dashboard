@@ -25,6 +25,7 @@ test.describe("the Customer Portal", () => {
     await expect(page.getByRole("navigation", { name: "Primary" }).getByRole("link")).toHaveText([
       "Dashboard",
       "Greenhouses",
+      "Activity",
     ]);
   });
 

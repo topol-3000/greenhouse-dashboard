@@ -46,7 +46,7 @@ import type {
   TelemetrySampleRead,
   ZonePointAssignmentRead,
 } from "../api/contract";
-import { TELEMETRY_HISTORY_LIMIT } from "../api/queries";
+import { ACTIVITY_COMMAND_LIMIT, TELEMETRY_HISTORY_LIMIT } from "../api/queries";
 import type { Router } from "./harness";
 
 /** The URL the portal builds for the backend's health endpoint. */
@@ -749,6 +749,20 @@ export const leafWetnessHistory: readonly TelemetrySampleRead[] = [
 export const COMMAND_IDS = {
   ventOn: "dd000000-0000-4000-8000-000000000001",
   lampOff: "dd000000-0000-4000-8000-000000000002",
+  /** An automatic command a control loop asked for. */
+  lampOnAutomatic: "dd000000-0000-4000-8000-000000000003",
+  /** A rejected automatic command, with the contract's typed reason. */
+  ventOffRejected: "dd000000-0000-4000-8000-000000000004",
+  /** An applied manual command whose reported point has not caught up. */
+  lampOnApplied: "dd000000-0000-4000-8000-000000000005",
+  /** A command of the irrigation zone, for proving context verification. */
+  otherZone: "dd000000-0000-4000-8000-000000000006",
+} as const;
+
+/** Identifiers of the control-loop machinery an automatic command names. */
+export const CONTROL_LOOP_IDS = {
+  lampSchedule: "cc000000-0000-4000-8000-000000000001",
+  triggerSample: "cc000000-0000-4000-8000-000000000002",
 } as const;
 
 /** An idempotency key a test can send and assert on without generating one. */
@@ -784,6 +798,92 @@ export function manualCommand(overrides: Partial<CommandRead> = {}): CommandRead
     created_at: "2026-01-04T09:06:00Z",
     ...overrides,
   };
+}
+
+/**
+ * One window of the climate zone's commands, newest first.
+ *
+ * Ordered `created_at DESC` because that is the order the list operation
+ * guarantees — "Ordering is `created_at DESC, id DESC` and is enforced by the
+ * query itself" — so a portal that re-sorts, or that renders arrival order while
+ * claiming recency, disagrees with this fixture.
+ *
+ * The window is awkward on purpose. It holds a manual command and an automatic
+ * one, a pending command with no acknowledgement and a pending one with an
+ * acknowledgement, a terminal success and a terminal failure. The vent commands
+ * report back through a point whose state is `false` — so a rejected request to
+ * turn *off* sits beside a reading that matches it, and must still read as
+ * rejected — and the lamp command reports through a point that has never
+ * reported at all, so an `applied` command must not manufacture a reading.
+ */
+export const climateZoneCommands: readonly CommandRead[] = [
+  // Terminal failure, asked for by the greenhouse's own control system.
+  manualCommand({
+    id: COMMAND_IDS.ventOffRejected,
+    source: "control_loop",
+    idempotency_key: "ee000000-0000-4000-8000-000000000004",
+    control_loop_id: CONTROL_LOOP_IDS.lampSchedule,
+    trigger_sample_id: CONTROL_LOOP_IDS.triggerSample,
+    target_point_id: POINT_IDS.vent,
+    reported_point_id: POINT_IDS.ventStatus,
+    desired_value: false,
+    state: "rejected",
+    issued_at: "2026-01-04T09:12:00Z",
+    created_at: "2026-01-04T09:12:00Z",
+    acknowledged_at: "2026-01-04T09:12:30Z",
+    executed_at: "2026-01-04T09:12:45Z",
+    rejection_reason: {
+      code: "actuator_interlocked",
+      message: "A safety interlock is engaged for this actuator.",
+    },
+  }),
+  // Terminal success, whose reported point has never reported anything.
+  manualCommand({
+    id: COMMAND_IDS.lampOnApplied,
+    source: "manual",
+    idempotency_key: "ee000000-0000-4000-8000-000000000005",
+    target_point_id: POINT_IDS.lamp,
+    reported_point_id: POINT_IDS.lampStatus,
+    desired_value: true,
+    state: "applied",
+    issued_at: "2026-01-04T09:10:00Z",
+    created_at: "2026-01-04T09:10:00Z",
+    acknowledged_at: "2026-01-04T09:10:20Z",
+    executed_at: "2026-01-04T09:11:00Z",
+  }),
+  // Non-terminal, received by the Edge. Receipt is not a fourth state.
+  manualCommand({
+    id: COMMAND_IDS.lampOnAutomatic,
+    source: "control_loop",
+    idempotency_key: "ee000000-0000-4000-8000-000000000003",
+    control_loop_id: CONTROL_LOOP_IDS.lampSchedule,
+    trigger_sample_id: CONTROL_LOOP_IDS.triggerSample,
+    target_point_id: POINT_IDS.lamp,
+    reported_point_id: POINT_IDS.lampStatus,
+    desired_value: true,
+    state: "pending",
+    issued_at: "2026-01-04T09:08:00Z",
+    created_at: "2026-01-04T09:08:00Z",
+    acknowledged_at: "2026-01-04T09:09:00Z",
+  }),
+  // Non-terminal, not acknowledged. Not a failure, and never rendered as one.
+  manualCommand(),
+];
+
+/** A command of a different control zone, for proving the context check. */
+export const irrigationZoneCommand: CommandRead = manualCommand({
+  id: COMMAND_IDS.otherZone,
+  control_zone_id: IDS.irrigationZone,
+  idempotency_key: "ee000000-0000-4000-8000-000000000006",
+  target_point_id: POINT_IDS.archivedPump,
+  reported_point_id: POINT_IDS.pumpStatus,
+  created_at: "2026-01-04T09:07:00Z",
+  issued_at: "2026-01-04T09:07:00Z",
+});
+
+/** The `CommandListRead` envelope: `items`, and nothing else. */
+export function commandList(items: readonly CommandRead[]) {
+  return { items };
 }
 
 /** The `ManualCommandAcceptanceRead` envelope one creation answers with. */
@@ -895,6 +995,33 @@ export function commandUrl(commandId: string): string {
 /** The URL the portal builds to resolve one lost creation response. */
 export function commandByKeyUrl(idempotencyKey: string): string {
   return `${V1}/commands?idempotency_key=${encodeURIComponent(idempotencyKey)}&limit=1`;
+}
+
+/** The filters Activity may ask one window of commands with. */
+export interface CommandWindowFilters {
+  readonly targetPointId?: string;
+  readonly source?: "manual" | "control_loop";
+  readonly limit?: number;
+}
+
+/**
+ * The URL the portal builds for one Activity window.
+ *
+ * The parameter order is the order the client writes them in, so a client that
+ * quietly stops sending `control_zone_id` — or starts sending a filter the
+ * contract does not publish — misses this route and fails loudly instead of
+ * being answered anyway.
+ */
+export function commandListUrl(zoneId: string, filters: CommandWindowFilters = {}): string {
+  const parts = [`control_zone_id=${encodeURIComponent(zoneId)}`];
+  if (filters.targetPointId !== undefined) {
+    parts.push(`target_point_id=${encodeURIComponent(filters.targetPointId)}`);
+  }
+  if (filters.source !== undefined) {
+    parts.push(`source=${filters.source}`);
+  }
+  parts.push(`limit=${String(filters.limit ?? ACTIVITY_COMMAND_LIMIT)}`);
+  return `${V1}/commands?${parts.join("&")}`;
 }
 
 /**

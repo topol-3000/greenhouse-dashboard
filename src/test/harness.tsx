@@ -13,7 +13,7 @@
 
 import { QueryClient } from "@tanstack/react-query";
 import { render } from "@testing-library/react";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter, useNavigate } from "react-router";
 import { vi } from "vitest";
 import { App } from "../app/App";
 import { AppProviders } from "../app/AppProviders";
@@ -179,6 +179,41 @@ export function createTestQueryClient(): QueryClient {
   });
 }
 
+/**
+ * Back and Forward, for a router with no DOM history behind it.
+ *
+ * A memory router keeps its own history, so `window.history` says nothing about
+ * it. A test that needs to prove Back restores a previous state therefore has
+ * to go through the router, and this is the smallest way to do that: two
+ * buttons, rendered beside the portal rather than inside it, and only when a
+ * test asks for them.
+ */
+function HistoryControls() {
+  const navigate = useNavigate();
+  return (
+    <div data-testid="history-controls">
+      <button
+        type="button"
+        data-testid="history-back"
+        onClick={() => {
+          void navigate(-1);
+        }}
+      >
+        Back
+      </button>
+      <button
+        type="button"
+        data-testid="history-forward"
+        onClick={() => {
+          void navigate(1);
+        }}
+      >
+        Forward
+      </button>
+    </div>
+  );
+}
+
 export interface RenderPortalOptions {
   /** The address the portal starts at. */
   path?: string;
@@ -188,6 +223,13 @@ export interface RenderPortalOptions {
    * have to describe one.
    */
   routes?: Router;
+  /**
+   * Render Back and Forward controls beside the portal.
+   *
+   * Off by default, so no test that is not about history sees a control the
+   * real application does not have.
+   */
+  history?: boolean;
 }
 
 /** Render the whole portal at an address, over a stubbed backend. */
@@ -201,6 +243,7 @@ export function renderPortal(options: RenderPortalOptions = {}) {
       <AppProviders client={client}>
         <MemoryRouter initialEntries={[options.path ?? "/"]}>
           <App />
+          {options.history === true ? <HistoryControls /> : null}
         </MemoryRouter>
       </AppProviders>,
     ),

@@ -66,15 +66,15 @@ describe("the Customer Portal shell", () => {
     expect(await screen.findByTestId("dashboard-page")).toBeInTheDocument();
   });
 
-  it("offers exactly the working Dashboard and Greenhouses routes", async () => {
+  it("offers exactly the working Dashboard, Greenhouses and Activity routes", async () => {
     renderPortal();
 
     const navigation = screen.getByRole("navigation", { name: "Primary" });
     const links = within(navigation).getAllByRole("link");
-    expect(links.map((link) => link.textContent)).toEqual(["Dashboard", "Greenhouses"]);
+    expect(links.map((link) => link.textContent)).toEqual(["Dashboard", "Greenhouses", "Activity"]);
 
     // Nothing unbuilt is advertised anywhere in the shell.
-    for (const absent of ["Monitoring", "Control", "Activity", "Settings", "Users", "Billing"]) {
+    for (const absent of ["Monitoring", "Control", "Settings", "Users", "Billing"]) {
       expect(within(navigation).queryByText(absent)).toBeNull();
     }
 

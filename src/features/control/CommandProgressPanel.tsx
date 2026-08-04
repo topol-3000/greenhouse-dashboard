@@ -15,16 +15,20 @@
  * reported state has not changed, both facts stay on screen exactly as they are.
  */
 
+import { Link } from "react-router";
 import type { CommandObservation, Submission } from "./useZoneManualControl";
 import { commandStateLabel, commandStateMeaning, desiredValueLabel } from "./commandLabels";
 import { describeCommandFailure } from "./commandLabels";
 import { StatePanel } from "../../components/StatePanel";
 import { COMMAND_OBSERVATION_WINDOW_MS } from "../../api/queries";
+import { activityPath } from "../../routes/routes";
 import { formatIsoInstant } from "../../shared/format";
 
 interface CommandProgressPanelProps {
   submission: Submission;
   observation: CommandObservation;
+  /** The facility in the address, so Activity can be opened in this context. */
+  facilityId: string;
   onRetryAmbiguous: () => void;
   onLookUpAmbiguous: () => void;
   onRecheck: () => void;
@@ -37,6 +41,7 @@ const WINDOW_MINUTES = Math.round(COMMAND_OBSERVATION_WINDOW_MS / 60_000);
 export function CommandProgressPanel({
   submission,
   observation,
+  facilityId,
   onRetryAmbiguous,
   onLookUpAmbiguous,
   onRecheck,
@@ -296,6 +301,27 @@ export function CommandProgressPanel({
           </p>
         </StatePanel>
       )}
+
+      {/*
+        The one link Activity adds to this workspace. It carries the context
+        already on screen — the facility in the address, and the zone, control
+        point and command the cloud API named on this command — so the command
+        stays reachable after this panel is dismissed or this page is left.
+        Activity is read-only: this opens a record, it does not resend anything.
+      */}
+      <p className="inline-note">
+        <Link
+          to={activityPath({
+            facility: facilityId,
+            zone: command.control_zone_id,
+            point: command.target_point_id,
+            command: command.id,
+          })}
+          data-testid="command-activity-link"
+        >
+          View this command in Activity
+        </Link>
+      </p>
 
       <button
         type="button"

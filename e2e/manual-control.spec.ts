@@ -52,9 +52,9 @@ test.describe("operating one actuator", () => {
       }),
     ).toBeVisible();
 
-    // Primary navigation is still exactly two routes.
+    // Manual control adds no navigation entry of its own.
     await expect(page.getByRole("navigation", { name: "Primary" }).getByRole("link")).toHaveCount(
-      2,
+      3,
     );
   });
 
@@ -406,12 +406,16 @@ test.describe("addresses and refresh", () => {
     await page.goto(ZONE_URL);
     await expect(page.getByTestId("actuator-cards")).toBeVisible();
 
+    // Command history lives on the Activity route. The workspace shows the one
+    // command the customer created here and nothing resembling a feed.
+    await expect(page.getByTestId("activity-list")).toHaveCount(0);
+
     const text = (await page.getByTestId("control-zone-page").textContent()) ?? "";
-    for (const forbidden of ["Activity", "Schedule", "Alert", "Automation", "Control loop"]) {
+    for (const forbidden of ["Schedule", "Alert", "Automation", "Control loop"]) {
       expect(text).not.toContain(forbidden);
     }
     await expect(page.getByRole("navigation", { name: "Primary" }).getByRole("link")).toHaveCount(
-      2,
+      3,
     );
   });
 });

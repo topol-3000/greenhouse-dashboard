@@ -4,19 +4,22 @@ The customer-facing web application for AI Greenhouse: the place a customer
 monitors and manually operates one or more greenhouse facilities.
 
 This repository is the portal, not a single screen. **Dashboard** is one feature
-inside it and owns the `/` route; **Greenhouses**, the Facility workspace and the
-ControlZone workspace sit alongside it.
+inside it and owns the `/` route; **Greenhouses**, **Activity**, the Facility
+workspace and the ControlZone workspace sit alongside it.
 
 ## What this release contains
 
 The portal foundation, **read-only greenhouse topology**, **read-only monitoring
-inside a control zone**, and **limited manual control of that zone's actuators**.
-On top of the application shell — identity, routing, navigation, breadcrumbs,
-notifications, the responsive layout, the shared UI states and the API
-boundary — it loads the customer's real Site → Facility → ControlZone structure
-from the cloud API, lets them navigate it, and inside a control zone shows what
-its measurement points last reported, the telemetry history of the one they
-select, and the control points they may switch on or off.
+inside a control zone**, **limited manual control of that zone's actuators**, and
+**read-only command activity** for it. On top of the application shell —
+identity, routing, navigation, breadcrumbs, notifications, the responsive layout,
+the shared UI states and the API boundary — it loads the customer's real
+Site → Facility → ControlZone structure from the cloud API, lets them navigate
+it, and inside a control zone shows what its measurement points last reported,
+the telemetry history of the one they select, and the control points they may
+switch on or off. Activity then shows what has been asked of that zone's
+equipment — by a person and by the greenhouse's own control system — and what
+became of each request.
 
 Everything on screen came from the cloud API. There are no sample facilities, no
 placeholder readings and no invented statistics; when the API returns nothing,
@@ -25,10 +28,12 @@ the portal says so rather than filling the page.
 The one thing the portal writes is **one manual command at a time**, through the
 public `POST /api/v1/commands` operation, after an explicit confirmation. It
 still creates, edits and deletes nothing: no site, no facility, no control zone,
-no point, no control loop and no schedule. There is no Activity history, no
-alert and no automation, and it never talks to a gateway or a device. What a
-command _did_ is what the cloud API says it did — see
-[Manual control inside a control zone](#manual-control-inside-a-control-zone).
+no point, no control loop and no schedule. Activity is read-only: it cancels,
+retries and resubmits nothing. There is no alert and no automation, and the
+portal never talks to a gateway or a device. What a command _did_ is what the
+cloud API says it did — see
+[Manual control inside a control zone](#manual-control-inside-a-control-zone) and
+[Activity](#activity).
 Authentication is not part of this release either — see
 [Not implemented yet](#not-implemented-yet).
 
@@ -204,6 +209,9 @@ src/
     control/    the ControlZone workspace's manual-control section: actuator
                 discovery, reported state, confirmation, command submission
                 and bounded command-lifecycle observation
+    activity/   the Activity route: URL-backed zone selection, one zone's
+                bounded command window, command details and their bounded
+                lifecycle observation
   layouts/     the portal shell: header, navigation, breadcrumbs, main region
   routes/      the route table and the 404 page
   shared/      cross-feature utilities (notifications channel, formatting)
@@ -230,15 +238,17 @@ answer is an error state on screen, not sample data.
 | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | `/`                                     | Dashboard — cloud API availability and the API's own topology counts                                                      |
 | `/sites`                                | Greenhouses — every site and the facilities inside it                                                                     |
+| `/activity`                             | Activity — one control zone's commands, what was asked for and what became of each                                        |
 | `/facilities/:facilityId`               | Facility workspace — the facility, its site and its control zones                                                         |
 | `/facilities/:facilityId/zones/:zoneId` | ControlZone workspace — the zone, its parents, its point inventory, its monitoring section and its manual-control section |
 | `*`                                     | The portal's 404 page, rendered inside the shell with a way back                                                          |
 
-The primary navigation offers **Dashboard** and **Greenhouses** only: the two
-routes that work without a resource. The nested routes are reached by link, by
-the facility switcher, or by their own address — they are shareable, they
-survive a refresh, and browser back and forward behave normally, because the URL
-is the only source of the selected facility and control zone.
+The primary navigation offers **Dashboard**, **Greenhouses** and **Activity**:
+the three routes that work without a resource in their path. The nested routes
+are reached by link, by the facility switcher, or by their own address — they are
+shareable, they survive a refresh, and browser back and forward behave normally,
+because the URL is the only source of the selected facility and control zone.
+Activity carries its whole selection in search parameters for the same reason.
 
 There is no placeholder entry for a feature that has not been built.
 
@@ -455,18 +465,107 @@ as proof that a command was rejected. No response body, header, URL or upstream
 detail reaches a screen — failures are described by status and by the contract's
 own `error.code`.
 
-**What manual control does not add.** No Activity feed, no command history
+**What manual control does not add.** No command history in the workspace itself
 beyond the one command created in the current interaction, no schedules, no
 alerts, no automation or control-loop editing, no thresholds, no recipes, no
 grow cycles, no device provisioning, no gateway status, no simulation controls,
-and no WebSocket or server-sent events. General command history and Activity are
-not part of this release.
+and no WebSocket or server-sent events. The one thing it now offers is a single
+link — **View this command in Activity** — carrying the facility in the address
+and the zone, control point and command the cloud API named. A command the
+workspace has stopped following is therefore recoverable rather than lost.
 
-**A stated limitation.** The command being followed lives in the workspace, not
-in the address. Refreshing the page during a pending command stops the portal
-following it; the command itself is unaffected, and nothing about it is invented
-afterwards. Resolving a command after a refresh needs the Activity surface that
-is not part of this release.
+## Activity
+
+**What it is.** `/activity` is one control zone's command history: every command
+the cloud API returns for that zone, whether a person asked for it from this
+portal or the greenhouse's own control system did. It is command activity, not a
+generic event stream — no alert, no schedule, no automation decision, no
+telemetry and no audit record appears in it.
+
+**It is read-only.** Commands are created in the ControlZone workspace and
+nowhere else. Activity sends, cancels, retries and resubmits nothing.
+
+**Scoped to a control zone, because the contract is.**
+`GET /api/v1/commands` filters by `control_zone_id`, `target_point_id` and
+`source`. It publishes no facility-wide filter, so the portal does not assemble
+one out of a request per zone and call it a facility feed. Nothing is chosen for
+the customer: no site, facility or zone is pre-selected, and until one is chosen
+Activity says so and asks for nothing.
+
+**The selection is the address.** `site`, `facility`, `zone`, `point`, `source`
+and `command` are search parameters, and only the ones with a value are written.
+A refresh restores the whole selection including the open command; back and
+forward walk through the states the customer actually chose; and a link to one
+command is a link they can send. Every one of them is verified against loaded
+data before it is believed — a facility the selected site does not own, a zone
+the facility does not contain, a control point the zone does not assign, and a
+`source` the contract does not publish each select nothing, say so, and leave
+the rest of the address working.
+
+**A command in a URL is a claim, not evidence.** A `?command=` is read through
+`GET /api/v1/commands/{command_id}` and adopted only if its `control_zone_id` is
+the zone selected. A command belonging to another zone is reported as such and
+none of it is drawn.
+
+**A bounded, newest-first window.** Unlike telemetry history, the list operation
+documents its own order — "a bounded, deterministic newest-first window […]
+Ordering is `created_at DESC, id DESC` and is enforced by the query itself" — and
+applies it _before_ the limit. So the portal may truthfully call the answer the
+most recent commands, and it does not re-sort what the backend already ordered.
+`CommandListRead` still carries no total and no cursor, so Activity asks for at
+most 100 commands, says that is a window rather than the history, and offers no
+page after it. The window is not polled: it is history, and the one thing a
+customer waits on is the command they opened.
+
+**What a row says, and what it never says.** The target actuator's name, the
+requested value as **On** or **Off**, the source as **Manual** or **Automatic**,
+the lifecycle label with the raw `CommandState` beside it, the creation time,
+whether the greenhouse has been recorded as receiving it, the completion time of
+an applied command, and the typed code and message of a rejected one. A row
+carries no reading: a current value beside a command from last week would read
+as that command's outcome.
+
+**Three facts, kept apart.** Opening a command shows **Requested** — its
+`desired_value`, a request and never a reading — beside **Reported**, the current
+state of `reported_point_id` read from the facility configuration, beside the
+**command's** own lifecycle. They are never reconciled. An applied command whose
+reported value has not changed shows both. A rejected command whose reported
+value happens to match what it asked for is still rejected. A reported `false` is
+an off reading, not missing data; only `null` reads **No reported state yet**.
+
+**Acknowledgement is not a state.** `CommandState` has three values, and receipt
+is not one of them. A pending command with `acknowledged_at` set is shown as
+pending and _received by the greenhouse_ — never as a fourth state, never as
+applied, and a command without a receipt is never described as failed or as a
+gateway being offline.
+
+**Manual and automatic.** A manual command shows no control loop and no trigger
+sample, because the contract publishes both as `null` for it and the portal
+invents neither. An automatic command names the `control_loop_id` and
+`trigger_sample_id` the cloud API published and explains the source in one
+sentence — and offers no way to create, edit or disable the control system that
+produced it.
+
+**Labels cost no extra request.** `CommandRead` carries identifiers where a
+customer needs names. They are resolved through the facility configuration
+document the zone workspace already loaded and cached — one request describing
+the whole facility, never one per row, and no per-command state read. A label
+the document cannot resolve is shown as the identifier the API published; a
+command is never hidden because its name is missing.
+
+**Following the command you opened.** A non-terminal command is re-read every 5
+seconds. Polling stops at `applied` or `rejected`, stops on the contract's `404`,
+and stops after a 2-minute observation window that ends in _status is still
+unconfirmed_ — not _failed_, not a statement about a gateway, and never a
+resubmission. Asking to check again opens a new window over the same command, and
+so does a refresh of an address that names it.
+
+**Failing at the smallest scope.** A failed window is an error with a retry, and
+is never rendered as an empty history; an empty window says the cloud API
+returned no command for these filters. A failed refresh leaves the last good
+window on screen with a note. A configuration failure costs the names, not the
+commands. A reported state that cannot be read leaves every fact about the
+command itself intact.
 
 ## Backend integration
 
@@ -509,6 +608,16 @@ The three operations manual control adds:
 | Create one manual command        | `POST /api/v1/commands`                         | `ManualCommandCreate` → `ManualCommandAcceptanceRead` |
 | Read one command's lifecycle     | `GET /api/v1/commands/{command_id}`             | `CommandRead`                                         |
 | Resolve a lost creation response | `GET /api/v1/commands?idempotency_key=&limit=1` | `CommandListRead`                                     |
+
+The one operation Activity adds:
+
+| Purpose                           | Operation                                                               | Schema            |
+| --------------------------------- | ----------------------------------------------------------------------- | ----------------- |
+| One control zone's command window | `GET /api/v1/commands?control_zone_id=&target_point_id=&source=&limit=` | `CommandListRead` |
+
+Activity re-reads `GET /api/v1/commands/{command_id}` for the command it opens,
+and the facility configuration document for the names and the reported state. It
+adds no other request, and in particular no request per row.
 
 The request body is exactly `ManualCommandCreate` — the schema is
 `additionalProperties: false`, so there is no field to add:
@@ -636,6 +745,17 @@ North lamp`, not `On` — and a disabled action is accompanied by the reason in
   comfortably tappable, and the confirmation is sized from the viewport rather
   than a fixed pixel width, scrolling inside itself instead of pushing the page
   sideways. Long point names, identifiers and lifecycle messages wrap.
+- Activity is one markup at every viewport, not a desktop table beside a mobile
+  card list: each command is a list item containing a button whose fields carry
+  their own visible labels, laid into aligned columns on a wide screen and
+  stacked on a narrow one. The phone and the desktop therefore cannot drift into
+  showing different things, and a row is a real button — reachable by Tab,
+  activated by Enter or Space — at both. Its filters are native `<select>`
+  elements with their own labels. Command details are a modal dialog that takes
+  focus, keeps Tab inside itself, closes on Escape and returns focus to the row
+  that opened it; closing removes only the command from the address. Source,
+  lifecycle and receipt are always words, never colour alone, and the raw
+  `CommandState` stays beside its label.
 
 ## Not implemented yet
 
@@ -647,10 +767,16 @@ Named here so nothing above is mistaken for a promise that has been kept:
 - **Topology and point editing.** Sites, facilities, control zones and points are
   read-only here. There is no create, edit or delete, and no button that pretends
   there is.
-- **Command history and Activity.** The manual-control section shows the one
-  command created in the current interaction and its lifecycle. There is no
-  Activity feed, no list of past commands, and no way to resolve a command after
-  a page refresh.
+- **Command history beyond one zone's bounded window.** Activity shows the
+  commands the cloud API returns for one selected control zone, newest first, up
+  to 100 of them. There is no facility-wide or customer-wide feed, no paging past
+  that window, no export, and no filtering by lifecycle state — the list
+  operation publishes no `facility_id` and no `state` parameter, and neither is
+  simulated in the browser.
+- **Acting on a past command.** Activity is read-only: no cancellation, no
+  retry, no resubmission and no bulk control.
+- **Generic audit or system events.** Activity is command activity. Nothing else
+  is folded into it.
 - Alerts and notifications about greenhouse conditions, threshold evaluation and
   "normal/warning/critical" classification.
 - Agronomic recommendations, target ranges, recipes, grow cycles, runtime

@@ -794,7 +794,7 @@ export async function mockTopology(
 
 /* Manual control ---------------------------------------------------------- */
 
-interface CommandRow {
+export interface CommandRow {
   id: string;
   source: string;
   idempotency_key: string;
@@ -815,11 +815,126 @@ interface CommandRow {
   created_at: string;
 }
 
+/** Identifiers of the command history Activity reads. */
+export const E2E_COMMAND_IDS = {
+  ventOnPending: "dd000000-0000-4000-8000-0000000000a1",
+  lampOnAutomatic: "dd000000-0000-4000-8000-0000000000a2",
+  lampOnApplied: "dd000000-0000-4000-8000-0000000000a3",
+  ventOffRejected: "dd000000-0000-4000-8000-0000000000a4",
+} as const;
+
+const LOOP_ID = "cc000000-0000-4000-8000-0000000000b1";
+const TRIGGER_SAMPLE_ID = "cc000000-0000-4000-8000-0000000000b2";
+
+/**
+ * A control zone's command history, newest first.
+ *
+ * The order is the one the list operation guarantees — `created_at DESC, id
+ * DESC` — so a portal that re-sorts, or that renders arrival order while
+ * claiming recency, disagrees with this double.
+ *
+ * It holds a manual command and an automatic one, a pending command with no
+ * acknowledgement and a pending one with an acknowledgement, a terminal success
+ * and a terminal failure, so every lifecycle a customer can meet is on screen at
+ * once.
+ */
+export const SEEDED_COMMANDS: readonly CommandRow[] = [
+  {
+    id: E2E_COMMAND_IDS.ventOffRejected,
+    source: "control_loop",
+    idempotency_key: "ee000000-0000-4000-8000-0000000000a4",
+    control_zone_id: E2E_IDS.climateZone,
+    control_loop_id: LOOP_ID,
+    trigger_sample_id: TRIGGER_SAMPLE_ID,
+    target_point_id: E2E_IDS.ventPoint,
+    reported_point_id: E2E_IDS.ventStatusPoint,
+    gateway_id: null,
+    desired_value: false,
+    state: "rejected",
+    result_control_sample_id: null,
+    result_status_sample_id: null,
+    issued_at: "2026-01-04T09:12:00Z",
+    executed_at: "2026-01-04T09:12:45Z",
+    acknowledged_at: "2026-01-04T09:12:30Z",
+    rejection_reason: {
+      code: "actuator_interlocked",
+      message: "A safety interlock is engaged for this actuator.",
+    },
+    created_at: "2026-01-04T09:12:00Z",
+  },
+  {
+    id: E2E_COMMAND_IDS.lampOnApplied,
+    source: "manual",
+    idempotency_key: "ee000000-0000-4000-8000-0000000000a3",
+    control_zone_id: E2E_IDS.climateZone,
+    control_loop_id: null,
+    trigger_sample_id: null,
+    target_point_id: E2E_IDS.lampPoint,
+    reported_point_id: E2E_IDS.lampStatusPoint,
+    gateway_id: null,
+    desired_value: true,
+    state: "applied",
+    result_control_sample_id: null,
+    result_status_sample_id: null,
+    issued_at: "2026-01-04T09:10:00Z",
+    executed_at: "2026-01-04T09:11:00Z",
+    acknowledged_at: "2026-01-04T09:10:20Z",
+    rejection_reason: null,
+    created_at: "2026-01-04T09:10:00Z",
+  },
+  {
+    id: E2E_COMMAND_IDS.lampOnAutomatic,
+    source: "control_loop",
+    idempotency_key: "ee000000-0000-4000-8000-0000000000a2",
+    control_zone_id: E2E_IDS.climateZone,
+    control_loop_id: LOOP_ID,
+    trigger_sample_id: TRIGGER_SAMPLE_ID,
+    target_point_id: E2E_IDS.lampPoint,
+    reported_point_id: E2E_IDS.lampStatusPoint,
+    gateway_id: null,
+    desired_value: true,
+    state: "pending",
+    result_control_sample_id: null,
+    result_status_sample_id: null,
+    issued_at: "2026-01-04T09:08:00Z",
+    executed_at: null,
+    acknowledged_at: "2026-01-04T09:09:00Z",
+    rejection_reason: null,
+    created_at: "2026-01-04T09:08:00Z",
+  },
+  {
+    id: E2E_COMMAND_IDS.ventOnPending,
+    source: "manual",
+    idempotency_key: "ee000000-0000-4000-8000-0000000000a1",
+    control_zone_id: E2E_IDS.climateZone,
+    control_loop_id: null,
+    trigger_sample_id: null,
+    target_point_id: E2E_IDS.ventPoint,
+    reported_point_id: E2E_IDS.ventStatusPoint,
+    gateway_id: null,
+    desired_value: true,
+    state: "pending",
+    result_control_sample_id: null,
+    result_status_sample_id: null,
+    issued_at: "2026-01-04T09:06:00Z",
+    executed_at: null,
+    acknowledged_at: null,
+    rejection_reason: null,
+    created_at: "2026-01-04T09:06:00Z",
+  },
+];
+
 /** How the fake command service answers a creation request. */
 export type CreationMode = "created" | "refused" | "unreachable";
 
-/** What the greenhouse eventually reports about a command it was sent. */
-export type LifecycleMode = "pending" | "applied" | "rejected";
+/**
+ * What the greenhouse eventually reports about a command it was sent.
+ *
+ * `acknowledged` is not a `CommandState` and the double does not pretend it is:
+ * it sets `acknowledged_at` and leaves the command `pending`, which is exactly
+ * what the contract says an Edge receipt means.
+ */
+export type LifecycleMode = "pending" | "acknowledged" | "applied" | "rejected";
 
 export interface CommandController {
   /** Change how the next creation request is answered. */
@@ -849,18 +964,26 @@ export interface CommandController {
  * Register it after {@link mockTopology}: Playwright tries the most recently
  * registered route first, and the topology double matches all of `/api/v1`.
  *
+ * `GET /api/v1/commands` is answered the way the operation documents it: every
+ * filter is an exact match, several may be combined, the window is ordered
+ * `created_at DESC, id DESC` *before* `limit` is applied, and the envelope is
+ * `items` alone — no total and no cursor.
+ *
  * @param page The page under test.
  * @param dataset The topology whose zones and points commands may name.
+ * @param seed Commands that already exist, for reading history rather than
+ *   creating it.
  * @returns A handle for steering creation, lifecycle and failures.
  */
 export async function mockCommands(
   page: Page,
   dataset: TopologyDataset = DEFAULT_TOPOLOGY,
+  seed: readonly CommandRow[] = [],
 ): Promise<CommandController> {
   let creationMode: CreationMode = "created";
   let lifecycle: LifecycleMode = "pending";
   let readUnreachable = false;
-  const stored: CommandRow[] = [];
+  const stored: CommandRow[] = seed.map((row) => ({ ...row }));
   const creations: { key: string; body: unknown }[] = [];
   const requests: string[] = [];
   let issued = 0;
@@ -984,7 +1107,10 @@ export async function mockCommands(
         return;
       }
       // The Edge's answer arrives between reads, exactly as it would in life.
-      if (lifecycle === "applied") {
+      if (lifecycle === "acknowledged") {
+        // Receipt, and nothing else. The command is still non-terminal.
+        found.acknowledged_at = "2026-01-04T09:06:30Z";
+      } else if (lifecycle === "applied") {
         found.state = "applied";
         found.acknowledged_at = "2026-01-04T09:06:30Z";
         found.executed_at = "2026-01-04T09:07:00Z";
@@ -1001,7 +1127,25 @@ export async function mockCommands(
       return;
     }
 
-    await json(route, { items: [...stored] });
+    // The command window. Every filter is an exact match, the order is applied
+    // before the limit, and the envelope carries `items` and nothing else.
+    const zoneId = url.searchParams.get("control_zone_id");
+    const targetPointId = url.searchParams.get("target_point_id");
+    const source = url.searchParams.get("source");
+    const limit = Number(url.searchParams.get("limit") ?? "100");
+
+    const items = stored
+      .filter((row) => zoneId === null || row.control_zone_id === zoneId)
+      .filter((row) => targetPointId === null || row.target_point_id === targetPointId)
+      .filter((row) => source === null || row.source === source)
+      .sort((a, b) =>
+        a.created_at === b.created_at
+          ? b.id.localeCompare(a.id)
+          : b.created_at.localeCompare(a.created_at),
+      )
+      .slice(0, limit);
+
+    await json(route, { items });
   });
 
   return {
