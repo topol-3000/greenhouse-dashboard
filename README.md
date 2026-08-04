@@ -11,9 +11,10 @@ workspace and the ControlZone workspace sit alongside it.
 
 The portal foundation, **read-only greenhouse topology**, **read-only monitoring
 inside a control zone**, **limited manual control of that zone's actuators**, and
-**read-only command activity** for it. On top of the application shell —
-identity, routing, navigation, breadcrumbs, notifications, the responsive layout,
-the shared UI states and the API boundary — it loads the customer's real
+**read-only command activity** for it. On top of the application shell — a
+CoreUI sidebar, header, breadcrumbs, content region and footer, with identity,
+routing, notifications, a light/dark/auto appearance preference, the responsive
+layout, the shared UI states and the API boundary — it loads the customer's real
 Site → Facility → ControlZone structure from the cloud API, lets them navigate
 it, and inside a control zone shows what its measurement points last reported,
 the telemetry history of the one they select, and the control points they may
@@ -212,11 +213,23 @@ src/
     activity/   the Activity route: URL-backed zone selection, one zone's
                 bounded command window, command details and their bounded
                 lifecycle observation
-  layouts/     the portal shell: header, navigation, breadcrumbs, main region
+  layouts/     the portal shell: header, sidebar navigation, breadcrumbs, main
+               region, footer and the light/dark/auto appearance preference
   routes/      the route table and the 404 page
   shared/      cross-feature utilities (notifications channel, formatting)
+  styles/      the greenhouse theme: design tokens, the CoreUI variable mapping
+               and the shell layout
   test/        test support only: the render harness and contract-valid fixtures
 ```
+
+The shell is built on **CoreUI Free for React**. `@coreui/react` supplies the
+sidebar navigation, header, breadcrumb and footer components; `@coreui/coreui`
+supplies their stylesheet; `@coreui/icons` and `@coreui/icons-react` supply the
+icons the sidebar entries and the appearance selector draw. Nothing else from
+the CoreUI Free Admin Template is copied in — no demo page, no sample widget and
+no chart library. Stylesheets load in one order, set in `src/app/main.tsx`:
+CoreUI, then `src/styles/theme.css`, then `src/styles.css`, so where a class
+name is shared the portal's own rule is the one that applies.
 
 Routes are described as data in `src/routes/routes.tsx`. The router, the primary
 navigation, the page heading, the breadcrumbs and the document title all read
@@ -711,8 +724,21 @@ Notes that follow from the contract:
 - No state signalled by colour alone: every status carries its own words. A
   reading, a missing reading, a quality and a failed refresh are each readable in
   monochrome, and the chart encodes nothing in colour that is not also in text.
+- A **light / dark / auto** appearance selector in the header: three ordinary
+  buttons in a labelled group, each reachable by Tab, activated by Enter or
+  Space, and carrying `aria-pressed` so the selection is stated rather than only
+  highlighted. The preference is local to the browser — it is stored on the
+  device, never sent anywhere, and there is no account setting behind it.
+  `auto` follows `prefers-color-scheme` and keeps following it while a system
+  change happens. The stored value is resolved before the first paint, so the
+  portal does not flash the wrong theme, and anything unrecognised falls back to
+  `auto`.
 - Light and dark palettes with held contrast, and a reduced-motion rule. The
   chart animates nothing.
+- A persistent sidebar on a wide screen; below CoreUI's sidebar breakpoint it
+  becomes off-canvas behind the same accessible toggle, and a closed menu is
+  removed from the layout, so its links leave the tab order rather than sitting
+  invisibly in it.
 - Desktop, tablet and phone layouts without horizontal page overflow. The chart
   is drawn at the pixel width its container actually has — rather than scaled
   from a fixed `viewBox`, which would shrink its labels along with it — and a

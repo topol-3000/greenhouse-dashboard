@@ -133,6 +133,46 @@ test.describe("the portal shell at phone width", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Activity" })).toBeVisible();
   });
 
+  test("closes the off-canvas navigation with Escape, without scrolling the page", async ({
+    page,
+  }) => {
+    await mockHealth(page);
+    await mockTopology(page);
+    await page.goto("/");
+
+    const toggle = page.getByRole("button", { name: "Menu" });
+    await toggle.click();
+    await expect(page.getByRole("navigation", { name: "Primary" })).toBeVisible();
+    // An open menu overlays the page; it never widens it.
+    expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);
+
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("button", { name: "Menu" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    // Focus comes back to the control that opened it, so the keyboard user is
+    // not left at the top of the document.
+    await expect(page.getByRole("button", { name: "Menu" })).toBeFocused();
+    await expect(page.getByRole("navigation", { name: "Primary" }).getByRole("link")).toHaveCount(
+      0,
+    );
+  });
+
+  test("offers the appearance selector at phone width", async ({ page }) => {
+    await mockHealth(page);
+    await mockTopology(page);
+    await page.goto("/");
+
+    const group = page.getByRole("group", { name: "Appearance" });
+    // The visible label is dropped for space, but the accessible name is not.
+    await expect(group.getByRole("button", { name: "Dark" })).toBeVisible();
+
+    await group.getByRole("button", { name: "Dark" }).click();
+    await expect(page.locator("html")).toHaveAttribute("data-coreui-theme", "dark");
+    expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);
+  });
+
   test("keeps the availability indicator and content in one column", async ({ page }) => {
     await mockHealth(page);
     await mockTopology(page);

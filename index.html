@@ -8,6 +8,30 @@
       content="Customer Portal for monitoring and manually operating AI Greenhouse facilities."
     />
     <title>AI Greenhouse Customer Portal</title>
+    <script>
+      /*
+       * Resolve the stored appearance before the first paint, so the portal
+       * never flashes the wrong theme on the way to the right one. This is the
+       * only copy of the logic outside src/layouts/appearance.ts, and it is
+       * duplicated because no React effect can run early enough. Anything the
+       * portal does not recognise — including storage that throws — is `auto`.
+       */
+      (function () {
+        var preference = "auto";
+        try {
+          var stored = window.localStorage.getItem("greenhouse-portal-appearance");
+          if (stored === "light" || stored === "dark" || stored === "auto") {
+            preference = stored;
+          }
+        } catch (error) {
+          preference = "auto";
+        }
+        var dark =
+          preference === "dark" ||
+          (preference === "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.setAttribute("data-coreui-theme", dark ? "dark" : "light");
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

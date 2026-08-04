@@ -21,8 +21,10 @@ activity. Delivered:
 - a real client-side routing layer with an extensible route table, including
   parameterised Facility and ControlZone routes whose headings, document titles
   and breadcrumbs resolve to real resource names;
-- the portal shell — brand, primary navigation, breadcrumbs, location-aware page
-  heading, global notification region, accessible mobile navigation, responsive
+- the portal shell, built on CoreUI Free for React — brand, sidebar primary
+  navigation, header, breadcrumbs, location-aware page heading, global
+  notification region, restrained footer, accessible off-canvas navigation at
+  narrow widths, a local `light`/`dark`/`auto` appearance preference, responsive
   layout, focus handling;
 - a centralised API boundary with one configurable base URL, generated contract
   types, bounded pagination and normalised errors;
@@ -61,9 +63,16 @@ server-sent events.
 ## Stack
 
 React 19 + TypeScript (strict) + Vite. React Router owns client-side routing.
-TanStack Query v5 owns server state and polling. Vitest and Testing Library cover
-units and components; Playwright covers the browser. Nginx serves the built
-assets, reverse-proxies the backend surface and owns the SPA fallback.
+TanStack Query v5 owns server state and polling. CoreUI Free for React supplies
+the application shell's components and stylesheet; the greenhouse theme in
+`src/styles/theme.css` maps CoreUI's variables onto the product's own tokens.
+Vitest and Testing Library cover units and components; Playwright covers the
+browser. Nginx serves the built assets, reverse-proxies the backend surface and
+owns the SPA fallback.
+
+The appearance preference (`light`, `dark`, `auto`) is browser-local UI state
+published as `data-coreui-theme` on the document element. It is not a user
+setting, it reaches no endpoint, and the backend knows nothing about it.
 
 ## Integration boundary
 
