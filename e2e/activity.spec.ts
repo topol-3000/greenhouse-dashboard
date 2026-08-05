@@ -24,6 +24,7 @@ import {
   mockHealth,
   mockTopology,
 } from "./fixtures";
+import { focusIsInside, tabTo } from "./keyboard";
 
 const ZONE_ACTIVITY = `/activity?site=${E2E_IDS.riversideSite}&facility=${E2E_IDS.northGreenhouse}&zone=${E2E_IDS.climateZone}`;
 
@@ -317,9 +318,10 @@ test.describe("one command's details", () => {
     await expect(dialog).toBeVisible();
     await expect(dialog).toBeFocused();
 
-    // Focus stays inside the dialog.
+    // Focus stays inside the dialog, and Close is reachable from the keyboard.
     await page.keyboard.press("Tab");
-    await expect(dialog.getByRole("button", { name: "Close" })).toBeFocused();
+    expect(await focusIsInside(page, "command-details")).toBe(true);
+    await tabTo(page, dialog.getByRole("button", { name: "Close" }));
 
     await page.keyboard.press("Escape");
     await expect(dialog).toHaveCount(0);

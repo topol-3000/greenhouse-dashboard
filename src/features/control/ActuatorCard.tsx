@@ -17,13 +17,15 @@
  * does not say it is authoritative over what may be commanded.
  */
 
+import { CButton, CCard, CCardBody, CCardTitle } from "@coreui/react";
 import type { ReactNode } from "react";
 import type { ZoneActuator } from "./actuators";
 import { describeExclusion } from "./actuators";
 import { actionLabel } from "./commandLabels";
 import { ReportedState } from "./ReportedState";
 import { formatContractValue } from "../../shared/format";
-import { StatePanel } from "../../components/StatePanel";
+import { Note, StatePanel } from "../../components/StatePanel";
+import { MetaList } from "../topology/MetaList";
 
 interface ActuatorCardProps {
   actuator: ZoneActuator;
@@ -44,70 +46,78 @@ export function ActuatorCard({
   const headingId = `actuator-${actuator.pointId}`;
 
   return (
-    <article
-      className="card control"
+    <CCard
+      className="h-100"
       data-testid="actuator-card"
       data-point-id={actuator.pointId}
       aria-labelledby={headingId}
     >
-      <h4 className="card__title" id={headingId}>
-        {actuator.name}
-      </h4>
-      <p className="card__subtitle">{formatContractValue(actuator.metricType)}</p>
+      <CCardBody className="d-flex flex-column align-items-start gap-2">
+        <CCardTitle as="h4" className="text-break mb-0" id={headingId}>
+          {actuator.name}
+        </CCardTitle>
+        <p className="text-uppercase small text-body-secondary">
+          {formatContractValue(actuator.metricType)}
+        </p>
 
-      <div className="control__state">
-        <h5 className="control__state-heading">Reported state</h5>
-        <ReportedState feedback={actuator.feedback} />
-      </div>
-
-      {actuator.isCommandable ? (
-        <>
-          <div className="control__actions" role="group" aria-labelledby={headingId}>
-            {[true, false].map((desiredValue) => (
-              <button
-                key={String(desiredValue)}
-                type="button"
-                className="button"
-                onClick={() => {
-                  onRequestAction(desiredValue);
-                }}
-                disabled={disabledReason !== undefined}
-                data-testid={desiredValue ? "actuator-on" : "actuator-off"}
-              >
-                {`${actionLabel(desiredValue)} ${actuator.name}`}
-              </button>
-            ))}
-          </div>
-          {disabledReason === undefined ? null : (
-            <p className="inline-note" data-testid="actuator-actions-disabled">
-              {disabledReason}
-            </p>
-          )}
-        </>
-      ) : actuator.exclusion === undefined ? null : (
-        <StatePanel
-          title="No manual action is available for this control point"
-          headingLevel={4}
-          testId="actuator-unsupported"
-        >
-          <p>{describeExclusion(actuator.exclusion)}</p>
-        </StatePanel>
-      )}
-
-      <dl className="meta">
-        <div className="meta__row">
-          <dt className="meta__label">Point code</dt>
-          <dd className="meta__value">
-            <code>{actuator.code}</code>
-          </dd>
+        {/*
+          The reported state, the request and the command lifecycle are three
+          blocks with three headings, because they are three different facts and
+          a customer must never have to guess which one a number belongs to.
+        */}
+        <div className="d-flex flex-column align-items-start gap-1 w-100">
+          <h5 className="text-uppercase small text-body-secondary mb-0">Reported state</h5>
+          <ReportedState feedback={actuator.feedback} />
         </div>
-        <div className="meta__row">
-          <dt className="meta__label">Data type</dt>
-          <dd className="meta__value">{formatContractValue(actuator.dataType)}</dd>
-        </div>
-      </dl>
 
-      {children}
-    </article>
+        {actuator.isCommandable ? (
+          <>
+            {/*
+              Two separate buttons, deliberately not a `CButtonGroup`: a joined
+              segmented control reads as a toggle whose position is the current
+              state, and neither of these buttons reports anything.
+            */}
+            <div className="d-flex flex-wrap gap-2 w-100" role="group" aria-labelledby={headingId}>
+              {[true, false].map((desiredValue) => (
+                <CButton
+                  key={String(desiredValue)}
+                  type="button"
+                  color="primary"
+                  variant="outline"
+                  className="flex-grow-1"
+                  onClick={() => {
+                    onRequestAction(desiredValue);
+                  }}
+                  disabled={disabledReason !== undefined}
+                  data-testid={desiredValue ? "actuator-on" : "actuator-off"}
+                >
+                  {`${actionLabel(desiredValue)} ${actuator.name}`}
+                </CButton>
+              ))}
+            </div>
+            {disabledReason === undefined ? null : (
+              <Note testId="actuator-actions-disabled">{disabledReason}</Note>
+            )}
+          </>
+        ) : actuator.exclusion === undefined ? null : (
+          <StatePanel
+            title="No manual action is available for this control point"
+            headingLevel={4}
+            testId="actuator-unsupported"
+          >
+            <p>{describeExclusion(actuator.exclusion)}</p>
+          </StatePanel>
+        )}
+
+        <MetaList
+          items={[
+            { label: "Point code", value: <code>{actuator.code}</code> },
+            { label: "Data type", value: formatContractValue(actuator.dataType) },
+          ]}
+        />
+
+        {children}
+      </CCardBody>
+    </CCard>
   );
 }

@@ -2,13 +2,18 @@
  * One control zone's commands, newest first.
  *
  * There is one DOM for every viewport, not a table for desktop and a second
- * markup for phones. Each command is a list item containing a button, and each
- * field inside it carries its own visible label; the stylesheet lays those
- * fields into aligned columns on a wide screen and stacks them on a narrow one.
- * That is what makes "the mobile layout shows the same information" a property
- * of the markup rather than a promise two code paths have to keep, and it keeps
- * the rows operable by keyboard at every width because they were never a table
- * with a click handler.
+ * markup for phones. Each command is a list item containing a CoreUI list-group
+ * action button, and each field inside it carries its own visible label; CoreUI's
+ * own grid lays those fields into aligned columns on a wide screen and stacks
+ * them on a narrow one. That is what makes "the mobile layout shows the same
+ * information" a property of the markup rather than a promise two code paths
+ * have to keep, and it keeps the rows operable by keyboard at every width
+ * because they were never a table with a click handler.
+ *
+ * The list stays a `<ul>` of `<li>`s. CoreUI's actionable list group puts the
+ * buttons directly in the list, which costs the list its `listitem` semantics;
+ * the button lives inside the item here instead, so a screen reader still hears
+ * "list, N items".
  *
  * Each row answers four separate questions and never lets one answer another:
  *
@@ -23,10 +28,15 @@
  * last week would read as that command's outcome, which is precisely the
  * conflation the contract warns against. Reported state belongs to the details
  * of one opened command, next to the moment it was read.
+ *
+ * The open row is marked by `aria-current` and by its own words — "Details
+ * open" rather than "View details" — as well as by the highlight, so the
+ * selection is never carried by colour alone.
  */
 
+import { CBadge, CCol, CListGroup, CListGroupItem, CRow } from "@coreui/react";
 import type { ReactNode } from "react";
-import type { CommandRead } from "../../api/contract";
+import type { CommandRead, CommandState } from "../../api/contract";
 import { APPLIED_COMMAND_STATE } from "../../api/contract";
 import { commandStateLabel, desiredValueLabel } from "../control/commandLabels";
 import type { ActivityCommand, PointLabel } from "./activityCommands";
@@ -42,22 +52,26 @@ interface ActivityListProps {
   zoneName: string;
 }
 
+const STATE_COLOUR: Record<CommandState, "info" | "success" | "danger"> = {
+  pending: "info",
+  applied: "success",
+  rejected: "danger",
+};
+
 /** A point's name, or the identifier the API published when there is none. */
 export function PointIdentity({ label }: { label: PointLabel }) {
   if (!label.isResolved) {
     return (
       <>
-        <code className="activity-row__identifier">{label.pointId}</code>
-        <span className="activity-row__hint">Name unavailable</span>
+        <code className="small">{label.pointId}</code>
+        <span className="d-block small text-body-secondary">Name unavailable</span>
       </>
     );
   }
   return (
     <>
-      <span className="activity-row__name">{label.name}</span>
-      {label.code === undefined ? null : (
-        <code className="activity-row__identifier">{label.code}</code>
-      )}
+      <span className="fw-semibold">{label.name}</span>
+      {label.code === undefined ? null : <code className="small ms-1">{label.code}</code>}
     </>
   );
 }
@@ -66,44 +80,46 @@ export function PointIdentity({ label }: { label: PointLabel }) {
 function Field({
   label,
   children,
-  className = "",
+  span,
   testId,
 }: {
   label: string;
   children: ReactNode;
-  className?: string;
+  /** Columns this field takes on a wide screen. Full width on a narrow one. */
+  span?: { lg?: number; xl?: number };
   testId?: string;
 }) {
   return (
-    <span
-      className={`activity-row__field ${className}`.trim()}
+    <CCol
+      xs={12}
+      lg={span?.lg ?? 4}
+      xl={span?.xl ?? span?.lg ?? 4}
+      className="d-flex flex-column gap-1"
       {...(testId ? { "data-testid": testId } : {})}
     >
-      <span className="activity-row__label">{label}</span>
-      <span className="activity-row__value">{children}</span>
-    </span>
+      <span className="text-uppercase small text-body-secondary">{label}</span>
+      <span className="text-break">{children}</span>
+    </CCol>
   );
 }
 
 /**
  * The lifecycle of one command, said in full.
  *
- * The state's own label, the raw enum value beside it for operational clarity,
- * and receipt as a separate fact. `pending` is never dressed up as a failure and
- * receipt is never dressed up as success.
+ * The state's own label with a badge repeating it, the raw enum value beside it
+ * for operational clarity, and receipt as a separate fact. `pending` is never
+ * dressed up as a failure and receipt is never dressed up as success.
  */
 function Lifecycle({ command }: { command: CommandRead }) {
   return (
     <>
-      <span className="activity-row__state" data-testid="activity-row-state">
+      <CBadge color={STATE_COLOUR[command.state]} data-testid="activity-row-state">
         {commandStateLabel(command.state)}
-      </span>{" "}
-      <code className="activity-row__identifier">{command.state}</code>
+      </CBadge>{" "}
+      <code className="small">{command.state}</code>
       <span
         className={
-          wasReceivedByGreenhouse(command)
-            ? "activity-row__receipt activity-row__receipt--received"
-            : "activity-row__receipt"
+          wasReceivedByGreenhouse(command) ? "d-block small" : "d-block small text-body-secondary"
         }
         data-testid="activity-row-receipt"
       >
@@ -115,8 +131,9 @@ function Lifecycle({ command }: { command: CommandRead }) {
 
 export function ActivityList({ rows, selectedCommandId, onOpen, zoneName }: ActivityListProps) {
   return (
-    <ul
-      className="activity-list"
+    <CListGroup
+      as="ul"
+      className="gap-2"
       data-testid="activity-list"
       aria-label={`Commands for ${zoneName}`}
     >
@@ -125,10 +142,12 @@ export function ActivityList({ rows, selectedCommandId, onOpen, zoneName }: Acti
           selectedCommandId !== undefined &&
           selectedCommandId.toLowerCase() === command.id.toLowerCase();
         return (
-          <li key={command.id} className="activity-list__item">
-            <button
+          <li key={command.id} className="d-flex">
+            <CListGroupItem
+              as="button"
               type="button"
-              className={isSelected ? "activity-row activity-row--selected" : "activity-row"}
+              active={isSelected}
+              className="w-100 text-start rounded py-3"
               aria-haspopup="dialog"
               data-testid={`activity-row-${command.id}`}
               data-command-id={command.id}
@@ -136,51 +155,67 @@ export function ActivityList({ rows, selectedCommandId, onOpen, zoneName }: Acti
                 onOpen(command.id);
               }}
             >
-              <Field label="Control point" className="activity-row__field--target">
-                <PointIdentity label={target} />
-              </Field>
-
-              <Field label="Requested" testId="activity-row-desired">
-                <strong>{desiredValueLabel(command.desired_value)}</strong>
-              </Field>
-
-              <Field label="Source" testId="activity-row-source">
-                {sourceLabel(command.source)}{" "}
-                <code className="activity-row__identifier">{command.source}</code>
-              </Field>
-
-              <Field label="Command" className="activity-row__field--lifecycle">
-                <Lifecycle command={command} />
-              </Field>
-
-              <Field label="Created">
-                <time dateTime={command.created_at}>{formatIsoInstant(command.created_at)}</time>
-              </Field>
-
-              {command.rejection_reason === null ? null : (
-                <Field
-                  label="Rejected because"
-                  className="activity-row__field--rejection"
-                  testId="activity-row-rejection"
-                >
-                  {command.rejection_reason.message}{" "}
-                  <code className="activity-row__identifier">{command.rejection_reason.code}</code>
+              <CRow className="g-3 align-items-start">
+                <Field label="Control point" span={{ lg: 6, xl: 3 }}>
+                  <PointIdentity label={target} />
                 </Field>
-              )}
 
-              {command.state === APPLIED_COMMAND_STATE && command.executed_at !== null ? (
-                <Field label="Completed" testId="activity-row-executed">
-                  <time dateTime={command.executed_at}>
-                    {formatIsoInstant(command.executed_at)}
-                  </time>
+                <Field label="Requested" span={{ lg: 3, xl: 2 }} testId="activity-row-desired">
+                  <strong>{desiredValueLabel(command.desired_value)}</strong>
                 </Field>
-              ) : null}
 
-              <span className="activity-row__open">View details</span>
-            </button>
+                <Field label="Source" span={{ lg: 3, xl: 2 }} testId="activity-row-source">
+                  {sourceLabel(command.source)} <code className="small">{command.source}</code>
+                </Field>
+
+                <Field label="Command" span={{ lg: 6, xl: 2 }}>
+                  <Lifecycle command={command} />
+                </Field>
+
+                <Field label="Created" span={{ lg: 4, xl: 2 }}>
+                  <time dateTime={command.created_at}>{formatIsoInstant(command.created_at)}</time>
+                </Field>
+
+                {/*
+                  The two fields a command does not always have come after the
+                  ones it always has, each on a line of its own, so a rejection
+                  or a completion time never shifts the columns beside it
+                  between one row and the next.
+                */}
+                {command.state === APPLIED_COMMAND_STATE && command.executed_at !== null ? (
+                  <Field label="Completed" span={{ lg: 12, xl: 12 }} testId="activity-row-executed">
+                    <time dateTime={command.executed_at}>
+                      {formatIsoInstant(command.executed_at)}
+                    </time>
+                  </Field>
+                ) : null}
+
+                {command.rejection_reason === null ? null : (
+                  <Field
+                    label="Rejected because"
+                    span={{ lg: 12, xl: 12 }}
+                    testId="activity-row-rejection"
+                  >
+                    {command.rejection_reason.message}{" "}
+                    <code className="small">{command.rejection_reason.code}</code>
+                  </Field>
+                )}
+
+                {/*
+                  Always the last thing in the row, at the end of its own line,
+                  so it sits in the same place whatever fields the command
+                  above it happened to have.
+                */}
+                <CCol xs={12} className="d-flex justify-content-lg-end">
+                  <span className="fw-semibold small">
+                    {isSelected ? "Details open" : "View details"}
+                  </span>
+                </CCol>
+              </CRow>
+            </CListGroupItem>
           </li>
         );
       })}
-    </ul>
+    </CListGroup>
   );
 }

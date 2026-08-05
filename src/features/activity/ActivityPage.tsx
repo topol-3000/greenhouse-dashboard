@@ -9,7 +9,8 @@
  *
  * It is read-only, and stays read-only. Commands are created in the control
  * zone's manual-control section and nowhere else: there is no action here to
- * send, cancel, retry or resubmit anything.
+ * send, cancel, retry or resubmit anything. The one button on the page asks the
+ * cloud API for the window again.
  *
  * It is scoped to one control zone because the contract scopes it there.
  * `GET /api/v1/commands` filters by `control_zone_id`, `target_point_id` and
@@ -20,8 +21,14 @@
  * and Forward restore it, and a link to one command is a link they can send.
  */
 
-import { LoadingState, StatePanel } from "../../components/StatePanel";
-import { RefreshFailurePanel, RequestErrorPanel } from "../../components/TopologyStates";
+import { CButton } from "@coreui/react";
+import { SectionCard } from "../../components/SectionCard";
+import { LoadingState, Note, StatePanel } from "../../components/StatePanel";
+import {
+  BackgroundRefreshNotice,
+  RefreshFailurePanel,
+  RequestErrorPanel,
+} from "../../components/TopologyStates";
 import { ACTIVITY_COMMAND_LIMIT } from "../../api/queries";
 import { ActivityFilters } from "./ActivityFilters";
 import { ActivityList } from "./ActivityList";
@@ -34,24 +41,35 @@ export function ActivityPage() {
   const zone = selection.zone;
 
   return (
-    <div className="stack" data-testid="activity-page">
-      <section className="section" aria-labelledby="activity-scope-heading">
-        <h2 id="activity-scope-heading" className="section__heading">
-          Choose a control zone
-        </h2>
-        <p className="prose">
+    <div className="d-flex flex-column gap-4" data-testid="activity-page">
+      <SectionCard title="Choose a control zone">
+        <p className="prose text-body-secondary">
           Command activity is published per control zone, so Activity shows one zone at a time.
           Choose the site, facility and control zone you want, and narrow by source or by control
           point if you need to.
         </p>
         <ActivityFilters activity={activity} />
-      </section>
+      </SectionCard>
 
-      <section className="section" aria-labelledby="activity-heading" data-testid="activity">
-        <h2 id="activity-heading" className="section__heading">
-          Command activity
-        </h2>
-
+      <SectionCard
+        title="Command activity"
+        testId="activity"
+        action={
+          zone === undefined ? undefined : (
+            <CButton
+              type="button"
+              color="secondary"
+              variant="outline"
+              size="sm"
+              onClick={commands.refresh}
+              disabled={commands.isRefreshing || commands.isLoading}
+              data-testid="activity-refresh"
+            >
+              {commands.isRefreshing ? "Refreshing…" : "Refresh"}
+            </CButton>
+          )
+        }
+      >
         {zone === undefined ? (
           <StatePanel
             title="Choose a control zone to see its command activity"
@@ -66,7 +84,7 @@ export function ActivityPage() {
           </StatePanel>
         ) : (
           <>
-            <p className="prose" data-testid="activity-scope">
+            <p className="prose text-body-secondary" data-testid="activity-scope">
               The commands the cloud API returns for {zone.name}
               {selection.actuator === undefined ? "" : `, addressed to ${selection.actuator.name}`}
               {selection.source === undefined ? "" : ", from the selected source"}. The cloud API
@@ -125,9 +143,11 @@ export function ActivityPage() {
             ) : null}
 
             {commands.isRefreshing ? (
-              <p className="inline-note" data-testid="activity-refreshing">
-                Refreshing this zone&rsquo;s commands from the cloud API…
-              </p>
+              <BackgroundRefreshNotice
+                announce={false}
+                testId="activity-refreshing"
+                label="Refreshing this zone’s commands from the cloud API…"
+              />
             ) : null}
 
             {commands.isLoading ? (
@@ -164,32 +184,16 @@ export function ActivityPage() {
                   onOpen={activity.openCommand}
                 />
                 {commands.isFull ? (
-                  <p
-                    className="inline-note inline-note--warning"
-                    role="status"
-                    data-testid="activity-window-full"
-                  >
+                  <Note tone="warning" role="status" testId="activity-window-full">
                     This window is full at {commands.limit} commands. Older commands exist and are
                     not shown: the cloud API publishes no total and no way to page past this window.
-                  </p>
+                  </Note>
                 ) : null}
               </>
             )}
-
-            <div className="control__actions">
-              <button
-                type="button"
-                className="button"
-                onClick={commands.refresh}
-                disabled={commands.isRefreshing || commands.isLoading}
-                data-testid="activity-refresh"
-              >
-                {commands.isRefreshing ? "Refreshing…" : "Refresh"}
-              </button>
-            </div>
           </>
         )}
-      </section>
+      </SectionCard>
 
       {details === undefined || zone === undefined ? null : (
         <CommandDetailsDialog

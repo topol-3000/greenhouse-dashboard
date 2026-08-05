@@ -20,10 +20,40 @@
  * URL, a status body or a stack trace onto a screen.
  */
 
+import { CButton, CSpinner } from "@coreui/react";
 import { Link } from "react-router";
 import { describeError } from "../api/errors";
 import { GREENHOUSES_PATH } from "../routes/routes";
-import { StatePanel } from "./StatePanel";
+import { Note, StatePanel } from "./StatePanel";
+
+/** The button every state offers for asking the cloud API again. */
+export function RetryButton({
+  onClick,
+  retrying,
+  testId,
+  label = "Try again",
+  retryingLabel = "Trying again…",
+}: {
+  onClick: () => void;
+  retrying?: boolean;
+  testId?: string;
+  label?: string;
+  retryingLabel?: string;
+}) {
+  return (
+    <CButton
+      type="button"
+      color="secondary"
+      variant="outline"
+      size="sm"
+      onClick={onClick}
+      disabled={retrying === true}
+      {...(testId === undefined ? {} : { "data-testid": testId })}
+    >
+      {retrying === true ? retryingLabel : label}
+    </CButton>
+  );
+}
 
 interface RequestErrorPanelProps {
   /** What the portal was trying to read, in the customer's words. */
@@ -55,18 +85,10 @@ export function RequestErrorPanel({
       role="alert"
       testId={testId}
       headingLevel={headingLevel}
-      {...(onRetry
-        ? {
-            action: (
-              <button type="button" className="button" onClick={onRetry} disabled={retrying}>
-                {retrying ? "Trying again…" : "Try again"}
-              </button>
-            ),
-          }
-        : {})}
+      {...(onRetry ? { action: <RetryButton onClick={onRetry} retrying={retrying} /> } : {})}
     >
       <p>{describeError(error)}</p>
-      <p className="panel__meta">
+      <p className="small mb-0">
         The rest of the portal is unaffected — you can keep navigating while this is being retried.
       </p>
     </StatePanel>
@@ -148,11 +170,30 @@ export function RelationshipMismatchPanel({
   );
 }
 
-/** A refresh running over data that is already on screen. */
-export function BackgroundRefreshNotice() {
+/**
+ * A refresh running over data that is already on screen.
+ *
+ * The spinner is decoration beside words that already say what is happening, so
+ * CoreUI's own status role is taken off it and the sentence carries the state.
+ */
+export function BackgroundRefreshNotice({
+  label = "Refreshing from the cloud API…",
+  testId = "background-refresh",
+  announce = true,
+}: {
+  label?: string;
+  testId?: string;
+  /** A poll nobody asked for is shown, not announced every thirty seconds. */
+  announce?: boolean;
+}) {
   return (
-    <p className="inline-note" role="status" data-testid="background-refresh">
-      Refreshing from the cloud API…
+    <p
+      className="d-flex align-items-center gap-2 small text-body-secondary"
+      {...(announce ? { role: "status" } : {})}
+      data-testid={testId}
+    >
+      <CSpinner as="span" size="sm" role={undefined} visuallyHiddenLabel="" aria-hidden="true" />
+      <span>{label}</span>
     </p>
   );
 }
@@ -184,11 +225,7 @@ export function RefreshFailurePanel({
       tone="warning"
       role="status"
       testId={testId}
-      action={
-        <button type="button" className="button" onClick={onRetry} disabled={retrying}>
-          {retrying ? "Trying again…" : "Try again"}
-        </button>
-      }
+      action={<RetryButton onClick={onRetry} retrying={retrying} />}
     >
       <p>
         The most recent refresh did not succeed, so this may be out of date. {describeError(error)}
@@ -217,12 +254,8 @@ export function IncompleteCollectionNotice({
   noun,
 }: IncompleteCollectionNoticeProps) {
   return (
-    <p
-      className="inline-note inline-note--warning"
-      role="status"
-      data-testid="incomplete-collection"
-    >
+    <Note tone="warning" role="status" testId="incomplete-collection">
       Showing {shown} of the {total} {noun} the cloud API reports. This is not the complete list.
-    </p>
+    </Note>
   );
 }

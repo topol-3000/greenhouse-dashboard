@@ -49,7 +49,13 @@
 
   --radius: 10px;
   --gap: 1rem;
-  --page-width: 80rem;
+  /*
+   * The cap exists to stop a 21-inch monitor from stretching a row of cards
+   * into a ribbon, not to keep the portal in a column. Readable measure is the
+   * job of `.prose`, which caps the text and leaves the workspace around it
+   * free to use the width the screen actually has.
+   */
+  --page-width: 100rem;
   --page-inline: 1.25rem;
 }
 
@@ -118,6 +124,66 @@
 
   --cui-border-radius: var(--radius);
   --cui-body-font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/*
+ * CoreUI compiles its button variants with literal colours rather than reading
+ * `--cui-primary`, so the tokens above do not reach them. The portal's primary
+ * action is restated here in the greenhouse accent: without it the one thing a
+ * customer is about to press comes out in CoreUI's indigo on a green portal.
+ *
+ * The right-hand sides are still tokens, so light and dark stay one decision.
+ * The `:root` prefix is not decoration: CoreUI restates every button variant
+ * under `[data-coreui-theme=dark]`, and a bare class selector would lose to it
+ * in the dark appearance.
+ */
+:root .btn-primary {
+  --cui-btn-color: var(--accent-contrast);
+  --cui-btn-bg: var(--accent);
+  --cui-btn-border-color: var(--accent);
+  --cui-btn-hover-color: var(--accent-contrast);
+  --cui-btn-hover-bg: var(--accent-strong);
+  --cui-btn-hover-border-color: var(--accent-strong);
+  --cui-btn-active-color: var(--accent-contrast);
+  --cui-btn-active-bg: var(--accent-strong);
+  --cui-btn-active-border-color: var(--accent-strong);
+  --cui-btn-disabled-color: var(--accent-contrast);
+  --cui-btn-disabled-bg: var(--accent);
+  --cui-btn-disabled-border-color: var(--accent);
+  --cui-btn-focus-shadow-rgb: var(--accent-rgb);
+}
+
+:root .btn-outline-primary {
+  --cui-btn-color: var(--accent);
+  --cui-btn-border-color: var(--accent);
+  --cui-btn-hover-color: var(--accent-contrast);
+  --cui-btn-hover-bg: var(--accent);
+  --cui-btn-hover-border-color: var(--accent);
+  --cui-btn-active-color: var(--accent-contrast);
+  --cui-btn-active-bg: var(--accent);
+  --cui-btn-active-border-color: var(--accent);
+  --cui-btn-disabled-color: var(--accent);
+  --cui-btn-disabled-border-color: var(--accent);
+  --cui-btn-focus-shadow-rgb: var(--accent-rgb);
+}
+
+/*
+ * The portal's quiet action — retry, dismiss, refresh, check again. CoreUI's
+ * own secondary is a fixed slate grey that reads as disabled on the dark
+ * surface, so it is expressed in the surface tokens instead.
+ */
+:root .btn-outline-secondary {
+  --cui-btn-color: var(--text-primary);
+  --cui-btn-border-color: var(--border);
+  --cui-btn-hover-color: var(--text-primary);
+  --cui-btn-hover-bg: var(--surface-2);
+  --cui-btn-hover-border-color: var(--border);
+  --cui-btn-active-color: var(--text-primary);
+  --cui-btn-active-bg: var(--surface-2);
+  --cui-btn-active-border-color: var(--border);
+  --cui-btn-disabled-color: var(--text-secondary);
+  --cui-btn-disabled-border-color: var(--border);
+  --cui-btn-focus-shadow-rgb: var(--accent-rgb);
 }
 
 /* 3. Shell ----------------------------------------------------------------- */

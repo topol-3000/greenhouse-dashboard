@@ -2,11 +2,15 @@
  * The monitoring section of a control zone workspace.
  *
  * It is a section of that page, not a page of its own: the zone's identity,
- * breadcrumbs, topology metadata and facility switcher stay exactly where Unit
- * 2 put them, and monitoring is added underneath. That is also why every
+ * breadcrumbs, topology metadata and facility switcher stay exactly where the
+ * workspace put them, and monitoring is added underneath. That is also why every
  * failure here is scoped to this section — a monitoring request that fails
  * leaves the workspace, the navigation and the shell usable, because a customer
  * who cannot read a temperature can still move around their greenhouses.
+ *
+ * The measurement cards use the full width of the workspace, three or four
+ * across on a desktop, because a zone with a dozen points is read as a board
+ * rather than as a column that has to be scrolled to be compared.
  *
  * What it will not show, whatever the API returns: a control or status point's
  * state, a desired state, a command, an alert, a threshold or an automation
@@ -14,8 +18,14 @@
  * the state of anything else never reaches this component.
  */
 
+import { CCol, CRow } from "@coreui/react";
+import { SectionCard } from "../../components/SectionCard";
 import { LoadingState, StatePanel } from "../../components/StatePanel";
-import { RefreshFailurePanel, RequestErrorPanel } from "../../components/TopologyStates";
+import {
+  BackgroundRefreshNotice,
+  RefreshFailurePanel,
+  RequestErrorPanel,
+} from "../../components/TopologyStates";
 import { MeasurementCard } from "./MeasurementCard";
 import { TelemetryHistoryPanel } from "./TelemetryHistoryPanel";
 import type { ZoneMonitoring } from "./useZoneMonitoring";
@@ -29,11 +39,8 @@ export function MonitoringSection({ zoneName, monitoring }: MonitoringSectionPro
   const hasMeasurements = monitoring.measurements.length > 0;
 
   return (
-    <section className="section" aria-labelledby="monitoring-heading" data-testid="monitoring">
-      <h2 id="monitoring-heading" className="section__heading">
-        Monitoring
-      </h2>
-      <p className="prose">
+    <SectionCard title="Monitoring" testId="monitoring">
+      <p className="prose text-body-secondary">
         The measurement points the cloud API assigns to {zoneName}, and the last state it holds for
         each. Everything below is read from the API — there is no control here, and no value the
         backend did not publish.
@@ -48,21 +55,21 @@ export function MonitoringSection({ zoneName, monitoring }: MonitoringSectionPro
       ) : null}
 
       {/*
-        A poll running in the background is shown but deliberately not announced.
-        A `role="status"` here would interrupt a screen reader every thirty
-        seconds to report a request nobody asked for; the first load, which the
-        customer is waiting on, is announced.
-      */}
+          A poll running in the background is shown but deliberately not
+          announced. A `role="status"` here would interrupt a screen reader every
+          thirty seconds to report a request nobody asked for; the first load,
+          which the customer is waiting on, is announced.
+        */}
       {monitoring.isRefreshing ? (
-        <p className="inline-note" data-testid="monitoring-refreshing">
-          Refreshing measurements from the cloud API…
-        </p>
+        <BackgroundRefreshNotice
+          announce={false}
+          testId="monitoring-refreshing"
+          label="Refreshing measurements from the cloud API…"
+        />
       ) : null}
 
-      <section aria-labelledby="measurements-heading" className="subsection">
-        <h3 id="measurements-heading" className="subsection__heading">
-          Measurement points
-        </h3>
+      <section aria-labelledby="measurements-heading" className="d-flex flex-column gap-3">
+        <h3 id="measurements-heading">Measurement points</h3>
 
         {monitoring.isFacilityMissing ? (
           <StatePanel
@@ -119,30 +126,29 @@ export function MonitoringSection({ zoneName, monitoring }: MonitoringSectionPro
             </p>
           </StatePanel>
         ) : (
-          <div className="cards" data-testid="measurement-cards">
+          <CRow className="g-3" data-testid="measurement-cards">
             {monitoring.measurements.map((measurement) => (
-              <MeasurementCard
-                key={measurement.pointId}
-                measurement={measurement}
-                selected={monitoring.selectedPoint?.pointId === measurement.pointId}
-                onSelect={() => {
-                  monitoring.selectPoint(
-                    monitoring.selectedPoint?.pointId === measurement.pointId
-                      ? null
-                      : measurement.pointId,
-                  );
-                }}
-              />
+              <CCol key={measurement.pointId} xs={12} md={6} xl={4} xxl={3}>
+                <MeasurementCard
+                  measurement={measurement}
+                  selected={monitoring.selectedPoint?.pointId === measurement.pointId}
+                  onSelect={() => {
+                    monitoring.selectPoint(
+                      monitoring.selectedPoint?.pointId === measurement.pointId
+                        ? null
+                        : measurement.pointId,
+                    );
+                  }}
+                />
+              </CCol>
             ))}
-          </div>
+          </CRow>
         )}
       </section>
 
       {hasMeasurements || monitoring.hasUnknownSelection ? (
-        <section aria-labelledby="history-heading" className="subsection">
-          <h3 id="history-heading" className="subsection__heading">
-            Telemetry history
-          </h3>
+        <section aria-labelledby="history-heading" className="d-flex flex-column gap-3">
+          <h3 id="history-heading">Telemetry history</h3>
           <TelemetryHistoryPanel
             selectedPoint={monitoring.selectedPoint}
             hasUnknownSelection={monitoring.hasUnknownSelection}
@@ -150,6 +156,6 @@ export function MonitoringSection({ zoneName, monitoring }: MonitoringSectionPro
           />
         </section>
       ) : null}
-    </section>
+    </SectionCard>
   );
 }

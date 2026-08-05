@@ -3,9 +3,13 @@
  *
  * It is a section of that page, not a page of its own: the zone's identity,
  * breadcrumbs, composition, facility switcher and monitoring stay exactly where
- * Units 2 and 3 put them, and manual control is added underneath. Every failure
+ * the workspace put them, and manual control is added underneath. Every failure
  * here is scoped to this section — a command that could not be created leaves
  * the actuators, the measurements and the navigation exactly where they were.
+ *
+ * An actuator card is wider than a measurement card because it carries three
+ * blocks rather than one, so the grid is two across on a desktop rather than
+ * four, and one on a phone.
  *
  * What it will not show: automatic control loops, thresholds, schedules,
  * recipes, alerts, recommendations, device provisioning, gateway status or a
@@ -13,6 +17,8 @@
  * from this section, and its lifecycle.
  */
 
+import { CCol, CRow } from "@coreui/react";
+import { SectionCard } from "../../components/SectionCard";
 import { LoadingState, StatePanel } from "../../components/StatePanel";
 import { RefreshFailurePanel, RequestErrorPanel } from "../../components/TopologyStates";
 import { ActuatorCard } from "./ActuatorCard";
@@ -63,15 +69,8 @@ export function ManualControlSection({
   };
 
   return (
-    <section
-      className="section"
-      aria-labelledby="manual-control-heading"
-      data-testid="manual-control"
-    >
-      <h2 id="manual-control-heading" className="section__heading">
-        Manual control
-      </h2>
-      <p className="prose">
+    <SectionCard title="Manual control" testId="manual-control">
+      <p className="prose text-body-secondary">
         The control points the cloud API publishes as manually operable in {zoneName}. Each action
         is one request to the cloud API: it is confirmed first, it is never applied by this portal,
         and what the equipment reports is shown separately from what was asked for.
@@ -140,31 +139,32 @@ export function ManualControlSection({
           </p>
         </StatePanel>
       ) : (
-        <div className="cards" data-testid="actuator-cards">
+        <CRow className="g-3" data-testid="actuator-cards">
           {control.actuators.map((actuator) => (
-            <ActuatorCard
-              key={actuator.pointId}
-              actuator={actuator}
-              disabledReason={disabledReasonFor(actuator.pointId)}
-              onRequestAction={(desiredValue) => {
-                control.requestAction(actuator, desiredValue);
-              }}
-            >
-              {submission !== undefined &&
-              submission.intent.actuator.pointId === actuator.pointId ? (
-                <CommandProgressPanel
-                  submission={submission}
-                  observation={observation}
-                  facilityId={facilityId}
-                  onRetryAmbiguous={control.retryAmbiguous}
-                  onLookUpAmbiguous={control.lookUpAmbiguous}
-                  onRecheck={observation.recheck}
-                  onDismiss={control.dismissSubmission}
-                />
-              ) : null}
-            </ActuatorCard>
+            <CCol key={actuator.pointId} xs={12} lg={6} xxl={4}>
+              <ActuatorCard
+                actuator={actuator}
+                disabledReason={disabledReasonFor(actuator.pointId)}
+                onRequestAction={(desiredValue) => {
+                  control.requestAction(actuator, desiredValue);
+                }}
+              >
+                {submission !== undefined &&
+                submission.intent.actuator.pointId === actuator.pointId ? (
+                  <CommandProgressPanel
+                    submission={submission}
+                    observation={observation}
+                    facilityId={facilityId}
+                    onRetryAmbiguous={control.retryAmbiguous}
+                    onLookUpAmbiguous={control.lookUpAmbiguous}
+                    onRecheck={observation.recheck}
+                    onDismiss={control.dismissSubmission}
+                  />
+                ) : null}
+              </ActuatorCard>
+            </CCol>
           ))}
-        </div>
+        </CRow>
       )}
 
       {control.confirming === undefined ? null : (
@@ -178,6 +178,6 @@ export function ManualControlSection({
           isSubmitting={submission?.phase === "submitting"}
         />
       )}
-    </section>
+    </SectionCard>
   );
 }

@@ -1,508 +1,135 @@
 /*
- * The Customer Portal's feature layer.
+ * What the Customer Portal still styles for itself.
  *
  * The design tokens, the CoreUI mapping and the application shell live in
- * `styles/theme.css`; what remains here is the panel, card, table, chart,
- * control and Activity treatment the feature pages still use. It composes the
- * same tokens, so both layers change appearance together.
+ * `styles/theme.css`. The feature screens are built from CoreUI's own
+ * components — cards, alerts, badges, buttons, forms, tables, spinners, list
+ * groups and modals — so almost nothing about them needs a rule here.
  *
- * This layer is loaded after CoreUI so that, where a class name is shared —
- * `.card`, `.table`, `.modal` — the portal's own rule is the one that applies.
- * No state is signalled by colour alone: every status carries its own words.
+ * What is left is the small set of things CoreUI has no component for:
+ *
+ *   1. the typographic reset the Bootstrap reboot makes necessary, because the
+ *      portal lays its pages out with flex and grid gaps rather than with
+ *      collapsing block margins;
+ *   2. readable measure and unbreakable-string containment, so a customer's
+ *      facility name or a UUID wraps inside its component instead of widening
+ *      the page;
+ *   3. the telemetry chart, which is the portal's own SVG and not a CoreUI
+ *      component;
+ *   4. the reduced-motion guarantee.
+ *
+ * It is loaded after CoreUI so these rules win where they overlap. No state is
+ * signalled by colour alone: every status carries its own words.
  */
 
-* {
-  box-sizing: border-box;
+/* 1. Typography ------------------------------------------------------------
+ *
+ * The reboot gives every heading and paragraph a bottom margin and a size from
+ * Bootstrap's scale. Both are wrong here: spacing is owned by the flex and grid
+ * gaps of the layout, and the portal's own scale is flatter, because a page
+ * heading, a section heading and a card title sit close together in the same
+ * column and a 2.5rem `h1` next to a 2rem `h2` reads as two competing titles.
+ */
+
+:where(h1, h2, h3, h4, h5, h6, p, dl, dd, figure, ul, ol) {
+  margin-block: 0;
 }
 
+h1 {
+  font-size: 1.75rem;
+  letter-spacing: -0.01em;
+}
+
+h2 {
+  font-size: 1.3125rem;
+}
+
+h3 {
+  font-size: 1.125rem;
+}
+
+h4 {
+  font-size: 1.0625rem;
+}
+
+h5,
+h6 {
+  font-size: 1rem;
+}
+
+/* 2. Long text ------------------------------------------------------------- */
+
 body {
-  margin: 0;
-  background: var(--surface-0);
-  color: var(--text-primary);
-  font-family:
-    system-ui,
-    -apple-system,
-    "Segoe UI",
-    Roboto,
-    sans-serif;
-  line-height: 1.5;
   /* A long identifier or address must wrap rather than widen the page. */
   overflow-wrap: break-word;
 }
 
+/*
+ * Prose is capped at a comfortable measure even though the page around it uses
+ * the whole desktop width. A card grid can be four columns wide; a paragraph
+ * that is four columns wide cannot be read.
+ */
+.prose {
+  max-width: 66ch;
+}
+
+/*
+ * The reboot styles `code` as inline red text. Here a code is an identifier the
+ * cloud API published — a point code, a UUID, a raw enum value — so it reads as
+ * a quiet chip in the body colour, and it is allowed to break mid-string.
+ */
 code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 0.9375em;
   color: var(--text-primary);
   background: var(--surface-2);
   border-radius: 4px;
   padding: 0.0625rem 0.25rem;
+  overflow-wrap: anywhere;
 }
 
-a {
-  color: var(--accent);
-}
-
-:where(a, button, select, [tabindex]):focus-visible {
+/*
+ * A visible focus ring on everything focusable, not only on the controls
+ * CoreUI ships a `:focus-visible` shadow for.
+ */
+:where(a, button, select, summary, [tabindex]):focus-visible {
   outline: 3px solid var(--accent);
   outline-offset: 2px;
 }
 
-/* Content blocks --------------------------------------------------------- */
-
-.stack {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
+/*
+ * Touch targets.
+ *
+ * CoreUI's default control is 38px tall. Every full-size control in the portal
+ * is given the 44px minimum instead, because they are all things a customer
+ * taps on a phone. The small variants are deliberately left small: they
+ * qualify something already on the screen rather than being its action.
+ */
+.btn:not(.btn-sm),
+.form-select:not(.form-select-sm),
+.form-control:not(.form-control-sm) {
+  min-height: 2.75rem;
 }
 
-.section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.section__heading {
-  margin: 0;
-  font-size: 1.125rem;
-}
-
-.prose {
-  margin: 0;
-  max-width: 60ch;
-  color: var(--text-secondary);
-}
-
-/* Status indicator ------------------------------------------------------- */
-
-.api-status {
+.btn:not(.btn-sm) {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.25rem 0.625rem;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--surface-2);
-  font-size: 0.8125rem;
-  font-weight: 600;
+  justify-content: center;
 }
 
-.api-status__dot {
-  width: 0.5rem;
-  height: 0.5rem;
-  border-radius: 50%;
-  flex: none;
-  background: var(--tone-neutral);
-}
-
-.api-status--available .api-status__dot {
-  background: var(--tone-good);
-}
-
-.api-status--degraded {
-  background: var(--tone-warning-bg);
-  border-color: var(--tone-warning);
-}
-
-.api-status--degraded .api-status__dot {
-  background: var(--tone-warning);
-}
-
-.api-status--unavailable {
-  background: var(--tone-error-bg);
-  border-color: var(--tone-error);
-}
-
-.api-status--unavailable .api-status__dot {
-  background: var(--tone-error);
-}
-
-/* Panels and notifications ----------------------------------------------- */
-
-.panel {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.625rem;
-  padding: 1rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface-1);
-}
-
-.panel--warning {
-  border-color: var(--tone-warning);
-  background: var(--tone-warning-bg);
-}
-
-.panel--error {
-  border-color: var(--tone-error);
-  background: var(--tone-error-bg);
-}
-
-.panel__title {
-  margin: 0;
-  font-size: 1rem;
-}
-
-.panel__body {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  max-width: 70ch;
-}
-
-.panel__body p {
-  margin: 0;
-  color: var(--text-secondary);
-}
-
-.panel--warning .panel__body p,
-.panel--error .panel__body p {
-  color: var(--text-primary);
-}
-
-.panel__meta {
-  font-size: 0.8125rem;
-}
-
-.notifications {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.notifications:empty {
-  display: none;
-}
-
-.notification {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  padding: 0.625rem 0.875rem;
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  background: var(--surface-1);
-}
-
-.notification--success {
-  border-color: var(--tone-good);
-  background: var(--tone-good-bg);
-}
-
-.notification--warning {
-  border-color: var(--tone-warning);
-  background: var(--tone-warning-bg);
-}
-
-.notification__message {
-  margin: 0;
-}
-
-/* Controls --------------------------------------------------------------- */
-
-.button {
-  font: inherit;
-  font-weight: 600;
-  color: var(--text-primary);
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 0.5rem 0.875rem;
-  min-height: 2.75rem;
+/* A disclosure is a control, so it says so with the cursor and the target. */
+summary {
   cursor: pointer;
-  align-self: flex-start;
-}
-
-.button--inline {
-  min-height: 2rem;
-  padding: 0.25rem 0.625rem;
-  font-size: 0.8125rem;
-}
-
-.button:hover:not(:disabled) {
-  background: var(--border);
-}
-
-.button:disabled {
-  cursor: progress;
-  opacity: 0.7;
-}
-
-.loading {
+  min-height: 2.75rem;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin: 0;
-  color: var(--text-secondary);
 }
 
-.spinner {
-  width: 1rem;
-  height: 1rem;
-  flex: none;
-  border-radius: 50%;
-  border: 2px solid var(--border);
-  border-top-color: var(--accent);
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* Topology -------------------------------------------------------------- */
-
-/*
- * Cards, lists and tables all size from `minmax(0, 1fr)` rather than `auto`,
- * and every identifier is allowed to break mid-word. A customer's facility
- * name or a UUID is arbitrary text: it must wrap inside its column instead of
- * widening the page, at every viewport.
- */
-
-.cards {
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: minmax(0, 1fr);
-}
-
-@media (min-width: 60rem) {
-  .cards {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-.card {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  background: var(--surface-1);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 1rem;
-}
-
-.card__title {
-  margin: 0;
-  font-size: 1.125rem;
-  overflow-wrap: anywhere;
-}
-
-.card__subtitle {
-  margin: 0;
-  font-size: 0.8125rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-secondary);
-}
-
-.resource-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.resource-list__item {
-  min-width: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface-0);
-  padding: 0.75rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.resource-list__link {
-  font-weight: 600;
-  overflow-wrap: anywhere;
-  /* Comfortable to tap without turning a text link into a block of colour. */
-  display: inline-block;
-  min-height: 1.75rem;
-  padding: 0.25rem 0;
-}
-
-.meta {
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  font-size: 0.875rem;
-}
-
-.meta__row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem 0.75rem;
-  min-width: 0;
-}
-
-.meta__label {
-  margin: 0;
-  color: var(--text-secondary);
-  flex: 0 0 auto;
-}
-
-.meta__label::after {
-  content: ":";
-}
-
-.meta__value {
-  margin: 0;
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.inline-note {
-  margin: 0;
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-}
-
-.inline-note--warning {
-  color: var(--tone-warning);
-  background: var(--tone-warning-bg);
-  border-radius: var(--radius);
-  padding: 0.5rem 0.75rem;
-}
-
-.switcher {
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-  max-width: 28rem;
-}
-
-.switcher__label {
-  font-size: 0.875rem;
-  font-weight: 600;
-}
-
-.switcher__select {
-  font: inherit;
-  color: var(--text-primary);
-  background: var(--surface-1);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 0.5rem 0.625rem;
-  min-height: 2.75rem;
-  max-width: 100%;
-}
-
-/* A wide table scrolls inside its own box, never the page. */
-.table-scroll {
-  overflow-x: auto;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-}
-
-.table {
-  border-collapse: collapse;
-  width: 100%;
-  font-size: 0.875rem;
-  /* CoreUI's own `.table` adds a bottom margin inside the scroll box. */
-  margin-bottom: 0;
-}
-
-.table th,
-.table td {
-  text-align: left;
-  vertical-align: top;
-  padding: 0.5rem 0.75rem;
-  border-bottom: 1px solid var(--border);
-  overflow-wrap: anywhere;
-}
-
-.table thead th {
-  background: var(--surface-2);
-  white-space: nowrap;
-}
-
-.table tbody tr:last-child th,
-.table tbody tr:last-child td {
-  border-bottom: none;
-}
-
-/* Monitoring --------------------------------------------------------------
+/* 3. Telemetry chart -------------------------------------------------------
  *
  * The chart is drawn at the pixel width its container actually has, so nothing
  * here may let it become wider than that container: the plot box clips and the
  * svg is a block element, which together keep a wide series inside the page
  * instead of introducing a horizontal scrollbar on the document.
  */
-
-.subsection {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  min-width: 0;
-}
-
-.subsection__heading {
-  margin: 0;
-  font-size: 1.0625rem;
-}
-
-.measurement__value {
-  margin: 0;
-  font-size: 1.75rem;
-  font-weight: 600;
-  line-height: 1.2;
-  overflow-wrap: anywhere;
-}
-
-.measurement__unit {
-  font-size: 1rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-}
-
-/* "No data yet" is a state, not a reading: it is set apart by weight and size
- * as well as by its words, never by colour alone. */
-.measurement__value--absent {
-  font-size: 1.125rem;
-  font-weight: 500;
-  font-style: italic;
-  color: var(--text-secondary);
-}
-
-.chart {
-  margin: 0;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  background: var(--surface-1);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 0.75rem;
-}
-
-.chart__caption {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.chart__title {
-  font-weight: 600;
-  overflow-wrap: anywhere;
-}
-
-.chart__summary {
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-  margin: 0;
-}
 
 .chart__plot {
   min-width: 0;
@@ -536,322 +163,12 @@ a {
   font-size: 0.75rem;
 }
 
-.chart__tick--y {
-  text-anchor: end;
-}
-
+.chart__tick--y,
 .chart__tick--end {
   text-anchor: end;
 }
 
-.samples {
-  min-width: 0;
-}
-
-.samples__summary {
-  cursor: pointer;
-  padding: 0.5rem 0;
-  min-height: 2.75rem;
-  display: flex;
-  align-items: center;
-  font-size: 0.875rem;
-  font-weight: 600;
-}
-
-.samples__summary:focus-visible {
-  outline: 3px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.samples > .table-scroll {
-  margin-top: 0.5rem;
-}
-
-/* Manual control ----------------------------------------------------------
- *
- * An actuator card is a measurement card's sibling and shares its box. What it
- * adds is separation: the reported state, the request and the command lifecycle
- * are three blocks with three headings, because they are three different facts
- * and a customer must never have to guess which one a number belongs to.
- */
-
-.control__state {
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-  min-width: 0;
-}
-
-.control__state-heading {
-  margin: 0;
-  font-size: 0.8125rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-secondary);
-}
-
-.control__reported {
-  margin: 0;
-  font-size: 1.5rem;
-  font-weight: 600;
-  line-height: 1.2;
-  overflow-wrap: anywhere;
-}
-
-/* "No reported state yet" is a state, not a reading: set apart by weight, size
- * and words, never by colour alone. */
-.control__reported--absent {
-  font-size: 1.0625rem;
-  font-weight: 500;
-  font-style: italic;
-  color: var(--text-secondary);
-}
-
-.control__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-/* Actions grow to the full width of a narrow card so they stay comfortable to
- * tap, and sit side by side once there is room. */
-.control__actions .button {
-  flex: 1 1 12rem;
-  align-self: stretch;
-}
-
-.control__command {
-  display: flex;
-  flex-direction: column;
-  gap: 0.625rem;
-  min-width: 0;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--border);
-}
-
-.control__lifecycle {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-
-.button--primary {
-  border-color: var(--accent);
-}
-
-/* Modal confirmation ------------------------------------------------------
- *
- * The dialog is sized in relative units and capped by the viewport, never by a
- * fixed pixel width, so it fits a phone and a desktop without a second layout.
- * It scrolls inside itself rather than making the page scroll sideways.
- */
-
-.modal {
-  position: fixed;
-  inset: 0;
-  /* Above the shell's own layers, including the off-canvas sidebar. */
-  z-index: 1050;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-  background: rgb(0 0 0 / 55%);
-}
-
-.modal__dialog {
-  width: min(100%, 32rem);
-  max-height: calc(100dvh - 2rem);
-  overflow-y: auto;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.875rem;
-  padding: 1.25rem;
-  background: var(--surface-1);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-}
-
-.modal__dialog:focus-visible {
-  outline: 3px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.modal__title {
-  margin: 0;
-  font-size: 1.125rem;
-}
-
-.modal__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.modal__actions .button {
-  flex: 1 1 12rem;
-  align-self: stretch;
-}
-
-/* Activity ----------------------------------------------------------------
- *
- * One markup for every viewport. A command row is a button containing labelled
- * fields; on a narrow screen the fields stack and read as a card, and from
- * `48rem` the same fields become aligned columns. Nothing is duplicated for one
- * width and hidden at the other, so the phone and the desktop cannot drift into
- * showing different things — and the row stays a real button, so it is operable
- * by keyboard at both.
- */
-
-.activity-filters {
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: minmax(0, 1fr);
-}
-
-@media (min-width: 48rem) {
-  .activity-filters {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 72rem) {
-  .activity-filters {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-.activity-filters .switcher {
-  max-width: none;
-}
-
-.activity-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 0.75rem;
-}
-
-.activity-list__item {
-  min-width: 0;
-}
-
-.activity-row {
-  font: inherit;
-  color: inherit;
-  text-align: left;
-  width: 100%;
-  min-width: 0;
-  /* Comfortably past the 44px touch target minimum on a phone. */
-  min-height: 3rem;
-  display: grid;
-  gap: 0.5rem 1rem;
-  grid-template-columns: minmax(0, 1fr);
-  padding: 0.875rem 1rem;
-  background: var(--surface-1);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  cursor: pointer;
-}
-
-.activity-row:hover {
-  border-color: var(--accent);
-}
-
-.activity-row--selected {
-  border-color: var(--accent);
-  box-shadow: inset 0 0 0 1px var(--accent);
-}
-
-.activity-row__field {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-}
-
-.activity-row__label {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-secondary);
-}
-
-.activity-row__value {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.activity-row__name {
-  font-weight: 600;
-}
-
-.activity-row__identifier {
-  font-size: 0.8125rem;
-  color: var(--text-secondary);
-  overflow-wrap: anywhere;
-}
-
-.activity-row__hint {
-  display: block;
-  font-size: 0.8125rem;
-  color: var(--text-secondary);
-}
-
-.activity-row__state {
-  font-weight: 600;
-}
-
-.activity-row__receipt {
-  display: block;
-  font-size: 0.8125rem;
-  color: var(--text-secondary);
-}
-
-.activity-row__receipt--received {
-  color: var(--text-primary);
-}
-
-.activity-row__open {
-  align-self: center;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--accent);
-}
-
-@media (min-width: 60rem) {
-  .activity-row {
-    grid-template-columns:
-      minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 1.5fr)
-      auto;
-    align-items: start;
-  }
-
-  /*
-   * The rejection reason and a completion time are the only fields that are not
-   * always present, so they take the full width of a second line rather than
-   * shifting every other column between one row and the next.
-   */
-  .activity-row__field--rejection,
-  .activity-row__field--lifecycle {
-    min-width: 0;
-  }
-
-  .activity-row__field--rejection {
-    grid-column: 1 / -1;
-  }
-}
-
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  padding: 0;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
+/* 4. Reduced motion -------------------------------------------------------- */
 
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -860,10 +177,5 @@ a {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
-  }
-
-  .spinner {
-    animation: none;
-    border-top-color: var(--border);
   }
 }

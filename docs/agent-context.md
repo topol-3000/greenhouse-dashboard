@@ -46,8 +46,9 @@ activity. Delivered:
   lifecycle and the Edge receipt kept apart; a URL-backed site, facility, zone,
   source, control-point and command selection; and one command's authoritative
   details, followed for a bounded time while it is non-terminal;
-- reusable loading, refresh, empty, error, resource-not-found, relationship-
-  mismatch and notification states.
+- reusable loading, refresh, empty, partial, stale, error, resource-not-found,
+  relationship-mismatch and notification states, each rendered by one shared
+  component so the same state looks the same wherever it appears.
 
 Not delivered, and not to be implied by any screen: topology or point creation,
 editing and deletion; non-boolean actuator control of any kind; command
@@ -64,8 +65,14 @@ server-sent events.
 
 React 19 + TypeScript (strict) + Vite. React Router owns client-side routing.
 TanStack Query v5 owns server state and polling. CoreUI Free for React supplies
-the application shell's components and stylesheet; the greenhouse theme in
-`src/styles/theme.css` maps CoreUI's variables onto the product's own tokens.
+the whole component vocabulary — the shell, and the cards, alerts, callouts,
+badges, buttons, form controls, tables, list groups, spinners, grid and modals
+the feature screens are built from; the greenhouse theme in
+`src/styles/theme.css` maps CoreUI's variables and its button variants onto the
+product's own tokens. `src/styles.css` holds only what CoreUI has no component
+for. Two small wrappers exist because CoreUI has no semantic equivalent:
+`SectionCard`, a labelled `<section>` landmark drawn as a card, and `MetaList`,
+a labelled description list.
 Vitest and Testing Library cover units and components; Playwright covers the
 browser. Nginx serves the built assets, reverse-proxies the backend surface and
 owns the SPA fallback.

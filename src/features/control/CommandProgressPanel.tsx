@@ -13,16 +13,23 @@
  * failure, call an observation window running out a rejection, or overwrite the
  * reported state on the card above it. When a command is applied and the
  * reported state has not changed, both facts stay on screen exactly as they are.
+ *
+ * The lifecycle carries a badge as well as its words. The badge repeats the
+ * state; it never replaces it, and the raw enum stays on screen beside it.
  */
 
+import { CBadge, CButton, CSpinner } from "@coreui/react";
 import { Link } from "react-router";
+import type { CommandState } from "../../api/contract";
 import type { CommandObservation, Submission } from "./useZoneManualControl";
 import { commandStateLabel, commandStateMeaning, desiredValueLabel } from "./commandLabels";
 import { describeCommandFailure } from "./commandLabels";
-import { StatePanel } from "../../components/StatePanel";
+import { Note, StatePanel } from "../../components/StatePanel";
+import { RetryButton } from "../../components/TopologyStates";
 import { COMMAND_OBSERVATION_WINDOW_MS } from "../../api/queries";
 import { activityPath } from "../../routes/routes";
 import { formatIsoInstant } from "../../shared/format";
+import { MetaList } from "../topology/MetaList";
 
 interface CommandProgressPanelProps {
   submission: Submission;
@@ -38,6 +45,49 @@ interface CommandProgressPanelProps {
 /** The observation window in whole minutes, for the sentence that reports it. */
 const WINDOW_MINUTES = Math.round(COMMAND_OBSERVATION_WINDOW_MS / 60_000);
 
+const STATE_COLOUR: Record<CommandState, "info" | "success" | "danger"> = {
+  pending: "info",
+  applied: "success",
+  rejected: "danger",
+};
+
+/** The portal's "sending…" line: a spinner beside words that carry the state. */
+function Working({ children, testId }: { children: string; testId: string }) {
+  return (
+    <p
+      className="d-flex align-items-center gap-2 text-body-secondary"
+      role="status"
+      data-testid={testId}
+    >
+      <CSpinner as="span" size="sm" role={undefined} visuallyHiddenLabel="" aria-hidden="true" />
+      <span>{children}</span>
+    </p>
+  );
+}
+
+function DismissButton({
+  onDismiss,
+  testId,
+  label = "Dismiss",
+}: {
+  onDismiss: () => void;
+  testId?: string;
+  label?: string;
+}) {
+  return (
+    <CButton
+      type="button"
+      color="secondary"
+      variant="outline"
+      size="sm"
+      onClick={onDismiss}
+      {...(testId === undefined ? {} : { "data-testid": testId })}
+    >
+      {label}
+    </CButton>
+  );
+}
+
 export function CommandProgressPanel({
   submission,
   observation,
@@ -51,10 +101,9 @@ export function CommandProgressPanel({
 
   if (submission.phase === "submitting") {
     return (
-      <p className="loading" role="status" data-testid="command-submitting">
-        <span className="spinner" aria-hidden="true" />
-        <span>Sending the request to turn {requested.toLowerCase()}…</span>
-      </p>
+      <Working testId="command-submitting">
+        {`Sending the request to turn ${requested.toLowerCase()}…`}
+      </Working>
     );
   }
 
@@ -66,14 +115,10 @@ export function CommandProgressPanel({
         role="alert"
         headingLevel={4}
         testId="command-refused"
-        action={
-          <button type="button" className="button button--inline" onClick={onDismiss}>
-            Dismiss
-          </button>
-        }
+        action={<DismissButton onDismiss={onDismiss} />}
       >
         <p>{describeCommandFailure(submission.error)}</p>
-        <p className="panel__meta">
+        <p className="small mb-0">
           Nothing was sent again. The reported state above is unchanged and still comes from the
           cloud API.
         </p>
@@ -107,25 +152,29 @@ export function CommandProgressPanel({
         {submission.lookupError === null || submission.lookupError === undefined ? null : (
           <p data-testid="command-lookup-error">{describeCommandFailure(submission.lookupError)}</p>
         )}
-        <div className="control__actions">
-          <button
+        <div className="d-flex flex-wrap gap-2">
+          <CButton
             type="button"
-            className="button"
+            color="secondary"
+            variant="outline"
+            size="sm"
             onClick={onLookUpAmbiguous}
             disabled={submission.isLookingUp || submission.resolvedAbsent}
             data-testid="command-lookup"
           >
             {submission.isLookingUp ? "Checking…" : "Check whether it was created"}
-          </button>
-          <button
+          </CButton>
+          <CButton
             type="button"
-            className="button"
+            color="secondary"
+            variant="outline"
+            size="sm"
             onClick={onRetryAmbiguous}
             disabled={submission.isLookingUp}
             data-testid="command-retry-ambiguous"
           >
             Send the same request again
-          </button>
+          </CButton>
         </div>
       </StatePanel>
     );
@@ -140,11 +189,7 @@ export function CommandProgressPanel({
         tone="warning"
         headingLevel={4}
         testId="command-missing"
-        action={
-          <button type="button" className="button button--inline" onClick={onDismiss}>
-            Dismiss
-          </button>
-        }
+        action={<DismissButton onDismiss={onDismiss} />}
       >
         <p>The portal has stopped checking it. Nothing about the reported state above changed.</p>
       </StatePanel>
@@ -152,69 +197,66 @@ export function CommandProgressPanel({
   }
 
   if (command === undefined) {
-    return (
-      <p className="loading" role="status" data-testid="command-loading">
-        <span className="spinner" aria-hidden="true" />
-        <span>Reading the command&rsquo;s state…</span>
-      </p>
-    );
+    return <Working testId="command-loading">Reading the command’s state…</Working>;
   }
 
   return (
-    <div className="control__command" data-testid="command-progress">
-      <h5 className="control__state-heading">This command</h5>
+    <div
+      className="d-flex flex-column align-items-start gap-2 w-100 pt-3 border-top"
+      data-testid="command-progress"
+    >
+      <h5 className="text-uppercase small text-body-secondary mb-0">This command</h5>
 
       {/*
         One live region for the lifecycle, so a transition is announced once. The
         text changes only when the state or its meaning changes, which is why a
         poll that returns the same answer announces nothing.
       */}
-      <p className="control__lifecycle" role="status" data-testid="command-state">
-        <strong>{commandStateLabel(command.state)}</strong> — {commandStateMeaning(command)}
+      <p className="text-break" role="status" data-testid="command-state">
+        <CBadge color={STATE_COLOUR[command.state]} className="me-2">
+          {commandStateLabel(command.state)}
+        </CBadge>
+        {commandStateMeaning(command)}
       </p>
 
-      <dl className="meta" data-testid="command-meta">
-        <div className="meta__row">
-          <dt className="meta__label">Requested state</dt>
-          <dd className="meta__value" data-testid="command-desired-value">
-            {desiredValueLabel(command.desired_value)}
-          </dd>
-        </div>
-        <div className="meta__row">
-          <dt className="meta__label">Command state</dt>
-          <dd className="meta__value">
-            <code>{command.state}</code>
-          </dd>
-        </div>
-        <div className="meta__row">
-          <dt className="meta__label">Issued at</dt>
-          <dd className="meta__value">
-            <time dateTime={command.issued_at}>{formatIsoInstant(command.issued_at)}</time>
-          </dd>
-        </div>
-        <div className="meta__row">
-          <dt className="meta__label">Received by the greenhouse</dt>
-          <dd className="meta__value">
-            {command.acknowledged_at === null ? (
-              "Not yet"
-            ) : (
-              <time dateTime={command.acknowledged_at}>
-                {formatIsoInstant(command.acknowledged_at)}
-              </time>
-            )}
-          </dd>
-        </div>
-        <div className="meta__row">
-          <dt className="meta__label">Completed at</dt>
-          <dd className="meta__value">
-            {command.executed_at === null ? (
-              "Not yet"
-            ) : (
-              <time dateTime={command.executed_at}>{formatIsoInstant(command.executed_at)}</time>
-            )}
-          </dd>
-        </div>
-      </dl>
+      <MetaList
+        testId="command-meta"
+        items={[
+          {
+            label: "Requested state",
+            value: (
+              <span data-testid="command-desired-value">
+                {desiredValueLabel(command.desired_value)}
+              </span>
+            ),
+          },
+          { label: "Command state", value: <code>{command.state}</code> },
+          {
+            label: "Issued at",
+            value: <time dateTime={command.issued_at}>{formatIsoInstant(command.issued_at)}</time>,
+          },
+          {
+            label: "Received by the greenhouse",
+            value:
+              command.acknowledged_at === null ? (
+                "Not yet"
+              ) : (
+                <time dateTime={command.acknowledged_at}>
+                  {formatIsoInstant(command.acknowledged_at)}
+                </time>
+              ),
+          },
+          {
+            label: "Completed at",
+            value:
+              command.executed_at === null ? (
+                "Not yet"
+              ) : (
+                <time dateTime={command.executed_at}>{formatIsoInstant(command.executed_at)}</time>
+              ),
+          },
+        ]}
+      />
 
       {command.rejection_reason === null ? null : (
         <StatePanel
@@ -224,31 +266,31 @@ export function CommandProgressPanel({
           testId="command-rejection"
         >
           <p>{command.rejection_reason.message}</p>
-          <p className="panel__meta">
+          <p className="small mb-0">
             Reason code: <code>{command.rejection_reason.code}</code>
           </p>
         </StatePanel>
       )}
 
       {submission.wasReplayed ? (
-        <p className="inline-note" data-testid="command-replayed">
+        <Note testId="command-replayed">
           This request identified a command the cloud API had already stored, so nothing was sent a
           second time.
-        </p>
+        </Note>
       ) : null}
 
       {observation.isTerminal ? (
-        <p className="inline-note" data-testid="command-terminal-note">
+        <Note testId="command-terminal-note">
           This is the command&rsquo;s final state, and the portal has stopped checking it. What the
           equipment reports is shown as the reported state above, separately, and may not have
           changed.
-        </p>
+        </Note>
       ) : null}
 
       {observation.isObserving ? (
-        <p className="inline-note" data-testid="command-observing">
+        <Note testId="command-observing">
           Checking the cloud API for this command&rsquo;s state.
-        </p>
+        </Note>
       ) : null}
 
       {observation.stoppedUnconfirmed ? (
@@ -258,16 +300,7 @@ export function CommandProgressPanel({
           role="status"
           headingLevel={4}
           testId="command-unconfirmed"
-          action={
-            <button
-              type="button"
-              className="button"
-              onClick={onRecheck}
-              data-testid="command-recheck"
-            >
-              Check again
-            </button>
-          }
+          action={<RetryButton onClick={onRecheck} label="Check again" testId="command-recheck" />}
         >
           <p>
             The portal stopped checking automatically after {WINDOW_MINUTES} minutes. This is not a
@@ -285,14 +318,7 @@ export function CommandProgressPanel({
           headingLevel={4}
           testId="command-refresh-failure"
           action={
-            <button
-              type="button"
-              className="button"
-              onClick={onRecheck}
-              data-testid="command-refresh-retry"
-            >
-              Check again
-            </button>
+            <RetryButton onClick={onRecheck} label="Check again" testId="command-refresh-retry" />
           }
         >
           <p>
@@ -309,7 +335,7 @@ export function CommandProgressPanel({
         stays reachable after this panel is dismissed or this page is left.
         Activity is read-only: this opens a record, it does not resend anything.
       */}
-      <p className="inline-note">
+      <Note>
         <Link
           to={activityPath({
             facility: facilityId,
@@ -321,16 +347,13 @@ export function CommandProgressPanel({
         >
           View this command in Activity
         </Link>
-      </p>
+      </Note>
 
-      <button
-        type="button"
-        className="button button--inline"
-        onClick={onDismiss}
-        data-testid="command-dismiss"
-      >
-        Stop showing this command
-      </button>
+      <DismissButton
+        onDismiss={onDismiss}
+        testId="command-dismiss"
+        label="Stop showing this command"
+      />
     </div>
   );
 }

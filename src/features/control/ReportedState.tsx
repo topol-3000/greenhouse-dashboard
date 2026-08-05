@@ -11,7 +11,9 @@
  */
 
 import type { ActuatorFeedback } from "./actuators";
+import { Note } from "../../components/StatePanel";
 import { formatContractUnknown, formatContractValue, formatIsoInstant } from "../../shared/format";
+import { MetaList } from "../topology/MetaList";
 
 interface ReportedStateProps {
   feedback: ActuatorFeedback | undefined;
@@ -19,59 +21,61 @@ interface ReportedStateProps {
   testId?: string;
 }
 
+/**
+ * "No reported state yet" is a state, not a reading: it is set apart by weight,
+ * size and words, never by colour alone.
+ */
+function Absent({ testId }: { testId: string }) {
+  return (
+    <p className="fs-5 fst-italic text-body-secondary" data-testid={testId}>
+      No reported state yet
+    </p>
+  );
+}
+
 export function ReportedState({ feedback, testId = "reported-state" }: ReportedStateProps) {
   const state = feedback?.state;
 
   if (feedback === undefined || state === undefined) {
-    return (
-      <p className="control__reported control__reported--absent" data-testid={testId}>
-        No reported state yet
-      </p>
-    );
+    return <Absent testId={testId} />;
   }
 
   if (!feedback.hasReading) {
     return (
       <>
-        <p className="control__reported control__reported--absent" data-testid={testId}>
-          No reported state yet
-        </p>
-        <p className="inline-note">
+        <Absent testId={testId} />
+        <Note>
           {feedback.point === undefined
             ? "The cloud API describes no state for the point that reports this one back."
             : `${feedback.point.name} has not reported a state to the cloud API.`}
-        </p>
+        </Note>
       </>
     );
   }
 
   return (
     <>
-      <p className="control__reported" data-testid={testId}>
+      <p className="fs-3 fw-semibold lh-sm text-break" data-testid={testId}>
         {formatContractUnknown(state.value)}
       </p>
-      <dl className="meta">
-        <div className="meta__row">
-          <dt className="meta__label">Reported by</dt>
-          <dd className="meta__value">
-            {feedback.point?.name ?? "A point this configuration does not describe"}
-          </dd>
-        </div>
-        <div className="meta__row">
-          <dt className="meta__label">Quality</dt>
-          <dd className="meta__value">{formatContractValue(state.quality)}</dd>
-        </div>
-        <div className="meta__row">
-          <dt className="meta__label">Observed at</dt>
-          <dd className="meta__value">
-            {state.observed_at === null ? (
-              "Not observed yet"
-            ) : (
-              <time dateTime={state.observed_at}>{formatIsoInstant(state.observed_at)}</time>
-            )}
-          </dd>
-        </div>
-      </dl>
+      <MetaList
+        items={[
+          {
+            label: "Reported by",
+            value: feedback.point?.name ?? "A point this configuration does not describe",
+          },
+          { label: "Quality", value: formatContractValue(state.quality) },
+          {
+            label: "Observed at",
+            value:
+              state.observed_at === null ? (
+                "Not observed yet"
+              ) : (
+                <time dateTime={state.observed_at}>{formatIsoInstant(state.observed_at)}</time>
+              ),
+          },
+        ]}
+      />
     </>
   );
 }

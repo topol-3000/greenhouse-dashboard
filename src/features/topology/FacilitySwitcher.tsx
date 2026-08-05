@@ -1,10 +1,11 @@
 /**
  * Move between the facilities the cloud API actually returned.
  *
- * A native `<select>` with `<optgroup>` per site: it is keyboard operable
- * everywhere without a line of key handling, it carries its accessible name
- * from its own `<label>`, and grouping keeps the site a facility belongs to
- * visible instead of flattening a customer's topology into one list.
+ * A native `<select>` with `<optgroup>` per site — CoreUI's `CFormSelect`, which
+ * is that element with the portal's form styling and its own `<label>`. It is
+ * keyboard operable everywhere without a line of key handling, it carries its
+ * accessible name from that label, and grouping keeps the site a facility
+ * belongs to visible instead of flattening a customer's topology into one list.
  *
  * Three things it deliberately does not do. It offers no option the API did not
  * return. It chooses nothing on the customer's behalf — no first facility is
@@ -17,9 +18,10 @@
  * placing it on more than one screen costs no extra request.
  */
 
+import { CFormLabel, CFormSelect } from "@coreui/react";
 import { useId } from "react";
 import { useNavigate } from "react-router";
-import { LoadingState } from "../../components/StatePanel";
+import { LoadingState, Note } from "../../components/StatePanel";
 import { facilityPath } from "../../routes/routes";
 import type { TopologyOverview } from "./useTopology";
 
@@ -42,17 +44,16 @@ export function FacilitySwitcher({ currentFacilityId, topology }: FacilitySwitch
   ].some((facility) => facility.id.toLowerCase() === currentFacilityId.trim().toLowerCase());
 
   return (
-    <div className="switcher" data-testid="facility-switcher">
-      <label className="switcher__label" htmlFor={selectId}>
+    <div className="d-flex flex-column gap-1" data-testid="facility-switcher">
+      <CFormLabel htmlFor={selectId} className="fw-semibold mb-0">
         Switch facility
-      </label>
+      </CFormLabel>
 
       {topology.isLoading ? (
         <LoadingState label="Loading your facilities…" />
       ) : hasOptions ? (
-        <select
+        <CFormSelect
           id={selectId}
-          className="switcher__select"
           value={known ? currentFacilityId : ""}
           onChange={(event) => {
             const next = event.target.value;
@@ -84,13 +85,13 @@ export function FacilitySwitcher({ currentFacilityId, topology }: FacilitySwitch
               ))}
             </optgroup>
           ) : null}
-        </select>
+        </CFormSelect>
       ) : (
-        <p className="inline-note" data-testid="facility-switcher-empty">
+        <Note testId="facility-switcher-empty">
           {topology.error === null || topology.error === undefined
             ? "The cloud API returned no other facilities to switch to."
             : "The list of facilities could not be loaded from the cloud API."}
-        </p>
+        </Note>
       )}
     </div>
   );
