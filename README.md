@@ -188,11 +188,21 @@ contract-faithful fixtures inside the browser, so it needs no backend, no
 sibling repository and no shared mutable state. Use the Docker command when the
 local machine lacks the browser's system libraries.
 
-`e2e/appearance-evidence.spec.ts` opens every screen at a desktop and a phone
-width in both appearances, checks that none of them scrolls sideways, and writes
-a screenshot of each into `docs/evidence/unit-2/`. Those images are review
-evidence, not assertions: nothing in the suite compares pixels, so a deliberate
-design change does not break a test.
+### Reproducing the browser evidence
+
+`e2e/appearance-evidence.spec.ts` opens every route, the two dialogs and the
+API-unavailable shell at a desktop and a phone width in both appearances, checks
+that none of them scrolls sideways, and writes a screenshot of each:
+
+```bash
+npm run e2e -- appearance-evidence                        # host
+docker compose run --rm e2e npx playwright test appearance-evidence   # in Docker
+```
+
+The images land in `test-results/appearance-evidence/`, which is an ignored
+test-artifact directory — generating the evidence leaves `git status` clean, and
+no screenshot is committed. They are review evidence, not assertions: nothing in
+the suite compares pixels, so a deliberate design change does not break a test.
 
 Nested routes and the `?point=` selection are client-side addresses, so
 **whatever serves the bundle must answer every path with `index.html`**. The
@@ -225,7 +235,8 @@ src/
                region, footer and the light/dark/auto appearance preference
   routes/      the route table and the 404 page
   shared/      cross-feature utilities (notifications channel, formatting)
-  styles/      the greenhouse theme: design tokens, the CoreUI variable and
+  styles/      coreui.scss, the selective CoreUI build; and theme.css, the
+               greenhouse theme: design tokens, the CoreUI variable and
                component mapping, and the shell layout
   test/        test support only: the render harness and contract-valid fixtures
 ```
@@ -245,11 +256,29 @@ description list. Everything else on a feature screen is a CoreUI component.
 
 Stylesheets load in one order, set in `src/app/main.tsx`: CoreUI, then
 `src/styles/theme.css`, then `src/styles.css`, so where a class name is shared
-the portal's own rule is the one that applies. `theme.css` holds the design
-tokens, the CoreUI variable mapping and the shell; `styles.css` holds only what
-CoreUI has no component for — the typographic reset the Bootstrap reboot makes
-necessary, readable measure, the touch-target minimum, the telemetry chart's own
-SVG styling and the reduced-motion guarantee.
+the portal's own rule is the one that applies.
+
+**CoreUI is compiled selectively.** `src/styles/coreui.scss` is the portal's own
+Sass entry: it `@forward`s CoreUI's configuration, foundations, utility API and
+the components the application actually renders, and nothing else. It is a list
+of imports, not a fork — every rule still comes from `@coreui/coreui`, upgrades
+with the package, and is configured by the same variables; no CoreUI source is
+copied into this repository. The dropped partials are the components no screen
+uses: dropdowns, navbars, accordions, pagination, progress, toasts, tooltips,
+popovers, carousels, off-canvas, placeholders, chips, avatars and the narrow
+sidebar rail. Each remaining `@forward` carries a comment naming what needs it,
+so adding a CoreUI component to a screen means adding its partial here. The
+whole utility API is kept deliberately: those classes are chosen per element
+across every feature directory, and a hand-pruned list would be a second
+inventory to keep in step with the JSX. `sass` is a dev dependency and
+`loadPaths` in `vite.config.ts` is what resolves the `@coreui/coreui/scss/…`
+specifiers.
+
+`theme.css` holds the design tokens, the CoreUI variable mapping and the shell.
+`styles.css` holds only what CoreUI has no component for — the typographic reset
+the Bootstrap reboot makes necessary, readable measure and long-value
+containment, the visible focus ring and the 44px touch-target minimum, the
+telemetry chart's own SVG styling and the reduced-motion guarantee.
 
 Routes are described as data in `src/routes/routes.tsx`. The router, the primary
 navigation, the page heading, the breadcrumbs and the document title all read

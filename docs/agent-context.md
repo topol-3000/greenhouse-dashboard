@@ -67,10 +67,24 @@ React 19 + TypeScript (strict) + Vite. React Router owns client-side routing.
 TanStack Query v5 owns server state and polling. CoreUI Free for React supplies
 the whole component vocabulary — the shell, and the cards, alerts, callouts,
 badges, buttons, form controls, tables, list groups, spinners, grid and modals
-the feature screens are built from; the greenhouse theme in
-`src/styles/theme.css` maps CoreUI's variables and its button variants onto the
-product's own tokens. `src/styles.css` holds only what CoreUI has no component
-for. Two small wrappers exist because CoreUI has no semantic equivalent:
+the feature screens are built from.
+
+The CSS is three files with three jobs. `src/styles/coreui.scss` is a
+repository-owned Sass entry that `@forward`s the CoreUI configuration,
+foundations, utility API and components the application actually renders, and
+nothing else. It is a list of imports, not a fork: no CoreUI source is copied
+here, and each `@forward` names what needs it, so putting a new CoreUI component
+on a screen means adding its partial there and regenerating the browser
+evidence. `src/styles/theme.css` maps CoreUI's variables and its button variants
+onto the product's own tokens and owns the shell layout; a token is declared
+there only where something reads it. `src/styles.css` holds only what CoreUI has
+no component for: the typographic reset, readable measure and long-value
+containment, the visible focus ring and the 44px touch-target minimum, the
+telemetry chart's SVG and the reduced-motion guarantee. An identifier chip takes
+its colours from `currentcolor` rather than the page tokens, so it stays quiet
+inside a CoreUI alert as well as inside a card.
+
+Two small wrappers exist because CoreUI has no semantic equivalent:
 `SectionCard`, a labelled `<section>` landmark drawn as a card, and `MetaList`,
 a labelled description list.
 Vitest and Testing Library cover units and components; Playwright covers the
@@ -80,6 +94,32 @@ owns the SPA fallback.
 The appearance preference (`light`, `dark`, `auto`) is browser-local UI state
 published as `data-coreui-theme` on the document element. It is not a user
 setting, it reaches no endpoint, and the backend knows nothing about it.
+
+## Appearance and accessibility
+
+What every screen is expected to hold, and what a change to the visual layer has
+to keep holding:
+
+- semantic landmarks, a skip link, focus moved to the page heading on
+  navigation, and a visible focus indicator on everything focusable;
+- keyboard operability throughout, including the two modal dialogs, which take
+  focus, contain Tab, close on `Escape` and return focus to what opened them;
+- the 44px touch-target minimum on every full-size control; the small variants
+  are deliberately smaller because they qualify content rather than act on it;
+- no meaning carried by colour alone — every status carries its own words, and
+  the raw contract enum stays on screen beside its label;
+- no page-level horizontal overflow at any width, with long names, UUIDs and
+  raw enums wrapping inside their component; a wide table scrolls in its own box;
+- `light`, `dark` and `auto` all correct, `auto` following the system while it
+  changes, resolved before the first paint so nothing flashes.
+
+Browser evidence for all of it is `e2e/appearance-evidence.spec.ts`: every
+route, both dialogs and the API-unavailable shell, at a desktop and a phone
+width, in both appearances. Regenerate it with
+`docker compose run --rm e2e npx playwright test appearance-evidence`. The
+screenshots go to `test-results/appearance-evidence/`, which is ignored, so
+generating them leaves `git status` clean and none of them is committed. They
+are review evidence, not assertions — nothing compares pixels.
 
 ## Integration boundary
 
