@@ -21,11 +21,7 @@ export function TopologySummaryPanel() {
   const topology = useTopologyOverview();
 
   if (topology.isLoading) {
-    return (
-      <StatePanel title="Reading your greenhouses" headingLevel={3}>
-        <LoadingState label="Loading sites and facilities…" />
-      </StatePanel>
-    );
+    return <LoadingState label="Loading sites and facilities…" />;
   }
 
   if (topology.error !== null && topology.error !== undefined) {
@@ -65,18 +61,18 @@ export function TopologySummaryPanel() {
           retrying={topology.isRefreshing}
         />
       ) : null}
-      <StatePanel title="Your greenhouses" headingLevel={3} testId="dashboard-topology">
+      <div className="d-flex flex-column gap-3" data-testid="dashboard-topology">
         <MetaList
           items={[
             { label: "Sites reported by the cloud API", value: String(siteTotal) },
             { label: "Facilities reported by the cloud API", value: String(facilityTotal) },
           ]}
         />
-        <p>
+        <p className="prose text-body-secondary">
           <Link to={GREENHOUSES_PATH}>Open Greenhouses</Link> to see each site, its facilities and
           their control zones.
         </p>
-      </StatePanel>
+      </div>
     </>
   );
 }

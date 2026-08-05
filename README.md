@@ -188,6 +188,12 @@ contract-faithful fixtures inside the browser, so it needs no backend, no
 sibling repository and no shared mutable state. Use the Docker command when the
 local machine lacks the browser's system libraries.
 
+`e2e/appearance-evidence.spec.ts` opens every screen at a desktop and a phone
+width in both appearances, checks that none of them scrolls sideways, and writes
+a screenshot of each into `docs/evidence/unit-2/`. Those images are review
+evidence, not assertions: nothing in the suite compares pixels, so a deliberate
+design change does not break a test.
+
 Nested routes and the `?point=` selection are client-side addresses, so
 **whatever serves the bundle must answer every path with `index.html`**. The
 repository's Nginx runtime and `vite preview` both do; a host that does not will
@@ -200,7 +206,9 @@ src/
   app/         bootstrap, providers, router mounting, route tree
   api/         base URL, HTTP boundary, generated + narrowed contract types,
                decoding, pagination, health and topology requests, queries
-  components/  reusable presentational UI (panels, status, notifications)
+  components/  the shared component vocabulary: labelled section cards, named
+               loading/empty/error states, notes, the availability badge and the
+               notification region
   features/
     dashboard/  the Dashboard feature and its route component
     topology/   Greenhouses, Facility and ControlZone screens, the facility
@@ -217,19 +225,31 @@ src/
                region, footer and the light/dark/auto appearance preference
   routes/      the route table and the 404 page
   shared/      cross-feature utilities (notifications channel, formatting)
-  styles/      the greenhouse theme: design tokens, the CoreUI variable mapping
-               and the shell layout
+  styles/      the greenhouse theme: design tokens, the CoreUI variable and
+               component mapping, and the shell layout
   test/        test support only: the render harness and contract-valid fixtures
 ```
 
-The shell is built on **CoreUI Free for React**. `@coreui/react` supplies the
-sidebar navigation, header, breadcrumb and footer components; `@coreui/coreui`
-supplies their stylesheet; `@coreui/icons` and `@coreui/icons-react` supply the
-icons the sidebar entries and the appearance selector draw. Nothing else from
-the CoreUI Free Admin Template is copied in — no demo page, no sample widget and
-no chart library. Stylesheets load in one order, set in `src/app/main.tsx`:
-CoreUI, then `src/styles/theme.css`, then `src/styles.css`, so where a class
-name is shared the portal's own rule is the one that applies.
+The portal is built on **CoreUI Free for React**, shell and screens alike.
+`@coreui/react` supplies the sidebar navigation, header, breadcrumb and footer,
+and the cards, alerts, callouts, badges, buttons, form controls, tables, list
+groups, spinners, grid and modals the feature screens are made of;
+`@coreui/coreui` supplies their stylesheet; `@coreui/icons` and
+`@coreui/icons-react` supply the icons the sidebar entries and the appearance
+selector draw. Nothing else from the CoreUI Free Admin Template is copied in —
+no demo page, no sample widget and no chart library.
+
+Two small wrappers exist where CoreUI has no semantic equivalent: `SectionCard`,
+a labelled `<section>` landmark rendered as a card, and `MetaList`, a labelled
+description list. Everything else on a feature screen is a CoreUI component.
+
+Stylesheets load in one order, set in `src/app/main.tsx`: CoreUI, then
+`src/styles/theme.css`, then `src/styles.css`, so where a class name is shared
+the portal's own rule is the one that applies. `theme.css` holds the design
+tokens, the CoreUI variable mapping and the shell; `styles.css` holds only what
+CoreUI has no component for — the typographic reset the Bootstrap reboot makes
+necessary, readable measure, the touch-target minimum, the telemetry chart's own
+SVG styling and the reduced-motion guarantee.
 
 Routes are described as data in `src/routes/routes.tsx`. The router, the primary
 navigation, the page heading, the breadcrumbs and the document title all read
@@ -739,10 +759,18 @@ Notes that follow from the contract:
   becomes off-canvas behind the same accessible toggle, and a closed menu is
   removed from the layout, so its links leave the tab order rather than sitting
   invisibly in it.
-- Desktop, tablet and phone layouts without horizontal page overflow. The chart
-  is drawn at the pixel width its container actually has — rather than scaled
-  from a fixed `viewBox`, which would shrink its labels along with it — and a
-  wide sample table scrolls inside its own box, never the page.
+- Desktop, tablet and phone layouts without horizontal page overflow. Each page
+  is an intentional responsive grid rather than one column padded out: the
+  Dashboard's two answers sit side by side, a facility's identity sits beside its
+  control zones, and measurement and actuator cards fill the width the screen
+  actually has. Paragraphs stay capped at a readable measure while the workspace
+  around them does not. The chart is drawn at the pixel width its container
+  actually has — rather than scaled from a fixed `viewBox`, which would shrink
+  its labels along with it — and a wide table scrolls inside its own box, never
+  the page.
+- Every full-size control clears the 44px touch-target minimum, including on a
+  phone. The small variants are deliberately smaller: they qualify something
+  already on the screen rather than being its action.
 - Monitoring is a labelled region with an ordered heading hierarchy
   (`Monitoring` → `Measurement points` / `Telemetry history` → each point), and
   the chart has an accessible name plus a text summary of the loaded series. The
@@ -757,11 +785,13 @@ Notes that follow from the contract:
   Every action carries the actuator's name in its accessible name — `Turn on
 North lamp`, not `On` — and a disabled action is accompanied by the reason in
   words.
-- The confirmation is a real modal: `role="dialog"`, `aria-modal`, an accessible
-  name, initial focus on the dialog rather than on a button, a contained tab
-  cycle, `Escape` and Cancel both closing it, and focus returned to the control
-  that opened it. Its confirm action names the target and the value, so it is
-  specific out of context.
+- The confirmation is a real modal — CoreUI's `CModal`: `role="dialog"`,
+  `aria-modal`, an accessible name, initial focus on the dialog rather than on a
+  button, a contained tab cycle, `Escape` and Cancel both closing it, and focus
+  returned to the control that opened it. Its title and actions stay put while
+  the detail between them scrolls, so on a phone Cancel and Send are on the
+  screen rather than below a fold. Its confirm action names the target and the
+  value, so it is specific out of context.
 - Reported state, requested state and command state are each readable in
   monochrome and without an icon: a value and its words, never a colour-changing
   switch. Lifecycle transitions are announced through one live region whose text

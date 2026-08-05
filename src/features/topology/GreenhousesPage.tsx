@@ -6,11 +6,25 @@
  * including none. Nothing here is invented: there is no sample site, no create
  * action, no operational status and no count that the API did not report. A
  * site with no facilities says so; a topology with no sites says so.
+ *
+ * A site is a card, and the cards are a responsive grid: one column on a phone,
+ * two from a tablet, three on a wide desktop. A customer with a dozen sites
+ * sees them as an overview rather than as a very long column.
  */
 
+import {
+  CCard,
+  CCardBody,
+  CCardSubtitle,
+  CCardTitle,
+  CCol,
+  CListGroup,
+  CListGroupItem,
+  CRow,
+} from "@coreui/react";
 import { Link } from "react-router";
 import type { FacilityRead } from "../../api/contract";
-import { LoadingState, StatePanel } from "../../components/StatePanel";
+import { LoadingState, Note, StatePanel } from "../../components/StatePanel";
 import {
   BackgroundRefreshNotice,
   IncompleteCollectionNotice,
@@ -25,8 +39,8 @@ import { useTopologyOverview } from "./useTopology";
 
 function FacilityLink({ facility }: { facility: FacilityRead }) {
   return (
-    <li className="resource-list__item">
-      <Link className="resource-list__link" to={facilityPath(facility.id)}>
+    <CListGroupItem className="d-flex flex-column gap-2">
+      <Link className="fw-semibold text-break" to={facilityPath(facility.id)}>
         {facility.name}
       </Link>
       <MetaList
@@ -36,60 +50,72 @@ function FacilityLink({ facility }: { facility: FacilityRead }) {
           { label: "Status", value: formatContractValue(facility.status) },
         ]}
       />
-    </li>
+    </CListGroupItem>
   );
 }
 
 function SiteSection({ group }: { group: SiteGroup }) {
   const { site, facilities } = group;
   return (
-    <article className="card" data-testid="site-card">
-      <h2 className="card__title">{site.name}</h2>
-      <MetaList
-        items={[
-          { label: "Site code", value: <code>{site.code}</code> },
-          { label: "Time zone", value: site.timezone },
-          { label: "Status", value: formatContractValue(site.status) },
-        ]}
-      />
+    <CCard className="h-100" data-testid="site-card">
+      <CCardBody className="d-flex flex-column gap-3">
+        <div className="d-flex flex-column gap-2">
+          <CCardTitle as="h2" className="text-break mb-0">
+            {site.name}
+          </CCardTitle>
+          <MetaList
+            items={[
+              { label: "Site code", value: <code>{site.code}</code> },
+              { label: "Time zone", value: site.timezone },
+              { label: "Status", value: formatContractValue(site.status) },
+            ]}
+          />
+        </div>
 
-      <h3 className="card__subtitle">Facilities</h3>
-      {facilities.length === 0 ? (
-        <p className="inline-note" data-testid="site-without-facilities">
-          The cloud API returns no facilities for this site.
-        </p>
-      ) : (
-        <>
-          <p className="visually-hidden">
-            {facilities.length === 1
-              ? `1 facility belongs to the site ${site.name}.`
-              : `${String(facilities.length)} facilities belong to the site ${site.name}.`}
-          </p>
-          <ul className="resource-list">
-            {facilities.map((facility) => (
-              <FacilityLink key={facility.id} facility={facility} />
-            ))}
-          </ul>
-        </>
-      )}
-    </article>
+        <CCardSubtitle as="h3" className="text-uppercase small text-body-secondary mb-0">
+          Facilities
+        </CCardSubtitle>
+        {facilities.length === 0 ? (
+          <Note testId="site-without-facilities">
+            The cloud API returns no facilities for this site.
+          </Note>
+        ) : (
+          <>
+            <p className="visually-hidden">
+              {facilities.length === 1
+                ? `1 facility belongs to the site ${site.name}.`
+                : `${String(facilities.length)} facilities belong to the site ${site.name}.`}
+            </p>
+            <CListGroup>
+              {facilities.map((facility) => (
+                <FacilityLink key={facility.id} facility={facility} />
+              ))}
+            </CListGroup>
+          </>
+        )}
+      </CCardBody>
+    </CCard>
   );
 }
 
 function UnmatchedFacilities({ facilities }: { facilities: readonly FacilityRead[] }) {
   return (
-    <article className="card" data-testid="unmatched-facilities">
-      <h2 className="card__title">Facilities whose site was not returned</h2>
-      <p className="inline-note inline-note--warning">
-        The cloud API returned these facilities, but not the sites they name. They are listed
-        separately rather than shown under a site the portal cannot confirm.
-      </p>
-      <ul className="resource-list">
-        {facilities.map((facility) => (
-          <FacilityLink key={facility.id} facility={facility} />
-        ))}
-      </ul>
-    </article>
+    <CCard className="h-100" data-testid="unmatched-facilities">
+      <CCardBody className="d-flex flex-column gap-3">
+        <CCardTitle as="h2" className="mb-0">
+          Facilities whose site was not returned
+        </CCardTitle>
+        <Note tone="warning">
+          The cloud API returned these facilities, but not the sites they name. They are listed
+          separately rather than shown under a site the portal cannot confirm.
+        </Note>
+        <CListGroup>
+          {facilities.map((facility) => (
+            <FacilityLink key={facility.id} facility={facility} />
+          ))}
+        </CListGroup>
+      </CCardBody>
+    </CCard>
   );
 }
 
@@ -111,7 +137,7 @@ export function GreenhousesPage() {
 
   if (topology.isLoading) {
     return (
-      <div className="stack" data-testid="greenhouses-page">
+      <div className="d-flex flex-column gap-4" data-testid="greenhouses-page">
         <LoadingState label="Loading your sites and facilities…" />
       </div>
     );
@@ -119,7 +145,7 @@ export function GreenhousesPage() {
 
   if (topology.error !== null && topology.error !== undefined) {
     return (
-      <div className="stack" data-testid="greenhouses-page">
+      <div className="d-flex flex-column gap-4" data-testid="greenhouses-page">
         <RequestErrorPanel
           title="Your greenhouses could not be loaded"
           error={topology.error}
@@ -137,7 +163,7 @@ export function GreenhousesPage() {
   const isEmpty = topology.groups.length === 0 && topology.unmatchedFacilities.length === 0;
 
   return (
-    <div className="stack" data-testid="greenhouses-page">
+    <div className="d-flex flex-column gap-4" data-testid="greenhouses-page">
       {topology.refreshError !== null && topology.refreshError !== undefined ? (
         <RefreshFailurePanel
           error={topology.refreshError}
@@ -165,7 +191,7 @@ export function GreenhousesPage() {
         </StatePanel>
       ) : (
         <>
-          <p className="prose" data-testid="topology-summary">
+          <p className="prose text-body-secondary" data-testid="topology-summary">
             {summarise(topology.groups, siteTotal, facilityTotal)}
           </p>
           {topology.sites?.complete === false ? (
@@ -183,14 +209,18 @@ export function GreenhousesPage() {
             />
           ) : null}
 
-          <div className="cards">
+          <CRow className="g-4">
             {topology.groups.map((group) => (
-              <SiteSection key={group.site.id} group={group} />
+              <CCol key={group.site.id} xs={12} md={6} xxl={4}>
+                <SiteSection group={group} />
+              </CCol>
             ))}
             {topology.unmatchedFacilities.length > 0 ? (
-              <UnmatchedFacilities facilities={topology.unmatchedFacilities} />
+              <CCol xs={12} md={6} xxl={4}>
+                <UnmatchedFacilities facilities={topology.unmatchedFacilities} />
+              </CCol>
             ) : null}
-          </div>
+          </CRow>
         </>
       )}
     </div>

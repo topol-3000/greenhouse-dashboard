@@ -180,9 +180,12 @@ test.describe("the portal shell at phone width", () => {
 
     await expect(page.getByTestId("api-status")).toBeVisible();
 
+    // The dashboard's regions are named landmarks, so they can be measured
+    // without knowing which component the migration rendered them with.
     const viewport = page.viewportSize()!;
     const widths = await page
-      .locator(".panel")
+      .getByTestId("dashboard-page")
+      .getByRole("region")
       .evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().width));
     expect(widths.length).toBeGreaterThan(0);
     for (const width of widths) {
@@ -234,8 +237,9 @@ test.describe("Activity at phone width", () => {
     await expect(dialog).toBeVisible();
     expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);
 
+    // The visible panel, not the full-viewport overlay that carries the role.
     const viewport = page.viewportSize()!;
-    const box = await dialog.boundingBox();
+    const box = await dialog.locator(".modal-content").boundingBox();
     expect(box?.width ?? 0).toBeLessThanOrEqual(viewport.width);
     expect(box?.height ?? 0).toBeLessThanOrEqual(viewport.height);
 
@@ -290,10 +294,15 @@ test.describe("manual control at phone width", () => {
     expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);
 
     const viewport = page.viewportSize()!;
-    const box = await dialog.boundingBox();
+    const box = await dialog.locator(".modal-content").boundingBox();
     // Sized by the viewport rather than by a fixed pixel width.
     expect(box?.width ?? 0).toBeLessThanOrEqual(viewport.width);
     expect(box?.height ?? 0).toBeLessThanOrEqual(viewport.height);
+
+    // The confirmation's own actions are on the screen without scrolling: the
+    // dialog scrolls its detail, never its decision.
+    await expect(dialog.getByTestId("command-cancel")).toBeInViewport();
+    await expect(dialog.getByTestId("command-confirm")).toBeInViewport();
 
     await dialog.getByTestId("command-confirm").click();
     await expect(page.getByTestId("command-progress")).toBeVisible();

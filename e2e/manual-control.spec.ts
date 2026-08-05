@@ -12,6 +12,7 @@
 
 import { expect, test } from "@playwright/test";
 import { E2E_IDS, mockCommands, mockHealth, mockTopology } from "./fixtures";
+import { focusIsInside, tabTo } from "./keyboard";
 
 const FACILITY_URL = `/facilities/${E2E_IDS.northGreenhouse}`;
 const ZONE_URL = `${FACILITY_URL}/zones/${E2E_IDS.climateZone}`;
@@ -204,14 +205,42 @@ test.describe("operating one actuator", () => {
     // The keystroke that opened the dialog did not also press a button in it.
     expect(commands.creations()).toHaveLength(0);
 
-    await page.keyboard.press("Tab");
-    await page.keyboard.press("Tab");
-    await expect(dialog.getByTestId("command-confirm")).toBeFocused();
+    await tabTo(page, dialog.getByTestId("command-confirm"));
     await page.keyboard.press("Enter");
 
     await expect(page.getByTestId("command-progress")).toBeVisible();
     expect(commands.creations()).toHaveLength(1);
     expect(commands.creations()[0]?.body).toMatchObject({ desired_value: false });
+  });
+
+  test("keeps Tab inside the confirmation", async ({ page }) => {
+    await mockHealth(page);
+    await mockTopology(page);
+    await mockCommands(page);
+    await page.goto(ZONE_URL);
+
+    await actuator(page, E2E_IDS.ventPoint)
+      .getByRole("button", { name: "Turn on North air temperature vent" })
+      .click();
+
+    const dialog = page.getByRole("dialog", { name: "Confirm this manual command" });
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toBeFocused();
+
+    // Tab all the way round the dialog twice over, forwards and backwards.
+    // Focus reaches both actions and always comes to rest inside the dialog —
+    // never on the page behind it, which is where an untrapped dialog leaks.
+    for (const key of ["Tab", "Shift+Tab"] as const) {
+      for (let press = 0; press < 8; press += 1) {
+        await page.keyboard.press(key);
+        await expect
+          .poll(() => focusIsInside(page, "command-confirmation"), { timeout: 2000 })
+          .toBe(true);
+      }
+    }
+
+    await tabTo(page, dialog.getByTestId("command-cancel"));
+    await tabTo(page, dialog.getByTestId("command-confirm"));
   });
 
   test("sends one command however fast the confirmation is pressed", async ({ page }) => {

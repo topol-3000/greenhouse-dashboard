@@ -1,10 +1,10 @@
 /**
  * Choosing what Activity is about.
  *
- * Native `<select>` elements, as the facility switcher already established: they
- * are keyboard operable everywhere without a line of key handling, they take
- * their accessible name from their own `<label>`, and they collapse to a usable
- * control on a phone without a second layout.
+ * Native `<select>` elements — CoreUI's `CFormSelect` — as the facility switcher
+ * already established: they are keyboard operable everywhere without a line of
+ * key handling, they take their accessible name from their own `<label>`, and
+ * they collapse to a usable control on a phone without a second layout.
  *
  * Four things they deliberately do not do. They offer no option the cloud API
  * did not return. They choose nothing on the customer's behalf — no first site,
@@ -14,10 +14,15 @@
  * parameter and a browser-side filter over an already-limited window would
  * present a subset as a result. And they never disable themselves into a dead
  * end: a step whose options have not loaded says so instead of appearing empty.
+ *
+ * The five of them are one responsive grid, so a desktop reads the whole scope
+ * in a row or two rather than in a five-deep column.
  */
 
+import { CCol, CFormLabel, CFormSelect, CRow } from "@coreui/react";
 import { useId } from "react";
 import type { ReactNode } from "react";
+import { Note } from "../../components/StatePanel";
 import { parseSourceParam } from "./activitySelection";
 import { SOURCE_FILTER_OPTIONS } from "./activityLabels";
 import type { ActivityView } from "./useActivity";
@@ -58,14 +63,13 @@ function FilterSelect({
   const noteId = useId();
 
   return (
-    <div className="switcher">
-      <label className="switcher__label" htmlFor={selectId}>
+    <CCol xs={12} md={6} xl={4} className="d-flex flex-column gap-1">
+      <CFormLabel htmlFor={selectId} className="fw-semibold mb-0">
         {label}
-      </label>
+      </CFormLabel>
       {hasOptions ? (
-        <select
+        <CFormSelect
           id={selectId}
-          className="switcher__select"
           value={value}
           disabled={disabled}
           data-testid={testId}
@@ -76,18 +80,18 @@ function FilterSelect({
         >
           <option value="">{placeholder}</option>
           {children}
-        </select>
+        </CFormSelect>
       ) : (
-        <p className="inline-note" data-testid={`${testId}-empty`}>
+        <Note testId={`${testId}-empty`}>
           {emptyNote ?? "The cloud API returned nothing to choose from here."}
-        </p>
+        </Note>
       )}
       {note === undefined ? null : (
-        <p className="inline-note inline-note--warning" id={noteId} data-testid={`${testId}-note`}>
+        <Note tone="warning" id={noteId} testId={`${testId}-note`}>
           {note}
-        </p>
+        </Note>
       )}
-    </div>
+    </CCol>
   );
 }
 
@@ -98,7 +102,7 @@ export function ActivityFilters({ activity }: ActivityFiltersProps) {
   const configurationLoading = activity.configuration.isLoading;
 
   return (
-    <div className="activity-filters" data-testid="activity-filters">
+    <CRow className="g-3" data-testid="activity-filters">
       <FilterSelect
         label="Site"
         testId="activity-site"
@@ -240,6 +244,6 @@ export function ActivityFilters({ activity }: ActivityFiltersProps) {
           </option>
         ))}
       </FilterSelect>
-    </div>
+    </CRow>
   );
 }

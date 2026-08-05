@@ -13,6 +13,15 @@
  * any scripting, which a bespoke disclosure would have to re-earn.
  */
 
+import {
+  CTable,
+  CTableBody,
+  CTableCaption,
+  CTableDataCell,
+  CTableHead,
+  CTableHeaderCell,
+  CTableRow,
+} from "@coreui/react";
 import { formatContractUnknown, formatContractValue, formatIsoInstant } from "../../shared/format";
 import type { SeriesSample } from "./measurements";
 
@@ -27,42 +36,43 @@ interface SampleTableProps {
 
 export function SampleTable({ pointName, samples, sharedUnit, showUnitColumn }: SampleTableProps) {
   return (
-    <details className="samples" data-testid="sample-table-disclosure">
-      <summary className="samples__summary">
+    <details data-testid="sample-table-disclosure">
+      <summary className="py-2 fw-semibold small">
         Show the {samples.length} loaded sample{samples.length === 1 ? "" : "s"} as a table
       </summary>
-      <div className="table-scroll">
-        <table className="table" data-testid="sample-table">
-          <caption className="visually-hidden">
-            Loaded telemetry samples for {pointName}, oldest observation first
-            {showUnitColumn || sharedUnit === null ? "" : ` (${sharedUnit})`}
-          </caption>
-          <thead>
-            <tr>
-              <th scope="col">Observed at</th>
-              <th scope="col">Value</th>
-              {showUnitColumn ? <th scope="col">Unit</th> : null}
-              <th scope="col">Quality</th>
-              <th scope="col">Received at</th>
-            </tr>
-          </thead>
-          <tbody>
-            {samples.map((sample) => (
-              <tr key={sample.id}>
-                <th scope="row">
-                  <time dateTime={sample.observedAt}>{formatIsoInstant(sample.observedAt)}</time>
-                </th>
-                <td>{formatContractUnknown(sample.value)}</td>
-                {showUnitColumn ? <td>{sample.unit ?? "Unit not provided"}</td> : null}
-                <td>{formatContractValue(sample.quality)}</td>
-                <td>
-                  <time dateTime={sample.receivedAt}>{formatIsoInstant(sample.receivedAt)}</time>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {/* A wide table scrolls inside its own box, never the page. */}
+      <CTable responsive small align="top" className="mt-2 mb-0" data-testid="sample-table">
+        <CTableCaption className="visually-hidden">
+          Loaded telemetry samples for {pointName}, oldest observation first
+          {showUnitColumn || sharedUnit === null ? "" : ` (${sharedUnit})`}
+        </CTableCaption>
+        <CTableHead>
+          <CTableRow>
+            <CTableHeaderCell scope="col">Observed at</CTableHeaderCell>
+            <CTableHeaderCell scope="col">Value</CTableHeaderCell>
+            {showUnitColumn ? <CTableHeaderCell scope="col">Unit</CTableHeaderCell> : null}
+            <CTableHeaderCell scope="col">Quality</CTableHeaderCell>
+            <CTableHeaderCell scope="col">Received at</CTableHeaderCell>
+          </CTableRow>
+        </CTableHead>
+        <CTableBody>
+          {samples.map((sample) => (
+            <CTableRow key={sample.id}>
+              <CTableHeaderCell scope="row" className="fw-normal text-nowrap">
+                <time dateTime={sample.observedAt}>{formatIsoInstant(sample.observedAt)}</time>
+              </CTableHeaderCell>
+              <CTableDataCell>{formatContractUnknown(sample.value)}</CTableDataCell>
+              {showUnitColumn ? (
+                <CTableDataCell>{sample.unit ?? "Unit not provided"}</CTableDataCell>
+              ) : null}
+              <CTableDataCell>{formatContractValue(sample.quality)}</CTableDataCell>
+              <CTableDataCell className="text-nowrap">
+                <time dateTime={sample.receivedAt}>{formatIsoInstant(sample.receivedAt)}</time>
+              </CTableDataCell>
+            </CTableRow>
+          ))}
+        </CTableBody>
+      </CTable>
     </details>
   );
 }

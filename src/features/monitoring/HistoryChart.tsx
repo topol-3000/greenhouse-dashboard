@@ -21,6 +21,7 @@
  * alone.
  */
 
+import { CCard, CCardBody } from "@coreui/react";
 import { useId, useRef } from "react";
 import { formatAxisNumber, formatClock, formatIsoInstant } from "../../shared/format";
 import type { SeriesSample } from "./measurements";
@@ -66,16 +67,21 @@ export function HistoryChart({ pointName, unit, samples }: HistoryChartProps) {
 
   if (plottable.length === 0) {
     return (
-      <figure className="chart" data-testid="history-chart">
-        <figcaption className="chart__caption">
-          <span className="chart__title" id={titleId}>
-            Telemetry history — {pointName}
-          </span>
-        </figcaption>
-        <p className="chart__summary" data-testid="chart-summary">
-          None of the loaded samples of {pointName} could be plotted, so there is no chart to draw.
-        </p>
-      </figure>
+      <CCard>
+        <CCardBody>
+          <figure className="d-flex flex-column gap-2 mb-0" data-testid="history-chart">
+            <figcaption>
+              <span className="fw-semibold text-break" id={titleId}>
+                Telemetry history — {pointName}
+              </span>
+            </figcaption>
+            <p className="small text-body-secondary" data-testid="chart-summary">
+              None of the loaded samples of {pointName} could be plotted, so there is no chart to
+              draw.
+            </p>
+          </figure>
+        </CCardBody>
+      </CCard>
     );
   }
 
@@ -102,75 +108,89 @@ export function HistoryChart({ pointName, unit, samples }: HistoryChartProps) {
         (summary.count === 1 ? " One sample shows a single reading, not a trend." : "");
 
   return (
-    <figure className="chart" data-testid="history-chart">
-      <figcaption className="chart__caption">
-        <span className="chart__title" id={titleId}>
-          Telemetry history — {pointName}
-          {unit === null ? "" : ` (${unit})`}
-        </span>
-        <span className="chart__summary" id={descriptionId} data-testid="chart-summary">
-          {description}
-        </span>
-      </figcaption>
+    <CCard>
+      <CCardBody>
+        <figure className="d-flex flex-column gap-2 mb-0" data-testid="history-chart">
+          <figcaption className="d-flex flex-column gap-1">
+            <span className="fw-semibold text-break" id={titleId}>
+              Telemetry history — {pointName}
+              {unit === null ? "" : ` (${unit})`}
+            </span>
+            <span
+              className="small text-body-secondary"
+              id={descriptionId}
+              data-testid="chart-summary"
+            >
+              {description}
+            </span>
+          </figcaption>
 
-      <div className="chart__plot" ref={containerRef}>
-        <svg
-          role="img"
-          aria-labelledby={`${titleId} ${descriptionId}`}
-          width={width}
-          height={HEIGHT}
-          className="chart__svg"
-          data-testid="history-chart-svg"
-        >
-          {/* Axes. Drawn as lines rather than as a full grid, so the plot stays
+          <div className="chart__plot" ref={containerRef}>
+            <svg
+              role="img"
+              aria-labelledby={`${titleId} ${descriptionId}`}
+              width={width}
+              height={HEIGHT}
+              className="chart__svg"
+              data-testid="history-chart-svg"
+            >
+              {/* Axes. Drawn as lines rather than as a full grid, so the plot stays
               readable at a phone's width. */}
-          <line
-            x1={PADDING.left}
-            y1={PADDING.top}
-            x2={PADDING.left}
-            y2={bottom}
-            className="chart__axis"
-          />
-          <line x1={PADDING.left} y1={bottom} x2={right} y2={bottom} className="chart__axis" />
-
-          <text x={PADDING.left - 8} y={PADDING.top + 4} className="chart__tick chart__tick--y">
-            {formatAxisNumber(maxValue)}
-          </text>
-          <text x={PADDING.left - 8} y={bottom} className="chart__tick chart__tick--y">
-            {formatAxisNumber(minValue)}
-          </text>
-          <text x={PADDING.left} y={HEIGHT - 8} className="chart__tick">
-            {formatClock(minTime)}
-          </text>
-          <text x={right} y={HEIGHT - 8} className="chart__tick chart__tick--end">
-            {formatClock(maxTime)}
-          </text>
-
-          {segments.map((segment) => {
-            const first = segment[0];
-            if (first === undefined) {
-              return null;
-            }
-            if (segment.length === 1) {
-              // A run of one has no line to draw. It is marked so that a lone
-              // reading is visible instead of being an invisible zero-length
-              // polyline.
-              return (
-                <circle key={first.id} cx={x(first)} cy={y(first)} r={4} className="chart__point" />
-              );
-            }
-            return (
-              <polyline
-                key={first.id}
-                className="chart__line"
-                points={segment
-                  .map((sample) => `${String(x(sample))},${String(y(sample))}`)
-                  .join(" ")}
+              <line
+                x1={PADDING.left}
+                y1={PADDING.top}
+                x2={PADDING.left}
+                y2={bottom}
+                className="chart__axis"
               />
-            );
-          })}
-        </svg>
-      </div>
-    </figure>
+              <line x1={PADDING.left} y1={bottom} x2={right} y2={bottom} className="chart__axis" />
+
+              <text x={PADDING.left - 8} y={PADDING.top + 4} className="chart__tick chart__tick--y">
+                {formatAxisNumber(maxValue)}
+              </text>
+              <text x={PADDING.left - 8} y={bottom} className="chart__tick chart__tick--y">
+                {formatAxisNumber(minValue)}
+              </text>
+              <text x={PADDING.left} y={HEIGHT - 8} className="chart__tick">
+                {formatClock(minTime)}
+              </text>
+              <text x={right} y={HEIGHT - 8} className="chart__tick chart__tick--end">
+                {formatClock(maxTime)}
+              </text>
+
+              {segments.map((segment) => {
+                const first = segment[0];
+                if (first === undefined) {
+                  return null;
+                }
+                if (segment.length === 1) {
+                  // A run of one has no line to draw. It is marked so that a lone
+                  // reading is visible instead of being an invisible zero-length
+                  // polyline.
+                  return (
+                    <circle
+                      key={first.id}
+                      cx={x(first)}
+                      cy={y(first)}
+                      r={4}
+                      className="chart__point"
+                    />
+                  );
+                }
+                return (
+                  <polyline
+                    key={first.id}
+                    className="chart__line"
+                    points={segment
+                      .map((sample) => `${String(x(sample))},${String(y(sample))}`)
+                      .join(" ")}
+                  />
+                );
+              })}
+            </svg>
+          </div>
+        </figure>
+      </CCardBody>
+    </CCard>
   );
 }

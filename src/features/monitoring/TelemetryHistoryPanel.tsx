@@ -14,8 +14,12 @@
  * disagree.
  */
 
-import { LoadingState, StatePanel } from "../../components/StatePanel";
-import { RefreshFailurePanel, RequestErrorPanel } from "../../components/TopologyStates";
+import { LoadingState, Note, StatePanel } from "../../components/StatePanel";
+import {
+  BackgroundRefreshNotice,
+  RefreshFailurePanel,
+  RequestErrorPanel,
+} from "../../components/TopologyStates";
 import { formatContractValue } from "../../shared/format";
 import { HistoryChart } from "./HistoryChart";
 import type { ZoneMeasurement } from "./measurements";
@@ -42,7 +46,7 @@ function WindowNotice({
   full: boolean;
 }) {
   return (
-    <p className="inline-note" data-testid="history-window">
+    <Note testId="history-window">
       Showing the {loaded} sample{loaded === 1 ? "" : "s"} the cloud API returned, ordered by
       observation time. The telemetry endpoint returns at most {limit} samples per request and
       publishes no total, so this is a bounded window of {pointName}&rsquo;s history, not its
@@ -50,7 +54,7 @@ function WindowNotice({
       {full
         ? ` The response filled the ${String(limit)}-sample request, so more samples may exist.`
         : ""}
-    </p>
+    </Note>
   );
 }
 
@@ -130,9 +134,11 @@ export function TelemetryHistoryPanel({
         />
       ) : null}
       {telemetry.isRefreshing ? (
-        <p className="inline-note" data-testid="history-refreshing">
-          Refreshing this history from the cloud API…
-        </p>
+        <BackgroundRefreshNotice
+          announce={false}
+          testId="history-refreshing"
+          label="Refreshing this history from the cloud API…"
+        />
       ) : null}
     </>
   );
@@ -170,11 +176,11 @@ export function TelemetryHistoryPanel({
         full={telemetry.windowIsFull}
       />
       {window.unreadableCount > 0 ? (
-        <p className="inline-note inline-note--warning" data-testid="history-unreadable">
+        <Note tone="warning" testId="history-unreadable">
           {window.unreadableCount} entr{window.unreadableCount === 1 ? "y" : "ies"} in the response
           did not match the published sample schema and{" "}
           {window.unreadableCount === 1 ? "was" : "were"} left out.
-        </p>
+        </Note>
       ) : null}
     </>
   );
@@ -241,12 +247,12 @@ export function TelemetryHistoryPanel({
       {header}
       {notices}
       {series.unplottableCount > 0 ? (
-        <p className="inline-note inline-note--warning" data-testid="history-unplottable">
+        <Note tone="warning" testId="history-unplottable">
           {series.unplottableCount} of the loaded sample{series.unplottableCount === 1 ? "" : "s"}{" "}
           could not be plotted, because the value is not a number or the observation time cannot be
           read. {series.unplottableCount === 1 ? "It is" : "They are"} left out of the line — never
           drawn as zero — and can be read in the table below.
-        </p>
+        </Note>
       ) : null}
       <HistoryChart pointName={selectedPoint.name} unit={series.unit} samples={series.samples} />
       {table}

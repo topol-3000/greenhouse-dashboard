@@ -5,13 +5,20 @@
  * cloud API places inside it — in words, so the Site → Facility → ControlZone
  * relationship is readable rather than implied by indentation.
  *
+ * On a wide screen the two answers sit beside each other: what this facility is
+ * on the left, and what is inside it on the right, so a customer reads the
+ * workspace across the page instead of scrolling a single column past a short
+ * metadata block.
+ *
  * It is topology only. There is no reading, no actuator state, no control, no
  * command and no automation on this page, and no placeholder pretending one is
  * coming.
  */
 
+import { CCol, CListGroup, CListGroupItem, CRow } from "@coreui/react";
 import { Link, useParams } from "react-router";
 import type { ControlZoneRead } from "../../api/contract";
+import { SectionCard } from "../../components/SectionCard";
 import { LoadingState, StatePanel } from "../../components/StatePanel";
 import {
   BackgroundRefreshNotice,
@@ -28,8 +35,8 @@ import { useFacilityWorkspace, useTopologyOverview } from "./useTopology";
 
 function ZoneLink({ facilityId, zone }: { facilityId: string; zone: ControlZoneRead }) {
   return (
-    <li className="resource-list__item">
-      <Link className="resource-list__link" to={controlZonePath(facilityId, zone.id)}>
+    <CListGroupItem className="d-flex flex-column gap-2">
+      <Link className="fw-semibold text-break" to={controlZonePath(facilityId, zone.id)}>
         {zone.name}
       </Link>
       <MetaList
@@ -39,7 +46,7 @@ function ZoneLink({ facilityId, zone }: { facilityId: string; zone: ControlZoneR
           { label: "Status", value: formatContractValue(zone.status) },
         ]}
       />
-    </li>
+    </CListGroupItem>
   );
 }
 
@@ -51,7 +58,7 @@ export function FacilityPage() {
 
   if (workspace.isMissing) {
     return (
-      <div className="stack" data-testid="facility-page">
+      <div className="d-flex flex-column gap-4" data-testid="facility-page">
         <ResourceNotFoundPanel resource="facility" identifier={facilityId} />
       </div>
     );
@@ -59,7 +66,7 @@ export function FacilityPage() {
 
   if (workspace.isLoading) {
     return (
-      <div className="stack" data-testid="facility-page">
+      <div className="d-flex flex-column gap-4" data-testid="facility-page">
         <LoadingState label="Loading this facility…" />
       </div>
     );
@@ -67,7 +74,7 @@ export function FacilityPage() {
 
   if (workspace.error !== null && workspace.error !== undefined) {
     return (
-      <div className="stack" data-testid="facility-page">
+      <div className="d-flex flex-column gap-4" data-testid="facility-page">
         <RequestErrorPanel
           title="This facility could not be loaded"
           error={workspace.error}
@@ -83,7 +90,7 @@ export function FacilityPage() {
   const facility = workspace.facility;
   if (facility === undefined) {
     return (
-      <div className="stack" data-testid="facility-page">
+      <div className="d-flex flex-column gap-4" data-testid="facility-page">
         <ResourceNotFoundPanel resource="facility" identifier={facilityId} />
       </div>
     );
@@ -93,7 +100,7 @@ export function FacilityPage() {
   const siteName = workspace.site?.name;
 
   return (
-    <div className="stack" data-testid="facility-page">
+    <div className="d-flex flex-column gap-4" data-testid="facility-page">
       {workspace.refreshError !== null && workspace.refreshError !== undefined ? (
         <RefreshFailurePanel
           error={workspace.refreshError}
@@ -103,79 +110,80 @@ export function FacilityPage() {
       ) : null}
       {workspace.isRefreshing ? <BackgroundRefreshNotice /> : null}
 
-      <section className="section" aria-labelledby="facility-details-heading">
-        <h2 id="facility-details-heading" className="section__heading">
-          Facility details
-        </h2>
-        <p className="prose" data-testid="facility-relationship">
-          {siteName === undefined
-            ? `${facility.name} is a facility of a site the portal is still resolving.`
-            : `${facility.name} is a facility of the site ${siteName}.`}
-        </p>
-        <MetaList
-          testId="facility-meta"
-          items={[
-            { label: "Facility name", value: facility.name },
-            { label: "Facility code", value: <code>{facility.code}</code> },
-            { label: "Facility type", value: formatContractValue(facility.facility_type) },
-            { label: "Status", value: formatContractValue(facility.status) },
-            {
-              label: "Site",
-              value:
-                workspace.site === undefined ? (
-                  "Not available"
-                ) : (
-                  <>
-                    {workspace.site.name} (<code>{workspace.site.code}</code>)
-                  </>
-                ),
-            },
-            { label: "Site time zone", value: workspace.site?.timezone ?? "Not available" },
-          ]}
-        />
-        <FacilitySwitcher currentFacilityId={facilityId} topology={topology} />
-      </section>
+      <CRow className="g-4">
+        <CCol xs={12} xl={5} xxl={4}>
+          <SectionCard title="Facility details" fillHeight>
+            <p className="prose text-body-secondary" data-testid="facility-relationship">
+              {siteName === undefined
+                ? `${facility.name} is a facility of a site the portal is still resolving.`
+                : `${facility.name} is a facility of the site ${siteName}.`}
+            </p>
+            <MetaList
+              testId="facility-meta"
+              items={[
+                { label: "Facility name", value: facility.name },
+                { label: "Facility code", value: <code>{facility.code}</code> },
+                { label: "Facility type", value: formatContractValue(facility.facility_type) },
+                { label: "Status", value: formatContractValue(facility.status) },
+                {
+                  label: "Site",
+                  value:
+                    workspace.site === undefined ? (
+                      "Not available"
+                    ) : (
+                      <>
+                        {workspace.site.name} (<code>{workspace.site.code}</code>)
+                      </>
+                    ),
+                },
+                { label: "Site time zone", value: workspace.site?.timezone ?? "Not available" },
+              ]}
+            />
+            <FacilitySwitcher currentFacilityId={facilityId} topology={topology} />
+          </SectionCard>
+        </CCol>
 
-      <section className="section" aria-labelledby="facility-zones-heading">
-        <h2 id="facility-zones-heading" className="section__heading">
-          Control zones
-        </h2>
-        {zones.length === 0 ? (
-          <StatePanel
-            title="This facility has no control zones"
-            headingLevel={3}
-            testId="facility-zones-empty"
-          >
-            <p>
-              The cloud API returns no control zones for {facility.name}. Control zones are created
-              in the AI Greenhouse platform; when this facility has one, it appears here.
-            </p>
-            <p>
-              <Link to={GREENHOUSES_PATH}>Back to Greenhouses</Link>
-            </p>
-          </StatePanel>
-        ) : (
-          <>
-            <p className="prose">
-              The cloud API places{" "}
-              {zones.length === 1 ? "1 control zone" : `${String(zones.length)} control zones`} in{" "}
-              {facility.name}.
-            </p>
-            {workspace.zones?.complete === false ? (
-              <IncompleteCollectionNotice
-                shown={zones.length}
-                total={workspace.zones.total}
-                noun="control zones"
-              />
-            ) : null}
-            <ul className="resource-list">
-              {zones.map((zone) => (
-                <ZoneLink key={zone.id} facilityId={facilityId} zone={zone} />
-              ))}
-            </ul>
-          </>
-        )}
-      </section>
+        <CCol xs={12} xl={7} xxl={8}>
+          <SectionCard title="Control zones" fillHeight>
+            {zones.length === 0 ? (
+              <StatePanel
+                title="This facility has no control zones"
+                headingLevel={3}
+                testId="facility-zones-empty"
+              >
+                <p>
+                  The cloud API returns no control zones for {facility.name}. Control zones are
+                  created in the AI Greenhouse platform; when this facility has one, it appears
+                  here.
+                </p>
+                <p>
+                  <Link to={GREENHOUSES_PATH}>Back to Greenhouses</Link>
+                </p>
+              </StatePanel>
+            ) : (
+              <>
+                <p className="prose text-body-secondary">
+                  The cloud API places{" "}
+                  {zones.length === 1 ? "1 control zone" : `${String(zones.length)} control zones`}{" "}
+                  in {facility.name}.
+                </p>
+                {workspace.zones?.complete === false ? (
+                  <IncompleteCollectionNotice
+                    shown={zones.length}
+                    total={workspace.zones.total}
+                    noun="control zones"
+                  />
+                ) : null}
+                <CListGroup>
+                  {zones.map((zone) => (
+                    <ZoneLink key={zone.id} facilityId={facilityId} zone={zone} />
+                  ))}
+                </CListGroup>
+              </>
+            )}
+          </SectionCard>
+        </CCol>
+      </CRow>
     </div>
   );
 }
