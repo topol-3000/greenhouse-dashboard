@@ -1,37 +1,45 @@
 /**
- * Browser evidence for the migrated screens.
+ * Browser evidence for the portal's appearance.
  *
- * Every feature surface is opened at a desktop width and at a phone width, in
- * both the light and the dark appearance, and each one is checked for the two
- * properties the migration is supposed to hold at every size:
+ * Every surface a customer can reach is opened at a desktop width and at a
+ * phone width, in both the light and the dark appearance, and each one is
+ * checked for the two properties the layout has to hold at every size:
  *
  * - the page never scrolls sideways;
  * - the screen's own regions are on it, so a layout that collapsed would fail
  *   here rather than in review.
  *
- * A screenshot is written beside each check into `docs/evidence/unit-2/`. The
- * images are review evidence, deliberately not assertions: nothing here compares
- * pixels, because a design that is allowed to change should not be pinned by a
- * test that breaks when it does.
+ * A screenshot is written beside each check into `test-results/appearance-
+ * evidence/`, which is an ignored test-artifact directory: generating the
+ * evidence therefore leaves the worktree clean, and no image is committed. The
+ * images are review evidence, deliberately not assertions — nothing here
+ * compares pixels, because a design that is allowed to change should not be
+ * pinned by a test that breaks when it does.
+ *
+ * To regenerate them:
+ *
+ *     npm run e2e -- appearance-evidence
+ *     docker compose run --rm e2e npx playwright test appearance-evidence
  */
 
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { E2E_IDS, SEEDED_COMMANDS, mockCommands, mockHealth, mockTopology } from "./fixtures";
 
-const EVIDENCE_DIR = "docs/evidence/unit-2";
+const EVIDENCE_DIR = "test-results/appearance-evidence";
 
 const FACILITY_URL = `/facilities/${E2E_IDS.northGreenhouse}`;
 const ZONE_URL = `${FACILITY_URL}/zones/${E2E_IDS.climateZone}`;
 const ZONE_ACTIVITY = `/activity?site=${E2E_IDS.riversideSite}&facility=${E2E_IDS.northGreenhouse}&zone=${E2E_IDS.climateZone}`;
 
-/** The screens this unit migrated, with the region that proves each rendered. */
+/** Every route the portal publishes, with the region that proves each rendered. */
 const SCREENS = [
   { name: "dashboard", url: "/", region: "dashboard-page" },
   { name: "greenhouses", url: "/sites", region: "greenhouses-page" },
   { name: "facility", url: FACILITY_URL, region: "facility-page" },
   { name: "control-zone", url: ZONE_URL, region: "control-zone-page" },
   { name: "activity", url: ZONE_ACTIVITY, region: "activity-page" },
+  { name: "not-found", url: "/no-such-address", region: "not-found-page" },
 ] as const;
 
 const VIEWPORTS = [
@@ -62,7 +70,10 @@ for (const appearance of ["Light", "Dark"] as const) {
       test.describe(`at ${viewport.name} width`, () => {
         test.use({ viewport: viewport.size });
 
-        test(`renders every migrated screen without sideways scroll`, async ({ page }) => {
+        const shot = (name: string) =>
+          `${EVIDENCE_DIR}/${name}-${viewport.name}-${appearance.toLowerCase()}.png`;
+
+        test(`renders every route without sideways scroll`, async ({ page }) => {
           await mockHealth(page);
           await mockTopology(page);
           await mockCommands(page, undefined, SEEDED_COMMANDS);
@@ -80,10 +91,7 @@ for (const appearance of ["Light", "Dark"] as const) {
               `${screen.name} scrolls sideways at ${viewport.name} width`,
             ).toBeLessThanOrEqual(1);
 
-            await page.screenshot({
-              path: `${EVIDENCE_DIR}/${screen.name}-${viewport.name}-${appearance.toLowerCase()}.png`,
-              fullPage: true,
-            });
+            await page.screenshot({ path: shot(screen.name), fullPage: true });
           }
         });
 
@@ -107,9 +115,45 @@ for (const appearance of ["Light", "Dark"] as const) {
           const box = await dialog.locator(".modal-content").boundingBox();
           expect(box?.width ?? 0).toBeLessThanOrEqual(viewport.size.width);
 
-          await page.screenshot({
-            path: `${EVIDENCE_DIR}/command-confirmation-${viewport.name}-${appearance.toLowerCase()}.png`,
-          });
+          await page.screenshot({ path: shot("command-confirmation") });
+        });
+
+        test(`keeps the command-details dialog on the screen`, async ({ page }) => {
+          await mockHealth(page);
+          await mockTopology(page);
+          await mockCommands(page, undefined, SEEDED_COMMANDS);
+
+          await page.goto("/");
+          await chooseAppearance(page, appearance);
+
+          await page.goto(ZONE_ACTIVITY);
+          await page.getByTestId("activity-list").getByRole("button").first().click();
+
+          const dialog = page.getByTestId("command-details");
+          await expect(dialog).toBeVisible();
+          expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);
+
+          await page.screenshot({ path: shot("command-details") });
+        });
+
+        test(`keeps the shell usable while the cloud API is unavailable`, async ({ page }) => {
+          // The topology is left unmocked as well, so this is the whole portal
+          // with nothing behind it — the state the shell has to survive.
+          await mockHealth(page, "unreachable");
+
+          await page.goto("/");
+          await chooseAppearance(page, appearance);
+
+          await expect(page.getByTestId("api-status")).toHaveAttribute("data-state", "unavailable");
+          // The shell is still the shell: its heading, its appearance control
+          // and its navigation are all there — the navigation behind the toggle
+          // at a phone width, beside the content at a desktop one.
+          await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+          await expect(page.getByTestId("appearance")).toBeVisible();
+          await expect(page.getByTestId("portal-sidebar")).toBeAttached();
+          expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);
+
+          await page.screenshot({ path: shot("api-unavailable"), fullPage: true });
         });
       });
     }

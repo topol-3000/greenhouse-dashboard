@@ -15,7 +15,12 @@ export function NotFoundPage() {
   const { pathname } = useLocation();
 
   return (
-    <StatePanel title="This address does not exist in the portal" tone="warning" headingLevel={2}>
+    <StatePanel
+      title="This address does not exist in the portal"
+      tone="warning"
+      headingLevel={2}
+      testId="not-found-page"
+    >
       <p>
         Nothing is published at <code>{pathname}</code>. It may have been a typed address, an old
         link, or a part of the portal that has not been built yet.

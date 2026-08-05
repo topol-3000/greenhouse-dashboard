@@ -1,0 +1,77 @@
+// stylelint-disable-next-line scss/dollar-variable-default
+$file: "for the AI Greenhouse Customer Portal";
+
+/*
+ * The portal's CoreUI stylesheet.
+ *
+ * CoreUI's compiled `coreui.min.css` carries every component the framework
+ * ships. The portal uses a knowable subset of them, so this file forwards that
+ * subset from CoreUI's own Sass sources instead. Nothing is copied in: every
+ * rule below still comes from `@coreui/coreui`, upgrades with it, and is
+ * configured by the same variables.
+ *
+ * A partial is here because a component or a class the application actually
+ * renders needs it. The comment beside each one says which. A partial that is
+ * absent is absent because nothing in `src/` renders it — adding a CoreUI
+ * component to a screen means adding its partial here, and the browser suite
+ * (`e2e/appearance-evidence.spec.ts`) is what proves the result still looks
+ * right in both appearances at both widths.
+ *
+ * `loadPaths` in `vite.config.ts` is what makes the `@coreui/coreui/scss/…`
+ * specifiers resolve; the partials' own relative `@use` rules do the rest.
+ */
+
+// Configuration. Not optional: every partial below `@use`s these for its
+// variables, its functions and its mixins.
+@forward "@coreui/coreui/scss/variables";
+@forward "@coreui/coreui/scss/variables-dark";
+@forward "@coreui/coreui/scss/functions";
+@forward "@coreui/coreui/scss/mixins";
+
+// Foundations.
+@forward "@coreui/coreui/scss/root"; // the `--cui-*` variables, per colour mode
+@forward "@coreui/coreui/scss/reboot"; // the element baseline the portal styles from
+@forward "@coreui/coreui/scss/type"; // `.h6` on StatePanel headings, `.small`
+@forward "@coreui/coreui/scss/containers"; // CContainer: the header bar and the content column
+@forward "@coreui/coreui/scss/grid"; // CRow / CCol, and the `.g-*` gutters they take
+@forward "@coreui/coreui/scss/transitions"; // `.fade`, which CModal opens and closes with
+
+// Components, one per CoreUI React component the portal renders.
+@forward "@coreui/coreui/scss/forms/labels"; // CFormLabel
+@forward "@coreui/coreui/scss/forms/form-select"; // CFormSelect
+@forward "@coreui/coreui/scss/tables"; // CTable and its cells, rows and caption
+@forward "@coreui/coreui/scss/buttons"; // CButton
+@forward "@coreui/coreui/scss/close"; // `.btn-close` inside CModalHeader
+@forward "@coreui/coreui/scss/card"; // CCard, CCardBody, CCardTitle, CCardSubtitle
+@forward "@coreui/coreui/scss/breadcrumb"; // CBreadcrumbItem, inside the portal's own trail
+@forward "@coreui/coreui/scss/badge"; // CBadge
+@forward "@coreui/coreui/scss/alert"; // CAlert
+@forward "@coreui/coreui/scss/callout"; // CCallout
+@forward "@coreui/coreui/scss/list-group"; // CListGroup, CListGroupItem
+@forward "@coreui/coreui/scss/modal"; // CModal and its header, body, footer and title
+@forward "@coreui/coreui/scss/spinners"; // CSpinner
+@forward "@coreui/coreui/scss/icon"; // CIcon, from @coreui/icons-react
+@forward "@coreui/coreui/scss/header"; // CHeader
+@forward "@coreui/coreui/scss/footer"; // CFooter
+
+// The shell's sidebar. `sidebar-narrow` is not forwarded: the portal has no
+// collapsed-rail mode, and `nav` is not forwarded either, because `sidebar-nav`
+// styles `.nav-item` and `.nav-link` itself and nothing outside the sidebar
+// renders them.
+@forward "@coreui/coreui/scss/sidebar/sidebar";
+@forward "@coreui/coreui/scss/sidebar/sidebar-nav";
+
+// The two helpers the portal uses: `.text-bg-*`, which is what CBadge's
+// `textBgColor` resolves to on the availability indicator, and
+// `.visually-hidden`, for text that must stay in the accessibility tree after
+// it leaves the layout.
+@forward "@coreui/coreui/scss/helpers/color-bg";
+@forward "@coreui/coreui/scss/helpers/visually-hidden";
+
+// The utility API, which generates the spacing, flex, sizing, border and text
+// classes the screens are laid out with. It is kept whole on purpose: the
+// classes are chosen per element across every feature directory, so a
+// hand-pruned list would be a second inventory to keep in step with the JSX,
+// and the first missing class would be a silent layout bug rather than a build
+// error.
+@forward "@coreui/coreui/scss/utilities/api";

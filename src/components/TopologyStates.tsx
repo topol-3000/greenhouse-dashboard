@@ -1,9 +1,9 @@
 /**
  * The states a topology screen can be in, said out loud.
  *
- * Unit 1 established that a blank region is never an acceptable outcome. These
- * compose its {@link StatePanel} into the states topology adds, and they keep
- * them distinguishable from one another:
+ * A blank region is never an acceptable outcome. These compose
+ * {@link StatePanel} into the states topology adds, and they keep them
+ * distinguishable from one another:
  *
  * - **request failure** — the portal asked and did not get an answer. It is a
  *   state of one screen, never a full-page outage;

@@ -26,6 +26,19 @@ const proxy = {
 
 export default defineConfig({
   plugins: [react()],
+  css: {
+    preprocessorOptions: {
+      scss: {
+        /*
+         * `src/styles/coreui.scss` forwards the CoreUI partials the portal
+         * actually renders, by their package specifier. Resolving those from
+         * `node_modules` is all this needs to do: each partial's own relative
+         * `@use` rules find its variables, functions and mixins by themselves.
+         */
+        loadPaths: ["node_modules"],
+      },
+    },
+  },
   server: {
     port: 5173,
     proxy,

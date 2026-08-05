@@ -8,6 +8,11 @@
  *      components and the portal's own feature styles cannot drift apart;
  *   3. the shell layout — header, sidebar, content and footer.
  *
+ * The CoreUI it reshapes is built next door, in `coreui.scss`. A token is
+ * declared here only where something reads it: a colour that turned out to have
+ * no reader belongs in the component that needs it, not in a palette nobody
+ * consults.
+ *
  * Both layers are switched by one attribute. `data-coreui-theme` is what
  * CoreUI's stylesheet reads, and it is what the tokens below key off, so the
  * appearance selector repaints the whole portal rather than half of it. There
@@ -36,19 +41,8 @@
   --accent-rgb: 31, 122, 77;
   --accent-strong: #17603c;
   --accent-contrast: #ffffff;
-  --accent-subtle: #e2f0e8;
-
-  --tone-good: #0f6b3f;
-  --tone-good-bg: #dff2e6;
-  --tone-warning: #8a4b00;
-  --tone-warning-bg: #fbebd6;
-  --tone-neutral: #4d544c;
-  --tone-neutral-bg: #e8ebe6;
-  --tone-error: #a11f1d;
-  --tone-error-bg: #fbe4e3;
 
   --radius: 10px;
-  --gap: 1rem;
   /*
    * The cap exists to stop a 21-inch monitor from stretching a row of cards
    * into a ribbon, not to keep the portal in a column. Readable measure is the
@@ -71,16 +65,6 @@
   --accent-rgb: 92, 201, 142;
   --accent-strong: #8adcb0;
   --accent-contrast: #08130d;
-  --accent-subtle: #16301f;
-
-  --tone-good: #7fd6a4;
-  --tone-good-bg: #10321f;
-  --tone-warning: #f0b878;
-  --tone-warning-bg: #3a2710;
-  --tone-neutral: #bcc3bb;
-  --tone-neutral-bg: #2a2f29;
-  --tone-error: #f09a98;
-  --tone-error-bg: #3a1615;
 }
 
 /*

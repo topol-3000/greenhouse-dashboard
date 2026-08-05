@@ -1,12 +1,15 @@
 /*
  * What the Customer Portal still styles for itself.
  *
- * The design tokens, the CoreUI mapping and the application shell live in
- * `styles/theme.css`. The feature screens are built from CoreUI's own
- * components — cards, alerts, badges, buttons, forms, tables, spinners, list
- * groups and modals — so almost nothing about them needs a rule here.
+ * The portal's CSS is three files with three jobs. `styles/coreui.scss` builds
+ * the subset of CoreUI the application renders, from CoreUI's own Sass.
+ * `styles/theme.css` holds the design tokens, the mapping of CoreUI's variables
+ * onto them, and the application shell. This file is the third and smallest:
+ * the rules CoreUI has no component for.
  *
- * What is left is the small set of things CoreUI has no component for:
+ * The feature screens are built from CoreUI's own components — cards, alerts,
+ * badges, buttons, forms, tables, spinners, list groups and modals — so almost
+ * nothing about them needs a rule here. What is left is:
  *
  *   1. the typographic reset the Bootstrap reboot makes necessary, because the
  *      portal lays its pages out with flex and grid gaps rather than with
@@ -14,9 +17,11 @@
  *   2. readable measure and unbreakable-string containment, so a customer's
  *      facility name or a UUID wraps inside its component instead of widening
  *      the page;
- *   3. the telemetry chart, which is the portal's own SVG and not a CoreUI
+ *   3. a visible focus ring on everything focusable, and the 44px touch-target
+ *      minimum on every full-size control, neither of which CoreUI guarantees;
+ *   4. the telemetry chart, which is the portal's own SVG and not a CoreUI
  *      component;
- *   4. the reduced-motion guarantee.
+ *   5. the reduced-motion guarantee.
  *
  * It is loaded after CoreUI so these rules win where they overlap. No state is
  * signalled by colour alone: every status carries its own words.
@@ -77,14 +82,23 @@ body {
  * The reboot styles `code` as inline red text. Here a code is an identifier the
  * cloud API published — a point code, a UUID, a raw enum value — so it reads as
  * a quiet chip in the body colour, and it is allowed to break mid-string.
+ *
+ * Both colours are taken from whatever the chip is sitting on rather than from
+ * the page's tokens, because an identifier appears inside a card, a table, a
+ * modal and a CoreUI alert, and CoreUI's subtle alert backgrounds do not follow
+ * the appearance. A chip pinned to the page's own surface came out dark on a
+ * light alert in the dark appearance; derived from `currentcolor` it is a quiet
+ * tint of the text beside it on every surface, in both appearances.
  */
 code {
-  color: var(--text-primary);
-  background: var(--surface-2);
+  color: inherit;
+  background: color-mix(in srgb, currentcolor 10%, transparent);
   border-radius: 4px;
   padding: 0.0625rem 0.25rem;
   overflow-wrap: anywhere;
 }
+
+/* 3. Focus and touch targets ----------------------------------------------- */
 
 /*
  * A visible focus ring on everything focusable, not only on the controls
@@ -104,8 +118,7 @@ code {
  * qualify something already on the screen rather than being its action.
  */
 .btn:not(.btn-sm),
-.form-select:not(.form-select-sm),
-.form-control:not(.form-control-sm) {
+.form-select:not(.form-select-sm) {
   min-height: 2.75rem;
 }
 
@@ -123,7 +136,7 @@ summary {
   align-items: center;
 }
 
-/* 3. Telemetry chart -------------------------------------------------------
+/* 4. Telemetry chart -------------------------------------------------------
  *
  * The chart is drawn at the pixel width its container actually has, so nothing
  * here may let it become wider than that container: the plot box clips and the
@@ -168,7 +181,7 @@ summary {
   text-anchor: end;
 }
 
-/* 4. Reduced motion -------------------------------------------------------- */
+/* 5. Reduced motion -------------------------------------------------------- */
 
 @media (prefers-reduced-motion: reduce) {
   *,
