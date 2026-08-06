@@ -9,18 +9,26 @@ workspace and the ControlZone workspace sit alongside it.
 
 ## What this release contains
 
-The portal foundation, **read-only greenhouse topology**, **read-only monitoring
-inside a control zone**, **limited manual control of that zone's actuators**, and
-**read-only command activity** for it. On top of the application shell — a
-CoreUI sidebar, header, breadcrumbs, content region and footer, with identity,
-routing, notifications, a light/dark/auto appearance preference, the responsive
-layout, the shared UI states and the API boundary — it loads the customer's real
-Site → Facility → ControlZone structure from the cloud API, lets them navigate
-it, and inside a control zone shows what its measurement points last reported,
-the telemetry history of the one they select, and the control points they may
-switch on or off. Activity then shows what has been asked of that zone's
-equipment — by a person and by the greenhouse's own control system — and what
-became of each request.
+The portal foundation, **read-only greenhouse topology**, **read-only current
+readings from the landing page down**, **a telemetry history and limited manual
+control inside a control zone**, and **read-only command activity** for it. On
+top of the application shell — a CoreUI sidebar, header, breadcrumbs, content
+region and footer, with identity, routing, notifications, a light/dark/auto
+appearance preference, the responsive layout, the shared UI states and the API
+boundary — it loads the customer's real Site → Facility → ControlZone structure
+from the cloud API and lets them navigate it.
+
+What each measurement point last reported is shown on the landing page, on a
+facility's workspace and inside a control zone, always grouped under the zone
+the cloud API assigns the point to, and always with how long ago the reading was
+observed. Inside a control zone it adds the telemetry history of the point the
+customer selects and the control points they may switch on or off. Activity then
+shows what has been asked of that zone's equipment — by a person and by the
+greenhouse's own control system — and what became of each request.
+
+Readings above a control zone cost nothing extra: one facility configuration
+document already describes every zone and every point of that facility, and it
+is the same cached, bounded poll the control zone workspace reads.
 
 Everything on screen came from the cloud API. There are no sample facilities, no
 placeholder readings and no invented statistics; when the API returns nothing,
@@ -296,14 +304,14 @@ answer is an error state on screen, not sample data.
 
 ## Routes
 
-| Route                                   | What it is                                                                                                                |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `/`                                     | Dashboard — cloud API availability and the API's own topology counts                                                      |
-| `/sites`                                | Greenhouses — every site and the facilities inside it                                                                     |
-| `/activity`                             | Activity — one control zone's commands, what was asked for and what became of each                                        |
-| `/facilities/:facilityId`               | Facility workspace — the facility, its site and its control zones                                                         |
-| `/facilities/:facilityId/zones/:zoneId` | ControlZone workspace — the zone, its parents, its point inventory, its monitoring section and its manual-control section |
-| `*`                                     | The portal's 404 page, rendered inside the shell with a way back                                                          |
+| Route                                   | What it is                                                                                                                 |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `/`                                     | Dashboard — cloud API availability, the API's own topology counts, and current readings for a bounded number of facilities |
+| `/sites`                                | Greenhouses — every site and the facilities inside it                                                                      |
+| `/activity`                             | Activity — one control zone's commands, what was asked for and what became of each                                         |
+| `/facilities/:facilityId`               | Facility workspace — the facility, its site, its control zones and their current readings                                  |
+| `/facilities/:facilityId/zones/:zoneId` | ControlZone workspace — the zone, its parents, its point inventory, its monitoring section and its manual-control section  |
+| `*`                                     | The portal's 404 page, rendered inside the shell with a way back                                                           |
 
 The primary navigation offers **Dashboard**, **Greenhouses** and **Activity**:
 the three routes that work without a resource in their path. The nested routes
@@ -332,13 +340,48 @@ no topology at all are each stated in words. So is an incomplete read: if a
 collection is larger than the portal's bounded pagination walk, the screen says
 how much of it is being shown instead of presenting a partial list as the whole.
 
+### Current readings above a control zone
+
+`/` and `/facilities/:facilityId` show what each measurement point last
+reported, grouped under the control zone the cloud API assigns the point to.
+The grouping is not decoration: `role` — primary measurement, secondary
+measurement — belongs to the zone's _link_ to a point, so the same point
+assigned to two zones is two readings with two roles, and a flat list would have
+to pick one and discard the other.
+
+This costs no request the portal was not already making. One
+`GET /api/v1/facilities/{id}/configuration` describes every zone and every point
+of a facility with its last known state, and it is keyed by facility, so the
+landing page, the facility workspace and the control zone workspace share one
+cache entry and one bounded poll. No zone list, no per-point `/state` and no
+telemetry is requested to draw any of it.
+
+**What is still not there.** No aggregate of any kind — no total, no average, no
+minimum or maximum, no "3 of 8 zones" and no count of points in some state —
+because the only numbers the contract publishes are one point's value and the
+backend's own row totals. No global freshness verdict and no cross-zone
+telemetry. `/sites` stays free of readings entirely: it is every site and
+facility the customer has, and a reading there would have no zone to be read
+under.
+
+**The landing page is bounded.** The contract has no operation describing more
+than one facility, so readings for N facilities are N polled requests. `/` reads
+the first six and, when the cloud API reports more, says so on screen using the
+backend's own total. Every facility stays reachable through Greenhouses.
+
+**Reading age.** Every observation time is shown as the exact instant plus how
+long ago it was — `Jan 4, 2026, 9:05:00 AM (2 minutes ago)`. That is a rendering
+of `observed_at` and nothing more. The portal invents no threshold at which a
+reading becomes old, and never calls one recent, fresh or stale: `DataQuality`
+already carries the backend's own `stale`, and a second, local definition of
+"old" would contradict it.
+
 ### Monitoring inside a control zone
 
 Monitoring is a section of the ControlZone workspace, not a route of its own and
-not an entry in the primary navigation. `/sites` and `/facilities/:facilityId`
-stay free of readings: there is no facility-wide aggregate, no global freshness
-and no cross-zone telemetry, because a truthful one cannot be assembled from a
-partial read.
+not an entry in the primary navigation. What the zone adds over the readings
+above it is the part that only makes sense inside one zone: a selectable point,
+its bounded telemetry window and the chart drawn from it.
 
 **Which points appear.** A point is a measurement when the API says
 `point_kind: "measurement"` and `status: "active"`, and never otherwise. Nothing
@@ -858,6 +901,20 @@ Named here so nothing above is mistaken for a promise that has been kept:
   that window, no export, and no filtering by lifecycle state — the list
   operation publishes no `facility_id` and no `state` parameter, and neither is
   simulated in the browser.
+- **Readings for every facility at once.** The landing page reads the first six
+  facilities the cloud API returns and states the bound when there are more. The
+  contract publishes no operation describing more than one facility, so a
+  complete estate view would be one polled request per facility with no upper
+  limit. Greenhouses still reaches every facility, and a facility's own
+  workspace always shows all of its zones.
+- **Any figure computed across readings.** No total, no average, no minimum or
+  maximum, no "3 of 8 zones" and no count of points in a given state, anywhere.
+  The only numbers on screen are one point's value and the backend's own
+  `Page.total`.
+- **A freshness verdict.** Readings carry how long ago they were observed, which
+  is a rendering of `observed_at`. Nothing decides when that becomes "stale" —
+  `DataQuality` already carries the backend's own judgement, and the portal does
+  not add a competing one.
 - **Acting on a past command.** Activity is read-only: no cancellation, no
   retry, no resubmission and no bulk control.
 - **Generic audit or system events.** Activity is command activity. Nothing else

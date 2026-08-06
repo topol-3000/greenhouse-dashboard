@@ -18,7 +18,7 @@
  * and a failed command never discards loaded monitoring data.
  */
 
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery } from "@tanstack/react-query";
 import type { CommandRead, ManualCommandOutcome } from "./contract";
 import type { CommandListFilters, ManualCommandAcceptance, ManualCommandRequest } from "./control";
 import {
@@ -65,6 +65,21 @@ export const MONITORING_POLL_MS = 30_000;
 
 /** How long a configuration answer is treated as fresh, in milliseconds. */
 export const MONITORING_STALE_MS = 15_000;
+
+/**
+ * How many facilities the landing page reads current state for.
+ *
+ * The contract has no operation that describes more than one facility, so
+ * readings for N facilities cost N polled requests. Six is the point at which
+ * the landing page stops asking: six documents on the {@link MONITORING_POLL_MS}
+ * interval is twelve requests a minute, and the browser pauses even those while
+ * the tab is in the background.
+ *
+ * The bound is a real limit, not a hidden one. Past it the page says how many
+ * facilities it is showing and how many the cloud API reports, using the
+ * backend's own total, and every facility stays reachable through Greenhouses.
+ */
+export const DASHBOARD_FACILITY_LIMIT = 6;
 
 /**
  * How often the selected point's telemetry window is re-read.
@@ -321,6 +336,30 @@ export function useControlZonePointsQuery(zoneId: string | undefined) {
 }
 
 /**
+ * How one facility's configuration document is asked for.
+ *
+ * Both the single-facility hook and the many-facility one are built from this,
+ * so a facility read on the landing page, on the facility workspace and inside
+ * a control zone are the same cache entry on the same interval. Two hand-written
+ * copies of this key would silently double the poll and stop the screens sharing
+ * anything.
+ *
+ * @param facilityId The facility to describe, untrusted.
+ * @param enabled Whether this facility should be read at all.
+ */
+function facilityConfigurationQueryOptions(facilityId: string | undefined, enabled: boolean) {
+  const id = identifier(facilityId);
+  return {
+    queryKey: queryKeys.facilityConfiguration(id ?? ""),
+    queryFn: ({ signal }: { signal: AbortSignal }) =>
+      fetchFacilityConfiguration(id ?? "", { signal }),
+    enabled: enabled && id !== undefined,
+    staleTime: MONITORING_STALE_MS,
+    refetchInterval: pollUnlessResourceMissing(MONITORING_POLL_MS),
+  };
+}
+
+/**
  * One facility's configuration document, polled while the workspace is open.
  *
  * This is the monitoring section's only current-state request: one bounded poll
@@ -335,13 +374,26 @@ export function useControlZonePointsQuery(zoneId: string | undefined) {
  *   cloud API does not have.
  */
 export function useFacilityConfigurationQuery(facilityId: string | undefined, enabled = true) {
-  const id = identifier(facilityId);
-  return useQuery({
-    queryKey: queryKeys.facilityConfiguration(id ?? ""),
-    queryFn: ({ signal }) => fetchFacilityConfiguration(id ?? "", { signal }),
-    enabled: enabled && id !== undefined,
-    staleTime: MONITORING_STALE_MS,
-    refetchInterval: pollUnlessResourceMissing(MONITORING_POLL_MS),
+  return useQuery(facilityConfigurationQueryOptions(facilityId, enabled));
+}
+
+/**
+ * The configuration documents of several facilities at once.
+ *
+ * The contract publishes no operation that describes more than one facility, so
+ * reading N facilities is N requests and there is no way around it. That is why
+ * the caller is expected to have bounded the list first — see
+ * {@link DASHBOARD_FACILITY_LIMIT} — rather than fanning out over whatever the
+ * customer happens to own.
+ *
+ * Each facility keeps its own loading and error state. One facility the cloud
+ * API cannot describe must not blank the readings of the others.
+ *
+ * @param facilityIds The facilities to read, already bounded.
+ */
+export function useFacilityConfigurationsQuery(facilityIds: readonly string[]) {
+  return useQueries({
+    queries: facilityIds.map((facilityId) => facilityConfigurationQueryOptions(facilityId, true)),
   });
 }
 

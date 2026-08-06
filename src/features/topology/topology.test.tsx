@@ -27,6 +27,7 @@ import {
   northGreenhouse,
   NOT_FOUND_BODY,
   page,
+  POINT_IDS,
   riversideSite,
   seedlingClimateZone,
   seedlingRoom,
@@ -37,6 +38,33 @@ import { controlZonePath, facilityPath, GREENHOUSES_PATH } from "../../routes/ro
 
 const FACILITY_URL = facilityPath(IDS.northGreenhouse);
 const ZONE_URL = controlZonePath(IDS.northGreenhouse, IDS.climateZone);
+
+/**
+ * The measurement card for one point, wherever on the page it was rendered.
+ *
+ * Found by the point's own identifier rather than by position, because the
+ * same point may legitimately be rendered under more than one zone.
+ */
+function cardFor(pointId: string): HTMLElement {
+  const card = screen
+    .getAllByTestId("measurement-card")
+    .find((candidate) => candidate.getAttribute("data-point-id") === pointId);
+  if (card === undefined) {
+    throw new Error(`No measurement card was rendered for point ${pointId}`);
+  }
+  return card;
+}
+
+/** The readings group for one control zone. */
+function zoneGroupFor(zoneId: string): HTMLElement {
+  const group = screen
+    .getAllByTestId("zone-readings")
+    .find((candidate) => candidate.getAttribute("data-zone-id") === zoneId);
+  if (group === undefined) {
+    throw new Error(`No readings group was rendered for zone ${zoneId}`);
+  }
+  return group;
+}
 
 describe("the Greenhouses overview", () => {
   it("renders every site the cloud API returns, with its facilities", async () => {
@@ -443,37 +471,90 @@ describe("navigating the topology", () => {
 });
 
 describe("truthfulness of the topology screens", () => {
-  it("keeps the overview and the facility workspace free of readings", async () => {
-    // Monitoring belongs to the control zone workspace and to nothing above it:
-    // these two screens must not grow telemetry cards, aggregate values or
-    // facility-wide claims assembled from partial data.
-    for (const path of [GREENHOUSES_PATH, FACILITY_URL]) {
-      const view = renderPortal({ path });
-      await screen.findByRole("heading", { level: 1 });
-      await waitFor(() => {
-        expect(screen.queryByText(/Loading/)).toBeNull();
-      });
+  it("keeps the Greenhouses overview free of readings", async () => {
+    // A reading belongs to a point, which belongs to a zone, which belongs to a
+    // facility. The overview is every site and facility the customer has, so a
+    // reading has no zone to be read under there — and a facility-wide figure
+    // assembled to fill the gap would be this portal's claim, not the API's.
+    renderPortal({ path: GREENHOUSES_PATH });
+    await screen.findByRole("heading", { level: 1 });
+    await waitFor(() => {
+      expect(screen.queryByText(/Loading/)).toBeNull();
+    });
 
-      const text = document.body.textContent ?? "";
-      for (const forbidden of [
-        "Setpoint",
-        "Latest reading",
-        "Last reading",
-        "Actuator",
-        "Command",
-        "Automation",
-        "Schedule",
-        "Simulation",
-        "Grow cycle",
-        "Recipe",
-      ]) {
-        expect(text).not.toContain(forbidden);
-      }
-      expect(text).not.toMatch(/\d+(\.\d+)?\s?(°C|°F|%RH|lx|ppm|kPa)/);
-      expect(screen.queryByTestId("monitoring")).toBeNull();
-
-      view.unmount();
+    const text = document.body.textContent ?? "";
+    for (const forbidden of [
+      "Setpoint",
+      "Latest reading",
+      "Last reading",
+      "Actuator",
+      "Command",
+      "Automation",
+      "Schedule",
+      "Simulation",
+      "Grow cycle",
+      "Recipe",
+    ]) {
+      expect(text).not.toContain(forbidden);
     }
+    expect(text).not.toMatch(/\d+(\.\d+)?\s?(°C|°F|%RH|lx|ppm|kPa)/);
+    expect(screen.queryByTestId("monitoring")).toBeNull();
+    expect(screen.queryByTestId("facility-readings")).toBeNull();
+  });
+
+  it("reads a facility's values only under the zone the API assigns them to", async () => {
+    renderPortal({ path: FACILITY_URL });
+    await screen.findByTestId("facility-readings");
+
+    // The reading exists, and it exists in one place: inside the group named
+    // for the zone whose link to the point gave it its role. A flat list would
+    // have had to pick one of the roles a shared point carries and drop the
+    // other.
+    const airTemperature = cardFor(POINT_IDS.airTemp);
+    expect(within(airTemperature).getByTestId("measurement-value")).toHaveTextContent("21.4");
+    expect(airTemperature.closest("[data-zone-id]")?.getAttribute("data-zone-id")).toBe(
+      climateZone.id,
+    );
+
+    // A point that has never reported says so. It does not render a zero
+    // nobody measured, and it is not left out to make the zone look complete.
+    const soilMoisture = cardFor(POINT_IDS.soilMoisture);
+    expect(within(soilMoisture).getByTestId("measurement-value")).toHaveTextContent("No data yet");
+    expect(within(soilMoisture).queryByText("0")).toBeNull();
+
+    // A zone with no measurement points is still shown, and says why.
+    const irrigation = zoneGroupFor(irrigationZone.id);
+    expect(within(irrigation).getByTestId("zone-readings-empty")).toBeInTheDocument();
+  });
+
+  it("assembles no facility-wide figure out of the readings it shows", async () => {
+    renderPortal({ path: FACILITY_URL });
+    const readings = await screen.findByTestId("facility-readings");
+    const text = readings.textContent ?? "";
+
+    // Everything above is still absent, and so is every statistic the backend
+    // did not publish: the API totals rows, never readings.
+    for (const forbidden of [
+      "Setpoint",
+      "Actuator",
+      "Command",
+      "Automation",
+      "Schedule",
+      "Simulation",
+      "Grow cycle",
+      "Recipe",
+      "Average",
+      "Total",
+      "Overall",
+      "Healthy",
+      "Normal",
+    ]) {
+      expect(text).not.toContain(forbidden);
+    }
+    // The zone workspace's own monitoring section belongs to the zone.
+    expect(screen.queryByTestId("monitoring")).toBeNull();
+    // No history is loaded to draw a facility-level chart.
+    expect(screen.queryByTestId("history-chart")).toBeNull();
   });
 
   it("asks only for the read endpoints the contract publishes", async () => {

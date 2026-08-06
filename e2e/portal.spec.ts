@@ -8,7 +8,7 @@
  */
 
 import { expect, test } from "@playwright/test";
-import { mockHealth, mockTopology } from "./fixtures";
+import { E2E_IDS, mockHealth, mockTopology } from "./fixtures";
 
 const PORTAL_NAME = "AI Greenhouse Customer Portal";
 
@@ -81,17 +81,27 @@ test.describe("the Customer Portal", () => {
     await expect(page).toHaveURL(/\/$/);
   });
 
-  test("renders no telemetry, actuator or command data", async ({ page }) => {
+  test("renders no actuator or command data beside the readings", async ({ page }) => {
     await mockHealth(page);
     await mockTopology(page);
     await page.goto("/");
     await expect(page.getByTestId("dashboard-page")).toBeVisible();
+    await expect(page.getByTestId("dashboard-facility-readings").first()).toBeVisible();
 
+    // The landing page reads current state. It still carries nothing from the
+    // control plane, and nothing it added up itself.
     const text = (await page.locator("body").innerText()).toLowerCase();
-    for (const forbidden of ["actuator", "setpoint", "telemetry sample", "command"]) {
+    for (const forbidden of [
+      "actuator",
+      "setpoint",
+      "telemetry sample",
+      "command",
+      "automation",
+      "average",
+      "overall",
+    ]) {
       expect(text).not.toContain(forbidden);
     }
-    expect(text).not.toMatch(/\d+(\.\d+)?\s?(°c|°f|lx|ppm|kpa)/);
   });
 
   test("asks the backend only for health and the published topology paths", async ({ page }) => {
@@ -108,16 +118,21 @@ test.describe("the Customer Portal", () => {
     await page.goto("/");
     await expect(page.getByTestId("api-status")).toHaveText("Cloud API: Available");
     await expect(page.getByTestId("dashboard-topology")).toBeVisible();
+    await expect(page.getByTestId("dashboard-facility-readings").first()).toBeVisible();
 
     expect(requested.length).toBeGreaterThan(0);
 
-    // Same-origin only: the default build carries no backend host.
+    // Same-origin only: the default build carries no backend host. One
+    // configuration document per facility is the whole cost of the readings —
+    // no zone list, no per-point state, no telemetry.
     const origin = new URL(page.url()).origin;
     expect(new Set(requested)).toEqual(
       new Set([
         `${origin}/health`,
         `${origin}/api/v1/sites?limit=200&offset=0`,
         `${origin}/api/v1/facilities?limit=200&offset=0`,
+        `${origin}/api/v1/facilities/${E2E_IDS.northGreenhouse}/configuration`,
+        `${origin}/api/v1/facilities/${E2E_IDS.seedlingRoom}/configuration`,
       ]),
     );
   });

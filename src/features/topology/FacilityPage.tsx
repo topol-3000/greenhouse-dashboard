@@ -10,9 +10,16 @@
  * workspace across the page instead of scrolling a single column past a short
  * metadata block.
  *
- * It is topology only. There is no reading, no actuator state, no control, no
- * command and no automation on this page, and no placeholder pretending one is
- * coming.
+ * Underneath them is what the facility is reading now, zone by zone. It costs
+ * no request this page was not already able to make: the configuration document
+ * describes every zone and every point of the facility at once, and it is the
+ * same cache entry the control zone workspace reads. A reading shown here links
+ * into the zone that owns it, so this is a way in rather than a copy.
+ *
+ * What is still not here: no actuator state, no control, no command, no
+ * automation and no alert. Nothing on this page is assembled out of several
+ * readings either — no total, no average, no "N of M zones" — because a figure
+ * like that would be the portal's claim rather than the greenhouse's.
  */
 
 import { CCol, CListGroup, CListGroupItem, CRow } from "@coreui/react";
@@ -29,6 +36,8 @@ import {
 } from "../../components/TopologyStates";
 import { controlZonePath, GREENHOUSES_PATH } from "../../routes/routes";
 import { formatContractValue } from "../../shared/format";
+import { FacilityReadingsSection } from "../monitoring/FacilityReadingsSection";
+import { useFacilityReadings } from "../monitoring/useFacilityReadings";
 import { FacilitySwitcher } from "./FacilitySwitcher";
 import { MetaList } from "./MetaList";
 import { useFacilityWorkspace, useTopologyOverview } from "./useTopology";
@@ -55,6 +64,9 @@ export function FacilityPage() {
   const facilityId = params["facilityId"] ?? "";
   const workspace = useFacilityWorkspace(facilityId);
   const topology = useTopologyOverview();
+  // Not read for an address the cloud API has already said it does not have:
+  // the answer would be the same 404 twice.
+  const readings = useFacilityReadings(facilityId, !workspace.isMissing);
 
   if (workspace.isMissing) {
     return (
@@ -184,6 +196,12 @@ export function FacilityPage() {
           </SectionCard>
         </CCol>
       </CRow>
+
+      <FacilityReadingsSection
+        facilityId={facilityId}
+        facilityName={facility.name}
+        readings={readings}
+      />
     </div>
   );
 }

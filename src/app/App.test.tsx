@@ -9,8 +9,17 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import { backendRoutes, DEFAULT_DATASET, EMPTY_DATASET } from "../test/fixtures";
+import {
+  backendRoutes,
+  DEFAULT_DATASET,
+  EMPTY_DATASET,
+  facilityConfigurationUrl,
+  IDS,
+  northGreenhouse,
+  POINT_IDS,
+} from "../test/fixtures";
 import { HEALTH_URL, HEALTHY_BODY, renderPortal } from "../test/harness";
+import { DASHBOARD_FACILITY_LIMIT } from "../api/queries";
 
 const PORTAL_NAME = "AI Greenhouse Customer Portal";
 
@@ -260,31 +269,58 @@ describe("cloud API availability", () => {
 });
 
 describe("truthfulness of the landing page", () => {
-  it("renders no telemetry, actuator state or command data", async () => {
+  it("shows only readings the cloud API published, under the facility that owns them", async () => {
     renderPortal();
     await screen.findByTestId("dashboard-topology");
+    const sections = await screen.findAllByTestId("dashboard-facility-readings");
 
+    // A reading is on the landing page because a facility's configuration
+    // document carried it. Every one of them is inside the section named for
+    // that facility, never loose on the page.
+    const airTemperature = screen
+      .getAllByTestId("measurement-card")
+      .find((card) => card.getAttribute("data-point-id") === POINT_IDS.airTemp);
+    expect(airTemperature).toBeDefined();
+    expect(sections.some((section) => section.contains(airTemperature ?? null))).toBe(true);
+
+    // Everything the portal still does not have stays absent.
     const text = document.body.textContent ?? "";
-
     for (const forbidden of ["Setpoint", "Actuator", "Command", "Automation", "Simulation"]) {
       expect(text).not.toContain(forbidden);
     }
-    // No readings: a number with a unit would have to have come from somewhere.
-    expect(text).not.toMatch(/\d+(\.\d+)?\s?(°C|°F|%RH|lx|ppm|kPa)/);
   });
 
-  it("shows no count at all when the cloud API reports no topology", async () => {
+  it("adds nothing up across the facilities it shows", async () => {
+    renderPortal();
+    await screen.findAllByTestId("dashboard-facility-readings");
+
+    const text = document.body.textContent ?? "";
+    // The counts on this page are the backend's own row totals. An average, a
+    // minimum, a maximum or a "3 of 8 healthy" would be the portal's arithmetic
+    // over several facilities' readings, which is a claim the API never made.
+    for (const forbidden of ["Average", "Total readings", "Overall", "Healthy", "Normal"]) {
+      expect(text).not.toContain(forbidden);
+    }
+    expect(text).not.toMatch(
+      /\d+\s+of\s+\d+\s+(zones|points|facilities)\s+\w*(ok|healthy|normal)/i,
+    );
+  });
+
+  it("shows no count and no readings at all when the cloud API reports no topology", async () => {
     renderPortal({ routes: backendRoutes(EMPTY_DATASET) });
     await screen.findByTestId("dashboard-topology-empty");
 
     const text = document.body.textContent ?? "";
     expect(text).not.toMatch(/\d+\s+(facilities|sites|zones|points|commands|samples)/i);
     expect(screen.getByText(/Nothing is invented to fill the gap/)).toBeInTheDocument();
+    // No facility means nothing to read, so there is no empty readings card
+    // sitting there implying one is coming.
+    expect(screen.queryByTestId("dashboard-facility-readings")).toBeNull();
   });
 
-  it("asks the backend only for health and the topology collections", async () => {
+  it("asks the backend for health, the topology collections and one document per facility", async () => {
     const { api } = renderPortal();
-    await screen.findByTestId("dashboard-topology");
+    await screen.findAllByTestId("dashboard-facility-readings");
 
     await waitFor(() => {
       expect(api.calls.length).toBeGreaterThan(0);
@@ -294,7 +330,61 @@ describe("truthfulness of the landing page", () => {
         HEALTH_URL,
         "/api/v1/sites?limit=200&offset=0",
         "/api/v1/facilities?limit=200&offset=0",
+        facilityConfigurationUrl(IDS.northGreenhouse),
+        facilityConfigurationUrl(IDS.seedlingRoom),
       ]),
+    );
+  });
+
+  it("reads a facility's zones and readings out of the one configuration document", async () => {
+    const { api } = renderPortal();
+    await screen.findAllByTestId("dashboard-facility-readings");
+
+    // The configuration document already describes every zone and every point
+    // of the facility, so the landing page needs no zone list and no per-point
+    // state request. That economy is the whole reason readings can be here at
+    // all, so it is asserted rather than assumed.
+    expect(api.calls.some((url) => url.includes("/control-zones"))).toBe(false);
+    expect(api.calls.some((url) => url.includes("/telemetry"))).toBe(false);
+    expect(api.calls.some((url) => url.includes("/state"))).toBe(false);
+    expect(api.calls.some((url) => url.includes("/commands"))).toBe(false);
+  });
+
+  it("keeps one facility's readings when another facility cannot be read", async () => {
+    renderPortal({
+      routes: backendRoutes(DEFAULT_DATASET, {
+        [facilityConfigurationUrl(IDS.seedlingRoom)]: { networkError: true },
+      }),
+    });
+    await screen.findAllByTestId("dashboard-facility-readings");
+
+    // Each facility is its own request and its own state. A customer whose
+    // second greenhouse is unreachable can still read the first one.
+    const airTemperature = await screen.findByText("21.4");
+    expect(airTemperature).toBeInTheDocument();
+    expect(await screen.findByTestId("request-error")).toBeInTheDocument();
+    // And the shell is untouched by either.
+    expect(screen.getByRole("navigation", { name: "Primary" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Dashboard" })).toBeInTheDocument();
+  });
+
+  it("reads no more facilities than the landing page's own bound", async () => {
+    const facilities = Array.from({ length: DASHBOARD_FACILITY_LIMIT + 3 }, (_, index) => ({
+      ...northGreenhouse,
+      id: `1f7c8a90-0000-4000-8000-00000000000${String(index)}`,
+      name: `Facility ${String(index)}`,
+      code: `facility-${String(index)}`,
+    }));
+
+    const { api } = renderPortal({
+      routes: backendRoutes({ ...DEFAULT_DATASET, facilities, configurations: [] }),
+    });
+    await screen.findByTestId("dashboard-readings-bound");
+
+    const configurationCalls = api.calls.filter((url) => url.includes("/configuration"));
+    expect(new Set(configurationCalls).size).toBe(DASHBOARD_FACILITY_LIMIT);
+    expect(screen.getByTestId("dashboard-readings-bound")).toHaveTextContent(
+      `first ${String(DASHBOARD_FACILITY_LIMIT)} of the ${String(facilities.length)} facilities`,
     );
   });
 });

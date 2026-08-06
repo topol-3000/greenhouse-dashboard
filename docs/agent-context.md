@@ -13,9 +13,9 @@ product, and the application is not a standalone monitoring dashboard.
 
 ## Current state
 
-The portal foundation, read-only topology, read-only monitoring inside a control
-zone, limited manual control of that zone's actuators, and its read-only command
-activity. Delivered:
+The portal foundation, read-only topology, read-only current readings from the
+landing page down to a control zone, a telemetry history and limited manual
+control inside that zone, and its read-only command activity. Delivered:
 
 - product identity, page and document titles;
 - a real client-side routing layer with an extensible route table, including
@@ -32,7 +32,13 @@ activity. Delivered:
 - read-only Site → Facility → ControlZone loading and navigation, a facility
   switcher, and a zone's point inventory;
 - the Dashboard route as a truthful landing page, carrying the API's own site
-  and facility counts;
+  and facility counts and the current readings of a bounded number of
+  facilities, each grouped by the control zone the API assigns the point to,
+  with a stated bound when there are more facilities than it reads;
+- the same readings on the Facility workspace, read from the configuration
+  document that workspace can already request, so they cost no extra call;
+- every observation time rendered as the exact instant plus how long ago it was,
+  which is a rendering of `observed_at` and never a verdict about the reading;
 - a monitoring section inside the ControlZone workspace: the zone's measurement
   points with their last known value, unit, quality and observation time, and a
   bounded telemetry window for the selected point, charted only when the
@@ -54,7 +60,11 @@ Not delivered, and not to be implied by any screen: topology or point creation,
 editing and deletion; non-boolean actuator control of any kind; command
 cancellation, retry or resubmission; a facility-wide or customer-wide command
 feed; generic audit or system events; alerts; thresholds and
-"normal/warning/critical" verdicts;
+"normal/warning/critical" verdicts; any figure this portal computed across more
+than one reading — a total, an average, a minimum, a maximum, a "3 of 8 zones"
+or a count of how many points are in some state — because the only numbers the
+contract publishes are one point's value and the backend's own row totals;
+a local definition of "stale", which `DataQuality` already carries;
 agronomic recommendations; target ranges; recipes; grow cycles; runtime targets;
 automation and schedules; control-loop creation or visualisation; device
 provisioning, gateway status and any direct Edge or device communication;

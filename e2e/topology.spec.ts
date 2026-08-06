@@ -168,29 +168,52 @@ test.describe("topology states", () => {
     await expect(page.getByRole("link", { name: "Back to Greenhouses" })).toBeVisible();
   });
 
-  test("keeps the overview and the facility workspace free of readings", async ({ page }) => {
+  test("keeps the Greenhouses overview free of readings", async ({ page }) => {
     await mockHealth(page);
     await mockTopology(page);
 
-    // Monitoring lives in the control zone workspace. These two screens must
-    // not grow telemetry, aggregates or facility-wide claims.
-    for (const url of ["/sites", FACILITY_URL]) {
-      await page.goto(url);
-      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-      const text = (await page.locator("body").innerText()).toLowerCase();
-      for (const forbidden of [
-        "setpoint",
-        "latest reading",
-        "actuator",
-        "command",
-        "automation",
-        "simulation",
-        "grow cycle",
-      ]) {
-        expect(text).not.toContain(forbidden);
-      }
-      expect(text).not.toMatch(/\d+(\.\d+)?\s?(°c|°f|lx|ppm|kpa)/);
-      await expect(page.getByTestId("monitoring")).toHaveCount(0);
+    // A reading belongs to a point, which belongs to a zone. The overview is
+    // every site and facility, so a reading has no zone to be read under there.
+    await page.goto("/sites");
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+
+    const text = (await page.locator("body").innerText()).toLowerCase();
+    for (const forbidden of [
+      "setpoint",
+      "latest reading",
+      "actuator",
+      "command",
+      "automation",
+      "simulation",
+      "grow cycle",
+    ]) {
+      expect(text).not.toContain(forbidden);
+    }
+    expect(text).not.toMatch(/\d+(\.\d+)?\s?(°c|°f|lx|ppm|kpa)/);
+    await expect(page.getByTestId("monitoring")).toHaveCount(0);
+    await expect(page.getByTestId("facility-readings")).toHaveCount(0);
+  });
+
+  test("reads a facility's values under the zone that owns them", async ({ page }) => {
+    await mockHealth(page);
+    await mockTopology(page);
+
+    await page.goto(FACILITY_URL);
+    await expect(page.getByTestId("facility-readings")).toBeVisible();
+
+    // The reading is inside the group named for the zone the API assigns the
+    // point to, and it links into that zone carrying the point.
+    const climate = page.locator(`[data-zone-id="${E2E_IDS.climateZone}"]`);
+    await expect(climate).toBeVisible();
+    await expect(climate.getByTestId("measurement-value").first()).toContainText("21.4");
+
+    // The zone workspace's own monitoring and control still belong to the zone.
+    await expect(page.getByTestId("monitoring")).toHaveCount(0);
+    await expect(page.getByTestId("manual-control")).toHaveCount(0);
+
+    const text = (await page.locator("body").innerText()).toLowerCase();
+    for (const forbidden of ["setpoint", "actuator", "command", "automation", "average"]) {
+      expect(text).not.toContain(forbidden);
     }
   });
 

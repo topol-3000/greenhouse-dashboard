@@ -11,32 +11,44 @@
  * reading at all. `0` and `false` are values the greenhouse reported; a point
  * that has never reported carries `value: null` with `quality: "no_data"`, and
  * it says so in words rather than showing a zero nobody measured.
+ *
+ * The card knows nothing about the zone it is shown under. It is rendered
+ * inside one control zone's monitoring, under each zone of a facility, and on
+ * the landing page, and the only thing that changes between them is what the
+ * caller puts in {@link MeasurementCardProps.action} — a button that selects
+ * this point's history, or a link into the zone that owns it. That is also why
+ * the heading's identifier is generated rather than built from the point's own
+ * id: the same point may legitimately appear under two zones on one page, and
+ * two elements may not share an id.
  */
 
-import { CButton, CCard, CCardBody, CCardTitle } from "@coreui/react";
+import { CCard, CCardBody, CCardTitle } from "@coreui/react";
+import type { ReactNode } from "react";
+import { useId } from "react";
 import type { ZoneMeasurement } from "./measurements";
-import { formatContractUnknown, formatContractValue, formatIsoInstant } from "../../shared/format";
+import { ObservedInstant } from "../../components/ObservedInstant";
+import { formatContractUnknown, formatContractValue } from "../../shared/format";
 import { MetaList } from "../topology/MetaList";
 
 interface MeasurementCardProps {
   measurement: ZoneMeasurement;
-  selected: boolean;
-  onSelect: () => void;
+  /** What this card offers the customer, decided by whoever renders it. */
+  action?: ReactNode;
 }
 
-export function MeasurementCard({ measurement, selected, onSelect }: MeasurementCardProps) {
+export function MeasurementCard({ measurement, action }: MeasurementCardProps) {
   const { state } = measurement;
-  const observedAt = state.observed_at;
+  const headingId = useId();
 
   return (
     <CCard
       className="h-100"
       data-testid="measurement-card"
       data-point-id={measurement.pointId}
-      aria-labelledby={`measurement-${measurement.pointId}`}
+      aria-labelledby={headingId}
     >
       <CCardBody className="d-flex flex-column align-items-start gap-2">
-        <CCardTitle as="h4" className="text-break mb-0" id={`measurement-${measurement.pointId}`}>
+        <CCardTitle as="h4" className="text-break mb-0" id={headingId}>
           {measurement.name}
         </CCardTitle>
         <p className="text-uppercase small text-body-secondary">
@@ -63,34 +75,13 @@ export function MeasurementCard({ measurement, selected, onSelect }: Measurement
           items={[
             { label: "Unit", value: measurement.unit ?? "Unit not provided" },
             { label: "Quality", value: formatContractValue(state.quality) },
-            {
-              label: "Observed at",
-              value:
-                observedAt === null ? (
-                  "Not observed yet"
-                ) : (
-                  <time dateTime={observedAt}>{formatIsoInstant(observedAt)}</time>
-                ),
-            },
+            { label: "Observed at", value: <ObservedInstant iso={state.observed_at} /> },
             { label: "Point code", value: <code>{measurement.code}</code> },
             { label: "Data type", value: formatContractValue(measurement.dataType) },
           ]}
         />
 
-        <CButton
-          type="button"
-          color="secondary"
-          variant="outline"
-          size="sm"
-          className="mt-auto"
-          aria-pressed={selected}
-          onClick={onSelect}
-          data-testid="select-point"
-        >
-          {selected
-            ? `Showing history of ${measurement.name}`
-            : `Show history of ${measurement.name}`}
-        </CButton>
+        {action === undefined ? null : <div className="mt-auto">{action}</div>}
       </CCardBody>
     </CCard>
   );

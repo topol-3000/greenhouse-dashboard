@@ -18,7 +18,7 @@
  * the state of anything else never reaches this component.
  */
 
-import { CCol, CRow } from "@coreui/react";
+import { CButton, CCol, CRow } from "@coreui/react";
 import { SectionCard } from "../../components/SectionCard";
 import { LoadingState, StatePanel } from "../../components/StatePanel";
 import {
@@ -127,21 +127,36 @@ export function MonitoringSection({ zoneName, monitoring }: MonitoringSectionPro
           </StatePanel>
         ) : (
           <CRow className="g-3" data-testid="measurement-cards">
-            {monitoring.measurements.map((measurement) => (
-              <CCol key={measurement.pointId} xs={12} md={6} xl={4} xxl={3}>
-                <MeasurementCard
-                  measurement={measurement}
-                  selected={monitoring.selectedPoint?.pointId === measurement.pointId}
-                  onSelect={() => {
-                    monitoring.selectPoint(
-                      monitoring.selectedPoint?.pointId === measurement.pointId
-                        ? null
-                        : measurement.pointId,
-                    );
-                  }}
-                />
-              </CCol>
-            ))}
+            {monitoring.measurements.map((measurement) => {
+              // Inside the zone that owns the point, the card's action selects
+              // that point's history below. Every other place the card appears
+              // is outside this zone and offers a way into it instead.
+              const selected = monitoring.selectedPoint?.pointId === measurement.pointId;
+              return (
+                <CCol key={measurement.pointId} xs={12} md={6} xl={4} xxl={3}>
+                  <MeasurementCard
+                    measurement={measurement}
+                    action={
+                      <CButton
+                        type="button"
+                        color="secondary"
+                        variant="outline"
+                        size="sm"
+                        aria-pressed={selected}
+                        onClick={() => {
+                          monitoring.selectPoint(selected ? null : measurement.pointId);
+                        }}
+                        data-testid="select-point"
+                      >
+                        {selected
+                          ? `Showing history of ${measurement.name}`
+                          : `Show history of ${measurement.name}`}
+                      </CButton>
+                    }
+                  />
+                </CCol>
+              );
+            })}
           </CRow>
         )}
       </section>

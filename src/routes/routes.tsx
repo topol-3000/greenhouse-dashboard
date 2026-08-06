@@ -158,26 +158,17 @@ export function resolveRoutePath(pattern: string, params: RouteParams): string |
   return segments.join("/");
 }
 
-/** The address of one facility's workspace. */
-export function facilityPath(facilityId: string): string {
-  return `/facilities/${encodeURIComponent(facilityId)}`;
-}
-
-/** The address of one control zone's workspace inside a facility. */
-export function controlZonePath(facilityId: string, zoneId: string): string {
-  return `${facilityPath(facilityId)}/zones/${encodeURIComponent(zoneId)}`;
-}
-
 /**
- * The address of the Activity route, carrying a selection.
+ * Attach a selection to an address.
  *
  * Only parameters with a value are written, so an address never claims a
  * selection that was not made, and `?` is omitted entirely when there is none.
  *
- * @param selection The Activity search parameters to carry, by name.
- * @returns The Activity address.
+ * @param path The address to carry the selection.
+ * @param selection The search parameters to write, by name.
+ * @returns The address, with a query string only if there is one to write.
  */
-export function activityPath(selection: Readonly<Record<string, string | undefined>> = {}): string {
+function withSearch(path: string, selection: Readonly<Record<string, string | undefined>>): string {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(selection)) {
     const trimmed = value?.trim();
@@ -186,7 +177,43 @@ export function activityPath(selection: Readonly<Record<string, string | undefin
     }
   }
   const suffix = search.toString();
-  return suffix === "" ? ACTIVITY_PATH : `${ACTIVITY_PATH}?${suffix}`;
+  return suffix === "" ? path : `${path}?${suffix}`;
+}
+
+/** The address of one facility's workspace. */
+export function facilityPath(facilityId: string): string {
+  return `/facilities/${encodeURIComponent(facilityId)}`;
+}
+
+/**
+ * The address of one control zone's workspace inside a facility.
+ *
+ * The optional selection is what lets a reading shown outside the zone — on the
+ * facility workspace, on the landing page — link to that same point's history
+ * inside it, rather than to the top of a workspace the customer then has to
+ * search.
+ *
+ * @param facilityId The facility the zone belongs to.
+ * @param zoneId The control zone.
+ * @param selection The workspace search parameters to carry, by name.
+ * @returns The control zone address.
+ */
+export function controlZonePath(
+  facilityId: string,
+  zoneId: string,
+  selection: Readonly<Record<string, string | undefined>> = {},
+): string {
+  return withSearch(`${facilityPath(facilityId)}/zones/${encodeURIComponent(zoneId)}`, selection);
+}
+
+/**
+ * The address of the Activity route, carrying a selection.
+ *
+ * @param selection The Activity search parameters to carry, by name.
+ * @returns The Activity address.
+ */
+export function activityPath(selection: Readonly<Record<string, string | undefined>> = {}): string {
+  return withSearch(ACTIVITY_PATH, selection);
 }
 
 /**

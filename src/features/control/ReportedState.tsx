@@ -11,8 +11,9 @@
  */
 
 import type { ActuatorFeedback } from "./actuators";
+import { ObservedInstant } from "../../components/ObservedInstant";
 import { Note } from "../../components/StatePanel";
-import { formatContractUnknown, formatContractValue, formatIsoInstant } from "../../shared/format";
+import { formatContractUnknown, formatContractValue } from "../../shared/format";
 import { MetaList } from "../topology/MetaList";
 
 interface ReportedStateProps {
@@ -65,15 +66,7 @@ export function ReportedState({ feedback, testId = "reported-state" }: ReportedS
             value: feedback.point?.name ?? "A point this configuration does not describe",
           },
           { label: "Quality", value: formatContractValue(state.quality) },
-          {
-            label: "Observed at",
-            value:
-              state.observed_at === null ? (
-                "Not observed yet"
-              ) : (
-                <time dateTime={state.observed_at}>{formatIsoInstant(state.observed_at)}</time>
-              ),
-          },
+          { label: "Observed at", value: <ObservedInstant iso={state.observed_at} /> },
         ]}
       />
     </>

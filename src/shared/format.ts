@@ -34,6 +34,75 @@ export function formatIsoInstant(iso: string): string {
   return Number.isNaN(parsed) ? iso : formatInstant(parsed);
 }
 
+interface RelativeDivision {
+  readonly unit: Intl.RelativeTimeFormatUnit;
+  readonly ms: number;
+  /** The value at which the next unit up says the same span more plainly. */
+  readonly limit: number;
+}
+
+/**
+ * The units a relative instant is rounded to, finest first.
+ *
+ * `limit` is the point at which a value is better said in the next unit up, so
+ * 59.6 seconds is "1 minute ago" rather than "60 seconds ago".
+ */
+const RELATIVE_DIVISIONS = [
+  { unit: "second", ms: 1_000, limit: 60 },
+  { unit: "minute", ms: 60_000, limit: 60 },
+  { unit: "hour", ms: 3_600_000, limit: 24 },
+] as const satisfies readonly RelativeDivision[];
+
+/** The unit any span of a day or more is said in. There is nothing coarser. */
+const RELATIVE_DAY = { unit: "day", ms: 86_400_000 } as const satisfies Omit<
+  RelativeDivision,
+  "limit"
+>;
+
+/**
+ * Say how long ago an instant was, without saying anything about the value.
+ *
+ * This is a rendering of `observed_at` and nothing more. It rounds to a unit —
+ * seconds, minutes, hours, days — and that rounding is the only judgement it
+ * makes: it does not classify a reading as recent, old, fresh or stale, and it
+ * invents no threshold at which one becomes the other. `DataQuality` already
+ * carries the backend's own `stale`, and a second, local definition of "old"
+ * would contradict it.
+ *
+ * `numeric: "always"` is deliberate. It keeps the output on the "1 day ago"
+ * form rather than "yesterday", and stops the runtime producing "now", which
+ * would read as a verdict about the reading rather than a statement about the
+ * clock.
+ *
+ * An instant in the future is said to be in the future rather than clamped to
+ * zero: a gateway whose clock runs ahead of the viewer's is a fact about the
+ * data, and hiding it would make a wrong clock look like a right one.
+ *
+ * @param iso An instant as the contract published it.
+ * @param now The moment to measure from, in milliseconds since the epoch.
+ * @returns The phrase, or `null` when the instant cannot be parsed.
+ */
+export function formatRelativeInstant(iso: string, now: number = Date.now()): string | null {
+  const parsed = Date.parse(iso);
+  if (Number.isNaN(parsed)) {
+    return null;
+  }
+
+  const deltaMs = parsed - now;
+  const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: "always" });
+
+  for (const division of RELATIVE_DIVISIONS) {
+    // `Math.round` preserves the sign of a value that rounds to zero, so an
+    // instant a fraction of a second in the past reads "0 seconds ago" rather
+    // than "in 0 seconds".
+    const value = Math.round(deltaMs / division.ms);
+    if (Math.abs(value) < division.limit) {
+      return formatter.format(value, division.unit);
+    }
+  }
+  return formatter.format(Math.round(deltaMs / RELATIVE_DAY.ms), RELATIVE_DAY.unit);
+}
+
 /**
  * Format a measured number without losing the precision the API published.
  *
