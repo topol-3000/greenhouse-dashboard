@@ -97,7 +97,7 @@ test.describe("telemetry history", () => {
     // The workspace did not move: same facility, same zone, one query parameter.
     await expect(page).toHaveURL(new RegExp(`${ZONE_URL}\\?point=${E2E_IDS.airTempPoint}$`));
     await expect(page.getByRole("heading", { level: 1, name: "North Climate" })).toBeVisible();
-    await expect(page.getByTestId("zone-points")).toBeVisible();
+    await expect(page.getByTestId("zone-points")).toBeAttached();
 
     // The window is described as bounded, never as the complete history.
     await expect(page.getByTestId("history-window")).toContainText("not its complete record");
@@ -189,7 +189,7 @@ test.describe("monitoring under partial availability", () => {
       "Measurements could not be loaded",
     );
     // The workspace, the navigation and the shell keep working.
-    await expect(page.getByTestId("zone-points")).toBeVisible();
+    await expect(page.getByTestId("zone-points")).toBeAttached();
     await expect(page.getByRole("heading", { level: 1, name: "North Climate" })).toBeVisible();
     await page
       .getByRole("navigation", { name: "Primary" })

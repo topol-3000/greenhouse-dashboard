@@ -29,9 +29,18 @@
  * No point is classified by its name in any of the three. There is no automation,
  * no schedule, no alert and no command history on this page.
  *
- * Its identity and its composition sit side by side on a wide screen, because
- * one is short and the other is a table; monitoring and manual control take the
- * whole width below them, because each is a workspace of its own.
+ * The layout follows what a customer came for. On a wide screen the zone's
+ * identity and its composition stack in a narrow left column, and monitoring —
+ * the readings — sits beside them rather than below, so the first thing on the
+ * page is the thing most visits are about. Manual control takes the whole width
+ * underneath, because its cards want the room.
+ *
+ * The composition table is behind a disclosure. It lists every point of the
+ * zone including the ones monitoring and manual control render as cards
+ * directly below, so leaving it open pushed the readings and the controls off
+ * the screen to show the same points a third time. A notice that the list is
+ * incomplete stays outside the disclosure: a warning must not be something the
+ * customer has to open to find.
  */
 
 import {
@@ -64,6 +73,7 @@ import { facilityPath } from "../../routes/routes";
 import { formatContractValue } from "../../shared/format";
 import { FacilitySwitcher } from "./FacilitySwitcher";
 import { MetaList } from "./MetaList";
+import { ZoneSwitcher } from "./ZoneSwitcher";
 import { useControlZoneWorkspace, useTopologyOverview } from "./useTopology";
 
 export function ControlZonePage() {
@@ -162,93 +172,119 @@ export function ControlZonePage() {
 
       <CRow className="g-4">
         <CCol xs={12} xl={5} xxl={4}>
-          <SectionCard title="Control zone details" fillHeight>
-            <p className="prose text-body-secondary" data-testid="zone-relationship">
-              {facility === undefined
-                ? `${zone.name} is a control zone of the facility named in this address.`
-                : site === undefined
-                  ? `${zone.name} is a control zone of the facility ${facility.name}.`
-                  : `${zone.name} is a control zone of the facility ${facility.name}, which belongs to the site ${site.name}.`}
-            </p>
-            <MetaList
-              testId="zone-meta"
-              items={[
-                { label: "Control zone name", value: zone.name },
-                { label: "Zone code", value: <code>{zone.code}</code> },
-                { label: "Zone type", value: formatContractValue(zone.zone_type) },
-                { label: "Status", value: formatContractValue(zone.status) },
-                { label: "Facility", value: facility?.name ?? "Not available" },
-                { label: "Site", value: site?.name ?? "Not available" },
-              ]}
-            />
-            <FacilitySwitcher currentFacilityId={facilityId} topology={topology} />
-          </SectionCard>
+          <div className="d-flex flex-column gap-4">
+            <SectionCard title="Control zone details">
+              <p className="prose text-body-secondary" data-testid="zone-relationship">
+                {facility === undefined
+                  ? `${zone.name} is a control zone of the facility named in this address.`
+                  : site === undefined
+                    ? `${zone.name} is a control zone of the facility ${facility.name}.`
+                    : `${zone.name} is a control zone of the facility ${facility.name}, which belongs to the site ${site.name}.`}
+              </p>
+              <MetaList
+                testId="zone-meta"
+                items={[
+                  { label: "Control zone name", value: zone.name },
+                  { label: "Zone code", value: <code>{zone.code}</code> },
+                  { label: "Zone type", value: formatContractValue(zone.zone_type) },
+                  { label: "Status", value: formatContractValue(zone.status) },
+                  { label: "Facility", value: facility?.name ?? "Not available" },
+                  { label: "Site", value: site?.name ?? "Not available" },
+                ]}
+              />
+              <ZoneSwitcher
+                facilityId={facilityId}
+                currentZoneId={zoneId}
+                zones={workspace.siblingZones}
+                loading={workspace.siblingZonesLoading}
+                failed={workspace.siblingZonesFailed}
+              />
+              <FacilitySwitcher currentFacilityId={facilityId} topology={topology} />
+            </SectionCard>
+
+            <SectionCard title="Points assigned to this control zone">
+              {points.length === 0 ? (
+                <StatePanel
+                  title="No points are assigned to this control zone"
+                  headingLevel={3}
+                  testId="zone-points-empty"
+                >
+                  <p>The cloud API returns no point assignments for {zone.name}.</p>
+                </StatePanel>
+              ) : (
+                <>
+                  <p className="prose text-body-secondary">
+                    This is the zone&rsquo;s composition only — no measured value or device state is
+                    shown. What the measurement points read is below; what the control points can be
+                    asked to do is below that.
+                  </p>
+                  {/* Outside the disclosure: a warning that the list is partial
+                      must not be something the customer has to open to find. */}
+                  {workspace.points?.complete === false ? (
+                    <IncompleteCollectionNotice
+                      shown={points.length}
+                      total={workspace.points.total}
+                      noun="point assignments"
+                    />
+                  ) : null}
+                  <details data-testid="zone-points-disclosure">
+                    <summary className="py-2 fw-semibold small">
+                      Show the {points.length} point{points.length === 1 ? "" : "s"} assigned to
+                      this control zone
+                    </summary>
+                    {/* A wide table scrolls inside its own box, never the page. */}
+                    <CTable
+                      responsive
+                      small
+                      align="top"
+                      className="mt-2 mb-0"
+                      data-testid="zone-points"
+                    >
+                      <CTableCaption className="visually-hidden">
+                        Points assigned to the control zone {zone.name}
+                      </CTableCaption>
+                      <CTableHead>
+                        <CTableRow>
+                          <CTableHeaderCell scope="col">Point name</CTableHeaderCell>
+                          <CTableHeaderCell scope="col">Point code</CTableHeaderCell>
+                          <CTableHeaderCell scope="col">Point kind</CTableHeaderCell>
+                          <CTableHeaderCell scope="col">Role in zone</CTableHeaderCell>
+                          <CTableHeaderCell scope="col">Data type</CTableHeaderCell>
+                          <CTableHeaderCell scope="col">Unit</CTableHeaderCell>
+                        </CTableRow>
+                      </CTableHead>
+                      <CTableBody>
+                        {points.map((assignment) => (
+                          <CTableRow key={assignment.id}>
+                            <CTableHeaderCell scope="row" className="fw-normal">
+                              {assignment.point_name}
+                            </CTableHeaderCell>
+                            <CTableDataCell>
+                              <code>{assignment.point_code}</code>
+                            </CTableDataCell>
+                            <CTableDataCell>
+                              {formatContractValue(assignment.point_kind)}
+                            </CTableDataCell>
+                            <CTableDataCell>{formatContractValue(assignment.role)}</CTableDataCell>
+                            <CTableDataCell>
+                              {formatContractValue(assignment.data_type)}
+                            </CTableDataCell>
+                            <CTableDataCell>{assignment.unit ?? "Not set"}</CTableDataCell>
+                          </CTableRow>
+                        ))}
+                      </CTableBody>
+                    </CTable>
+                  </details>
+                </>
+              )}
+            </SectionCard>
+          </div>
         </CCol>
 
         <CCol xs={12} xl={7} xxl={8}>
-          <SectionCard title="Points assigned to this control zone" fillHeight>
-            {points.length === 0 ? (
-              <StatePanel
-                title="No points are assigned to this control zone"
-                headingLevel={3}
-                testId="zone-points-empty"
-              >
-                <p>The cloud API returns no point assignments for {zone.name}.</p>
-              </StatePanel>
-            ) : (
-              <>
-                <p className="prose text-body-secondary">
-                  These are the points the cloud API assigns to {zone.name}. This is the
-                  zone&rsquo;s composition only — no measured value or device state is shown.
-                </p>
-                {workspace.points?.complete === false ? (
-                  <IncompleteCollectionNotice
-                    shown={points.length}
-                    total={workspace.points.total}
-                    noun="point assignments"
-                  />
-                ) : null}
-                {/* A wide table scrolls inside its own box, never the page. */}
-                <CTable responsive small align="top" className="mb-0" data-testid="zone-points">
-                  <CTableCaption className="visually-hidden">
-                    Points assigned to the control zone {zone.name}
-                  </CTableCaption>
-                  <CTableHead>
-                    <CTableRow>
-                      <CTableHeaderCell scope="col">Point name</CTableHeaderCell>
-                      <CTableHeaderCell scope="col">Point code</CTableHeaderCell>
-                      <CTableHeaderCell scope="col">Point kind</CTableHeaderCell>
-                      <CTableHeaderCell scope="col">Role in zone</CTableHeaderCell>
-                      <CTableHeaderCell scope="col">Data type</CTableHeaderCell>
-                      <CTableHeaderCell scope="col">Unit</CTableHeaderCell>
-                    </CTableRow>
-                  </CTableHead>
-                  <CTableBody>
-                    {points.map((assignment) => (
-                      <CTableRow key={assignment.id}>
-                        <CTableHeaderCell scope="row" className="fw-normal">
-                          {assignment.point_name}
-                        </CTableHeaderCell>
-                        <CTableDataCell>
-                          <code>{assignment.point_code}</code>
-                        </CTableDataCell>
-                        <CTableDataCell>
-                          {formatContractValue(assignment.point_kind)}
-                        </CTableDataCell>
-                        <CTableDataCell>{formatContractValue(assignment.role)}</CTableDataCell>
-                        <CTableDataCell>{formatContractValue(assignment.data_type)}</CTableDataCell>
-                        <CTableDataCell>{assignment.unit ?? "Not set"}</CTableDataCell>
-                      </CTableRow>
-                    ))}
-                  </CTableBody>
-                </CTable>
-              </>
-            )}
-          </SectionCard>
+          <MonitoringSection zoneName={zone.name} monitoring={monitoring} />
         </CCol>
       </CRow>
-
-      <MonitoringSection zoneName={zone.name} monitoring={monitoring} />
 
       <ManualControlSection
         zoneName={zone.name}

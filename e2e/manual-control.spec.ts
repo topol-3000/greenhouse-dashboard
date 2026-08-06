@@ -378,7 +378,7 @@ test.describe("when the cloud API does not cooperate", () => {
     await page.goto(ZONE_URL);
 
     await expect(page.getByTestId("control-request-error")).toBeVisible();
-    await expect(page.getByTestId("zone-points")).toBeVisible();
+    await expect(page.getByTestId("zone-points")).toBeAttached();
     await expect(page.getByRole("navigation", { name: "Primary" })).toBeVisible();
   });
 });

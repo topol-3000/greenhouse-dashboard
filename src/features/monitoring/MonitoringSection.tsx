@@ -8,9 +8,12 @@
  * leaves the workspace, the navigation and the shell usable, because a customer
  * who cannot read a temperature can still move around their greenhouses.
  *
- * The measurement cards use the full width of the workspace, three or four
- * across on a desktop, because a zone with a dozen points is read as a board
- * rather than as a column that has to be scrolled to be compared.
+ * The measurement cards are read as a board rather than as a column that has to
+ * be scrolled to be compared, so they go as wide as the section does. The
+ * section is a column of the workspace rather than its whole width, which is
+ * what sets the card count: two across from a tablet up and three on a large
+ * desktop, because a card narrower than that starts wrapping a point's name and
+ * its unit onto lines of their own.
  *
  * What it will not show, whatever the API returns: a control or status point's
  * state, a desired state, a command, an alert, a threshold or an automation
@@ -133,7 +136,7 @@ export function MonitoringSection({ zoneName, monitoring }: MonitoringSectionPro
               // is outside this zone and offers a way into it instead.
               const selected = monitoring.selectedPoint?.pointId === measurement.pointId;
               return (
-                <CCol key={measurement.pointId} xs={12} md={6} xl={4} xxl={3}>
+                <CCol key={measurement.pointId} xs={12} md={6} xxl={4}>
                   <MeasurementCard
                     measurement={measurement}
                     action={

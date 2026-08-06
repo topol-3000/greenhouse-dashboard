@@ -340,6 +340,23 @@ no topology at all are each stated in words. So is an incomplete read: if a
 collection is larger than the portal's bounded pagination walk, the screen says
 how much of it is being shown instead of presenting a partial list as the whole.
 
+**Moving around it.** A control zone workspace carries two switchers: one for the
+control zones of the facility already in the address, and one for facilities.
+Both are native `<select>` elements with their own labels, so both are keyboard
+operable and named without a line of key handling. Neither offers an option the
+cloud API did not return, and neither pre-selects anything on the customer's
+behalf. Switching facility drops the control zone in the address rather than
+carrying a zone from one facility into another; switching zone stays inside the
+facility, because a zone belongs to exactly one.
+
+**Where the composition table went.** A zone's point inventory lists every point
+of the zone — including the ones the monitoring and manual-control sections
+render as cards immediately below it. Left open it pushed the readings and the
+controls off the screen to show the same points a third time, so it sits behind a
+disclosure that names how many points it holds. A notice that the list is
+incomplete stays outside it: a warning must not be something the customer has to
+open to find.
+
 ### Current readings above a control zone
 
 `/` and `/facilities/:facilityId` show what each measurement point last
@@ -834,9 +851,12 @@ Notes that follow from the contract:
 - Desktop, tablet and phone layouts without horizontal page overflow. Each page
   is an intentional responsive grid rather than one column padded out: the
   Dashboard's two answers sit side by side, a facility's identity sits beside its
-  control zones, and measurement and actuator cards fill the width the screen
-  actually has. Paragraphs stay capped at a readable measure while the workspace
-  around them does not. The chart is drawn at the pixel width its container
+  control zones, a control zone's identity and composition stack beside its
+  readings rather than above them, and measurement and actuator cards fill the
+  width the section they are in actually has — which is what sets how many go
+  across, since a card narrower than its content starts wrapping a point's name
+  onto a line of its own. Paragraphs stay capped at a readable measure while the
+  workspace around them does not. The chart is drawn at the pixel width its container
   actually has — rather than scaled from a fixed `viewBox`, which would shrink
   its labels along with it — and a wide table scrolls inside its own box, never
   the page.

@@ -30,7 +30,8 @@ control inside that zone, and its read-only command activity. Delivered:
   types, bounded pagination and normalised errors;
 - cloud API availability from the backend's `/health`;
 - read-only Site → Facility → ControlZone loading and navigation, a facility
-  switcher, and a zone's point inventory;
+  switcher, a control-zone switcher that moves between the zones of the facility
+  already in the address, and a zone's point inventory behind a disclosure;
 - the Dashboard route as a truthful landing page, carrying the API's own site
   and facility counts and the current readings of a bounded number of
   facilities, each grouped by the control zone the API assigns the point to,

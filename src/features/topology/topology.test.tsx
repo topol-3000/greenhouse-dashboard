@@ -14,6 +14,7 @@ import { describe, expect, it } from "vitest";
 import {
   backendRoutes,
   climateZone,
+  climateZonePoints,
   controlZonePointsUrl,
   controlZoneUrl,
   DEFAULT_DATASET,
@@ -310,6 +311,102 @@ describe("the facility switcher", () => {
     expect(await screen.findByTestId("facility-page")).toBeInTheDocument();
     expect(screen.queryByTestId("control-zone-page")).toBeNull();
     expect(screen.queryByText(climateZone.name)).toBeNull();
+  });
+});
+
+describe("the zone switcher", () => {
+  it("is a labelled control listing only the zones of the facility in the address", async () => {
+    renderPortal({ path: ZONE_URL });
+    await screen.findByTestId("control-zone-page");
+
+    const select = await screen.findByRole("combobox", { name: "Switch control zone" });
+    const options = within(select).getAllByRole("option");
+    expect(options.map((option) => option.textContent)).toEqual([
+      climateZone.name,
+      irrigationZone.name,
+    ]);
+
+    // A zone has one parent, and it is the facility already in the address, so
+    // there is nothing to group by and nothing from another facility offered.
+    expect(select.querySelector("optgroup")).toBeNull();
+    expect(within(select).queryByText(seedlingClimateZone.name)).toBeNull();
+  });
+
+  it("moves between sibling zones with the keyboard, without going up to the facility", async () => {
+    renderPortal({ path: ZONE_URL });
+    await screen.findByTestId("control-zone-page");
+
+    const select = await screen.findByRole("combobox", { name: "Switch control zone" });
+    expect(select).toHaveValue(IDS.climateZone);
+
+    await userEvent.tab();
+    await userEvent.selectOptions(select, IDS.irrigationZone);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", { level: 1, name: irrigationZone.name }),
+      ).toBeInTheDocument();
+    });
+    // Still a zone workspace, never a detour through the facility page.
+    expect(screen.getByTestId("control-zone-page")).toBeInTheDocument();
+    expect(screen.queryByTestId("facility-page")).toBeNull();
+  });
+
+  it("says so rather than offering an empty control when the zone list fails", async () => {
+    renderPortal({
+      path: ZONE_URL,
+      routes: backendRoutes(DEFAULT_DATASET, {
+        [facilityZonesUrl(IDS.northGreenhouse)]: { networkError: true },
+      }),
+    });
+    await screen.findByTestId("control-zone-page");
+
+    expect(await screen.findByTestId("zone-switcher-empty")).toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "Switch control zone" })).toBeNull();
+    // The workspace itself is untouched: a switcher is a convenience, and its
+    // failure must not take the zone with it.
+    expect(screen.getByRole("heading", { level: 1, name: climateZone.name })).toBeInTheDocument();
+    expect(screen.getByTestId("measurement-cards")).toBeInTheDocument();
+  });
+});
+
+describe("the zone's composition table", () => {
+  it("names how many points it holds before it is opened", async () => {
+    renderPortal({ path: ZONE_URL });
+    await screen.findByTestId("control-zone-page");
+
+    const disclosure = await screen.findByTestId("zone-points-disclosure");
+    const summary = within(disclosure).getByText(/Show the \d+ points assigned/);
+
+    // The count is the number of assignments the API returned, and the table it
+    // reveals is the same table it always was.
+    const rows = within(screen.getByTestId("zone-points")).getAllByRole("row");
+    expect(summary).toHaveTextContent(`Show the ${String(rows.length - 1)} points`);
+
+    await userEvent.click(summary);
+    expect(disclosure).toHaveAttribute("open");
+    expect(within(screen.getByTestId("zone-points")).getAllByRole("row")).toHaveLength(rows.length);
+  });
+
+  it("keeps an incomplete-list warning outside the disclosure", async () => {
+    renderPortal({
+      path: ZONE_URL,
+      routes: backendRoutes(DEFAULT_DATASET, {
+        [controlZonePointsUrl(IDS.climateZone)]: {
+          body: { items: climateZonePoints.slice(0, 2), total: 12, limit: 200, offset: 0 },
+        },
+        // The walk stops on an empty page, leaving the collection knowingly
+        // short of the backend's own total.
+        [controlZonePointsUrl(IDS.climateZone, 2)]: {
+          body: { items: [], total: 12, limit: 200, offset: 2 },
+        },
+      }),
+    });
+    await screen.findByTestId("control-zone-page");
+
+    // A warning the customer has to open something to find is not a warning.
+    const notice = await screen.findByTestId("incomplete-collection");
+    expect(notice.closest("details")).toBeNull();
   });
 });
 

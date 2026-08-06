@@ -222,6 +222,18 @@ export interface ControlZoneWorkspace extends LoadState {
   readonly facility: FacilityRead | undefined;
   readonly site: SiteRead | undefined;
   readonly points: Collection<ZonePointAssignmentRead> | undefined;
+  /**
+   * The other control zones of the same facility, for the zone switcher.
+   *
+   * Deliberately outside this workspace's load state: a customer whose zone has
+   * arrived can read it whether or not the list of its siblings has. A failure
+   * here empties the switcher and says so; it never blanks the workspace.
+   */
+  readonly siblingZones: Collection<ControlZoneRead> | undefined;
+  /** Whether the sibling list is still being read. */
+  readonly siblingZonesLoading: boolean;
+  /** Whether the sibling list could not be read at all. */
+  readonly siblingZonesFailed: boolean;
   /** The cloud API has no control zone with this identifier. */
   readonly isZoneMissing: boolean;
   /** The cloud API has no facility with the identifier in the address. */
@@ -252,6 +264,9 @@ export function useControlZoneWorkspace(
   const facility = useFacilityQuery(facilityId);
   const site = useSiteQuery(facility.data?.site_id);
   const points = useControlZonePointsQuery(zoneId);
+  // The same query and the same key the Facility workspace reads, so arriving
+  // here from that page costs nothing and a deep link costs one request.
+  const siblings = useControlZonesQuery(facilityId);
 
   const isZoneMissing = isResourceMissing(zone.error);
   const isFacilityMissing = isResourceMissing(facility.error);
@@ -277,6 +292,9 @@ export function useControlZoneWorkspace(
     facility: facility.data,
     site: site.data,
     points: points.data,
+    siblingZones: siblings.data,
+    siblingZonesLoading: siblings.isPending && siblings.data === undefined,
+    siblingZonesFailed: siblings.isError && siblings.data === undefined,
     isZoneMissing,
     isFacilityMissing,
     relationship,
@@ -285,6 +303,7 @@ export function useControlZoneWorkspace(
       void facility.refetch();
       void points.refetch();
       void site.refetch();
+      void siblings.refetch();
     },
   };
 }

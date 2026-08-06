@@ -168,6 +168,38 @@ test.describe("topology states", () => {
     await expect(page.getByRole("link", { name: "Back to Greenhouses" })).toBeVisible();
   });
 
+  test("opens the zone's composition from its summary", async ({ page }) => {
+    await mockHealth(page);
+    await mockTopology(page);
+    await page.goto(ZONE_URL);
+    await expect(page.getByRole("heading", { level: 1, name: "North Climate" })).toBeVisible();
+
+    // Closed by default, so the readings and the controls are what the page
+    // opens on — but one click, and the whole composition is there.
+    const table = page.getByTestId("zone-points");
+    await expect(table).not.toBeVisible();
+
+    await page.getByText(/Show the \d+ points assigned/).click();
+    await expect(table).toBeVisible();
+    await expect(table).toContainText("North air temperature vent");
+    await expect(table.getByRole("row")).not.toHaveCount(0);
+  });
+
+  test("moves between sibling control zones without leaving the workspace", async ({ page }) => {
+    await mockHealth(page);
+    await mockTopology(page);
+    await page.goto(ZONE_URL);
+    await expect(page.getByRole("heading", { level: 1, name: "North Climate" })).toBeVisible();
+
+    await page
+      .getByRole("combobox", { name: "Switch control zone" })
+      .selectOption(E2E_IDS.irrigationZone);
+
+    await expect(page).toHaveURL(new RegExp(`/zones/${E2E_IDS.irrigationZone}$`));
+    await expect(page.getByRole("heading", { level: 1, name: "North Irrigation" })).toBeVisible();
+    await expect(page.getByTestId("control-zone-page")).toBeVisible();
+  });
+
   test("keeps the Greenhouses overview free of readings", async ({ page }) => {
     await mockHealth(page);
     await mockTopology(page);
@@ -222,7 +254,7 @@ test.describe("topology states", () => {
     const topology = await mockTopology(page);
 
     await page.goto(ZONE_URL);
-    await expect(page.getByTestId("zone-points")).toBeVisible();
+    await expect(page.getByTestId("zone-points")).toBeAttached();
     await expect(page.getByTestId("measurement-cards")).toBeVisible();
 
     for (const request of topology.requests()) {
