@@ -89,9 +89,18 @@ export function ActuatorCard({
                     onRequestAction(desiredValue);
                   }}
                   disabled={disabledReason !== undefined}
+                  // The card is already headed by the actuator's name, and the
+                  // group is labelled by that heading, so repeating the name in
+                  // the visible text only forced the pair of buttons onto two
+                  // rows. The accessible name keeps the whole phrase — it is
+                  // what a screen reader announces out of context, and what the
+                  // confirmation then echoes — and the visible words are
+                  // contained in it, so a voice-control user saying what they
+                  // read still activates the right button.
+                  aria-label={`${actionLabel(desiredValue)} ${actuator.name}`}
                   data-testid={desiredValue ? "actuator-on" : "actuator-off"}
                 >
-                  {`${actionLabel(desiredValue)} ${actuator.name}`}
+                  {actionLabel(desiredValue)}
                 </CButton>
               ))}
             </div>

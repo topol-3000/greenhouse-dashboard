@@ -265,6 +265,24 @@ export type PointDataType = components["schemas"]["PointDataType"];
 /** Trustworthiness the backend attaches to a value it published. */
 export type DataQuality = components["schemas"]["DataQuality"];
 
+/**
+ * The one `DataQuality` that qualifies a reading in no way.
+ *
+ * The contract publishes nine members — `no_data`, `good`, `uncertain`, `bad`,
+ * `stale`, `out_of_range`, `sensor_fault`, `simulated`, `manually_entered` — and
+ * exactly one of them says the backend stands behind the value without
+ * reservation. Everything a screen does with quality is therefore expressed as
+ * "is it this one", never as a list of the bad ones: a denylist would silently
+ * present a member added to the contract later as though it were trustworthy,
+ * and `requireContractEnum` deliberately lets unknown members through so that a
+ * reading is never lost to a value the portal has not been taught.
+ *
+ * This is not a ranking. The portal does not order these, does not decide which
+ * are worse, and attaches no severity colour to any of them — nothing in the
+ * contract supports doing so.
+ */
+export const GOOD_QUALITY: DataQuality = "good";
+
 /** A facility, its site, its zones and its points with their last known state. */
 export type FacilityConfigurationRead = components["schemas"]["FacilityConfigurationRead"];
 

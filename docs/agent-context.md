@@ -118,8 +118,14 @@ to keep holding:
   focus, contain Tab, close on `Escape` and return focus to what opened them;
 - the 44px touch-target minimum on every full-size control; the small variants
   are deliberately smaller because they qualify content rather than act on it;
-- no meaning carried by colour alone — every status carries its own words, and
-  the raw contract enum stays on screen beside its label;
+- no meaning carried by colour alone — every status carries its own words. The
+  raw contract enum stays on screen wherever the label restates it in different
+  words (`Automatic` beside `control_loop`), and always in the resource's own
+  details; it is dropped only where the label is a case variant of the enum
+  (`Rejected` beside `rejected`), which is one word twice rather than two facts;
+- a badge colour is never a ranking the contract does not publish. `DataQuality`
+  has nine members and no severity order, so a qualified reading is marked with
+  a neutral badge carrying the backend's own word, not a red or amber one;
 - no page-level horizontal overflow at any width, with long names, UUIDs and
   raw enums wrapping inside their component; a wide table scrolls in its own box;
 - `light`, `dark` and `auto` all correct, `auto` following the system while it

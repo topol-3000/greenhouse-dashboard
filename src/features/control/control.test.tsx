@@ -125,6 +125,15 @@ describe("the controllable inventory on screen", () => {
       "Turn off North lamp",
     );
 
+    // The card is already headed by the actuator's name, so the visible words
+    // do not repeat it — which is what kept the pair of buttons on one row. The
+    // visible text stays contained in the accessible name, so a voice-control
+    // user saying what they read still activates the right button (WCAG 2.5.3).
+    const on = within(actuatorCard(POINT_IDS.vent)).getByTestId("actuator-on");
+    expect(on).toHaveTextContent("Turn on");
+    expect(on.textContent ?? "").not.toContain("North air temperature vent");
+    expect(on.getAttribute("aria-label") ?? "").toContain(on.textContent ?? "");
+
     // The `float` control point is listed with the reason, and has no action.
     const dimmer = actuatorCard(POINT_IDS.dimmer);
     expect(within(dimmer).queryByTestId("actuator-on")).toBeNull();

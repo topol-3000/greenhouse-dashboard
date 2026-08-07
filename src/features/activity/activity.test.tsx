@@ -315,9 +315,13 @@ describe("what a row says", () => {
     expect(acknowledged.getByTestId("activity-row-receipt")).toHaveTextContent(
       "Received by the greenhouse",
     );
-    // Receipt is not a fourth state: the raw enum is still `pending`.
-    expect(row(COMMAND_IDS.lampOnAutomatic)).toHaveTextContent("pending");
+    // Receipt is not a fourth state. The row no longer repeats the raw enum
+    // beside a badge that is its own case variant — that fact lives in the
+    // details dialog's `Command state` row, which is asserted there.
     expect(row(COMMAND_IDS.lampOnAutomatic).textContent ?? "").not.toContain("Applied");
+    // The source enum stays, because `Automatic` and `control_loop` are two
+    // different facts rather than one word twice.
+    expect(acknowledged.getByTestId("activity-row-source")).toHaveTextContent("control_loop");
   });
 
   it("shows applied as terminal success and rejected with its typed reason", async () => {

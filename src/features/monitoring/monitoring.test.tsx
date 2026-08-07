@@ -135,12 +135,13 @@ describe("a measurement's current state", () => {
     await screen.findByTestId("measurement-cards");
 
     const card = cardFor(POINT_IDS.airTemp);
+    // The unit sits with the value it belongs to, not five rows down a list.
     expect(within(card).getByTestId("measurement-value")).toHaveTextContent("21.4 degC");
 
-    const meta = within(card).getByTestId("measurement-meta");
-    expect(meta).toHaveTextContent("Unit");
-    expect(meta).toHaveTextContent("degC");
-    expect(meta).toHaveTextContent("Good");
+    // `good` is the one quality that qualifies a reading in no way, so a
+    // trustworthy reading carries no badge at all.
+    expect(within(card).queryByTestId("measurement-quality")).toBeNull();
+
     // The instant is the one the API sent, carried in the machine-readable
     // attribute whatever locale the reader's browser formats it in.
     expect(within(card).getByText(/2026/)).toHaveAttribute("datetime", "2026-01-04T09:05:00Z");
@@ -180,7 +181,10 @@ describe("a measurement's current state", () => {
     await screen.findByTestId("measurement-cards");
 
     const card = cardFor(POINT_IDS.soilMoisture);
-    expect(within(card).getByTestId("measurement-meta")).toHaveTextContent("Unit not provided");
+    // The unit moved onto the value line, so its absence moved with it: a point
+    // the API published no unit for still says so, rather than saying nothing.
+    expect(within(card).getByTestId("measurement-value")).toHaveTextContent("No data yet");
+    expect(cardFor(POINT_IDS.leafWetness)).toHaveTextContent("no unit published");
     // Nothing plausible has been filled in.
     expect(card.textContent).not.toMatch(/%|degC|ppm/);
   });
@@ -189,6 +193,10 @@ describe("a measurement's current state", () => {
     renderPortal({ path: ZONE_URL });
     await screen.findByTestId("measurement-cards");
 
+    // These are verdicts the portal would have had to invent: the contract
+    // publishes no `min_value`, no `max_value` and no classification. A verdict
+    // the backend *does* publish is a different thing — it arrives in
+    // `DataQuality` and is relayed verbatim in the qualifier badge below.
     const text = screen.getByTestId("monitoring").textContent ?? "";
     for (const forbidden of [
       "Normal",
@@ -198,11 +206,61 @@ describe("a measurement's current state", () => {
       "Too high",
       "Too low",
       "Fresh",
-      "Out of range",
       "Recommend",
     ]) {
       expect(text).not.toContain(forbidden);
     }
+  });
+
+  it("marks a reading the backend qualified, and leaves a good one unmarked", async () => {
+    renderPortal({ path: ZONE_URL });
+    await screen.findByTestId("measurement-cards");
+
+    // The CO2 point reads a real `0` with `quality: "uncertain"`. Rendered at
+    // the same weight as a trustworthy reading, those are indistinguishable.
+    const qualified = within(cardFor(POINT_IDS.co2)).getByTestId("measurement-quality");
+    expect(qualified).toHaveTextContent("Uncertain");
+    // The word carries the meaning and the raw enum sits beside it, so nothing
+    // here depends on the badge's colour.
+    expect(qualified).toHaveTextContent("uncertain");
+
+    expect(within(cardFor(POINT_IDS.airTemp)).queryByTestId("measurement-quality")).toBeNull();
+  });
+
+  it("qualifies a reading with a quality it has never been taught", async () => {
+    // An allowlist against `good`, never a list of the bad ones: a member the
+    // contract gains later must not arrive looking trustworthy.
+    const points = northConfiguration.points.map((point) =>
+      point.id === POINT_IDS.airTemp
+        ? { ...point, state: { ...point.state, quality: "sensor_fault" as const } }
+        : point,
+    );
+    renderPortal({
+      path: ZONE_URL,
+      routes: backendRoutes(DEFAULT_DATASET, {
+        [facilityConfigurationUrl(IDS.northGreenhouse)]: {
+          body: { ...northConfiguration, points },
+        },
+      }),
+    });
+    await screen.findByTestId("measurement-cards");
+
+    const qualified = within(cardFor(POINT_IDS.airTemp)).getByTestId("measurement-quality");
+    expect(qualified).toHaveTextContent("Sensor fault");
+    expect(qualified).toHaveTextContent("sensor_fault");
+    // Relayed, not ranked: no severity colour is attached to any member.
+    expect(qualified.querySelector(".bg-danger, .bg-warning, .text-bg-danger")).toBeNull();
+  });
+
+  it("marks no qualifier on a point that has never reported", async () => {
+    renderPortal({ path: ZONE_URL });
+    await screen.findByTestId("measurement-cards");
+
+    // `no_data` is an absence, and "No data yet" already states it at full
+    // weight. A badge repeating it would be noise on every unreported point.
+    const card = cardFor(POINT_IDS.soilMoisture);
+    expect(within(card).queryByTestId("measurement-quality")).toBeNull();
+    expect(within(card).getByTestId("measurement-value")).toHaveTextContent("No data yet");
   });
 });
 

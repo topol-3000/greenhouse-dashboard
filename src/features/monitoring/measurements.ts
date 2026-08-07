@@ -23,7 +23,12 @@ import type {
   TelemetrySampleRead,
   ZonePointRole,
 } from "../../api/contract";
-import { ACTIVE_STATUS, MEASUREMENT_POINT_KIND, NUMERIC_DATA_TYPES } from "../../api/contract";
+import {
+  ACTIVE_STATUS,
+  GOOD_QUALITY,
+  MEASUREMENT_POINT_KIND,
+  NUMERIC_DATA_TYPES,
+} from "../../api/contract";
 import { sameResourceId } from "../../api/topology";
 
 /** Whether a point's values can be placed on a numeric axis. */
@@ -51,6 +56,25 @@ export function isActiveMeasurementPoint(point: ConfigurationPoint): boolean {
  */
 export function hasReading(state: ConfigurationPointState): boolean {
   return state.value !== null && state.value !== undefined;
+}
+
+/**
+ * Whether the backend attached a qualifier to a value it published.
+ *
+ * An allowlist against `good`, never a list of the bad ones. `uncertain`,
+ * `stale`, `out_of_range`, `sensor_fault`, `simulated`, `manually_entered` and
+ * any member the contract gains later are all things the backend said about its
+ * own value, and a reading carrying one of them must not look like a reading
+ * carrying none.
+ *
+ * This decides whether to show the qualifier, not how bad it is. The portal
+ * ranks `DataQuality` members in no way, because the contract does not.
+ *
+ * @param quality The quality exactly as the API published it.
+ * @returns Whether the reading is qualified in some way.
+ */
+export function isQualifiedQuality(quality: DataQuality): boolean {
+  return quality !== GOOD_QUALITY;
 }
 
 /** One measurement point of a control zone, with its last known state. */

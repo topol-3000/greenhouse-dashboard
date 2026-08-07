@@ -7,6 +7,15 @@
  * document, and the only statement about trustworthiness the backend makes is
  * `DataQuality`, which is shown as it arrived.
  *
+ * That last part is why the quality sits *with* the value rather than in the
+ * list below it. `0 ppm` and `0 ppm, uncertain` are different facts, and a
+ * qualifier five rows down is one a reader scanning a board of cards will not
+ * see. The badge appears for every member except `good` — an allowlist, so a
+ * member the contract gains later cannot arrive looking trustworthy — and
+ * carries the backend's own word with the raw enum beside it. Its colour is
+ * deliberately neutral: choosing danger over warning would be this portal
+ * ranking `DataQuality`, and the contract publishes no such order.
+ *
  * The distinction the card exists to keep is between a reading of `0` and no
  * reading at all. `0` and `false` are values the greenhouse reported; a point
  * that has never reported carries `value: null` with `quality: "no_data"`, and
@@ -22,10 +31,11 @@
  * two elements may not share an id.
  */
 
-import { CCard, CCardBody, CCardTitle } from "@coreui/react";
+import { CBadge, CCard, CCardBody, CCardTitle } from "@coreui/react";
 import type { ReactNode } from "react";
 import { useId } from "react";
 import type { ZoneMeasurement } from "./measurements";
+import { isQualifiedQuality } from "./measurements";
 import { ObservedInstant } from "../../components/ObservedInstant";
 import { formatContractUnknown, formatContractValue } from "../../shared/format";
 import { MetaList } from "../topology/MetaList";
@@ -58,7 +68,14 @@ export function MeasurementCard({ measurement, action }: MeasurementCardProps) {
         {measurement.hasReading ? (
           <p className="fs-2 fw-semibold lh-sm text-break" data-testid="measurement-value">
             <span>{formatContractUnknown(state.value)}</span>
-            {measurement.unit === null ? null : (
+            {measurement.unit === null ? (
+              // The unit moved onto the value line, so its absence has to move
+              // with it. A reading whose point publishes no unit still says so.
+              <span className="fs-6 fw-normal fst-italic text-body-secondary">
+                {" "}
+                no unit published
+              </span>
+            ) : (
               <span className="fs-5 fw-medium text-body-secondary"> {measurement.unit}</span>
             )}
           </p>
@@ -70,11 +87,29 @@ export function MeasurementCard({ measurement, action }: MeasurementCardProps) {
           </p>
         )}
 
+        {/*
+          A reading the backend qualified must not look like one it did not.
+          The qualifier sits with the value rather than five rows down a list,
+          because "0 ppm, uncertain" and "0 ppm" are different facts.
+
+          `color="secondary"` deliberately, never a severity colour: the word
+          carries the meaning and the raw enum sits beside it, and choosing
+          danger over warning would be the portal ranking `DataQuality` members,
+          which no contract field supports. `no_data` gets no badge — "No data
+          yet" above already states the absence at full weight.
+        */}
+        {measurement.hasReading && isQualifiedQuality(state.quality) ? (
+          <p className="mb-0" data-testid="measurement-quality">
+            <CBadge color="secondary" className="me-1">
+              {formatContractValue(state.quality)}
+            </CBadge>
+            <code>{state.quality}</code>
+          </p>
+        ) : null}
+
         <MetaList
           testId="measurement-meta"
           items={[
-            { label: "Unit", value: measurement.unit ?? "Unit not provided" },
-            { label: "Quality", value: formatContractValue(state.quality) },
             { label: "Observed at", value: <ObservedInstant iso={state.observed_at} /> },
             { label: "Point code", value: <code>{measurement.code}</code> },
             { label: "Data type", value: formatContractValue(measurement.dataType) },

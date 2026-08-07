@@ -106,17 +106,21 @@ function Field({
 /**
  * The lifecycle of one command, said in full.
  *
- * The state's own label with a badge repeating it, the raw enum value beside it
- * for operational clarity, and receipt as a separate fact. `pending` is never
- * dressed up as a failure and receipt is never dressed up as success.
+ * The state's own label in a badge, and receipt as a separate fact. `pending` is
+ * never dressed up as a failure and receipt is never dressed up as success.
+ *
+ * The raw enum is deliberately not repeated here. `Rejected` and `rejected` are
+ * one word twice, which is noise on every row of the list; the `source` field
+ * beside it keeps its chip, because `Automatic` and `control_loop` are two
+ * different facts. The enum itself is not lost — the details dialog carries it
+ * in the `Command state` row, which is where a customer goes for exactly that.
  */
 function Lifecycle({ command }: { command: CommandRead }) {
   return (
     <>
       <CBadge color={STATE_COLOUR[command.state]} data-testid="activity-row-state">
         {commandStateLabel(command.state)}
-      </CBadge>{" "}
-      <code className="small">{command.state}</code>
+      </CBadge>
       <span
         className={
           wasReceivedByGreenhouse(command) ? "d-block small" : "d-block small text-body-secondary"

@@ -867,6 +867,9 @@ Notes that follow from the contract:
 - No state signalled by colour alone: every status carries its own words. A
   reading, a missing reading, a quality and a failed refresh are each readable in
   monochrome, and the chart encodes nothing in colour that is not also in text.
+  A badge colour is never a ranking either: `DataQuality` has nine members and
+  no severity order, so a reading the backend qualified is marked with a neutral
+  badge carrying the backend's own word, not a red or amber one.
 - A **light / dark / auto** appearance selector in the header: three ordinary
   buttons in a labelled group, each reachable by Tab, activated by Enter or
   Space, and carrying `aria-pressed` so the selection is stated rather than only
@@ -936,8 +939,12 @@ North lamp`, not `On` — and a disabled action is accompanied by the reason in
   elements with their own labels. Command details are a modal dialog that takes
   focus, keeps Tab inside itself, closes on Escape and returns focus to the row
   that opened it; closing removes only the command from the address. Source,
-  lifecycle and receipt are always words, never colour alone, and the raw
-  `CommandState` stays beside its label.
+  lifecycle and receipt are always words, never colour alone. The raw contract
+  enum stays on screen wherever the label restates it in different words — the
+  source shows `Automatic` beside `control_loop` — and always in the command's
+  own details. It is dropped only where the label is a case variant of the enum:
+  `Rejected` beside `rejected` is one word twice, not two facts, and repeating
+  it on every row of the list was noise.
 
 ## Not implemented yet
 
