@@ -196,9 +196,38 @@
  *
  * The Cloud ↔ Edge surface — `GET /api/v1/edge/gateways/{gateway_id}/commands`,
  * `PUT .../acknowledgement` and `POST /api/v1/edge/telemetry` — is for gateways
- * and is never called from a browser. Control loops, gateways, provisioning and
- * every other `POST`, `PATCH` and `DELETE` are equally out of scope: the one
- * write this portal makes is a manual command.
+ * and is never called from a browser. Gateways, provisioning and every `POST`,
+ * `PATCH` and `DELETE` other than one manual command are equally out of scope:
+ * the one write this portal makes is a manual command.
+ *
+ * ## Control loops
+ *
+ * `GET /api/v1/control-loops?control_zone_id=` is read, and nothing else on that
+ * resource is. The portal shows a zone the rules its own greenhouse runs on, so
+ * that an automatic command in Activity has a visible cause instead of a bare
+ * identifier. It creates, edits, enables, disables and deletes no loop.
+ *
+ * ### What the control-loop contract does not publish
+ *
+ * Three things, and each one is a sentence the portal is therefore not allowed
+ * to say:
+ *
+ * - **No name.** `ControlLoopRead` has `id` and no human label, so there is no
+ *   name to resolve a `control_loop_id` to. A loop is described by the points it
+ *   names, and the description must never be phrased as though the backend
+ *   supplied it.
+ * - **No unit on either threshold.** `lower_threshold` and `upper_threshold` are
+ *   bare numbers, and nothing in the contract says they are expressed in the
+ *   measurement point's unit. They are rendered as bare numbers. Borrowing the
+ *   point's unit would be the portal asserting a relationship the API never
+ *   stated — the same rule that stops a unit being guessed from a metric type.
+ * - **No direction, and no evaluation state.** Nothing says which way
+ *   `hysteresis-v1` acts, and there is no enabled flag, no "firing" and no
+ *   "satisfied". The portal shows the policy and both ends, and says nothing
+ *   about how the rule behaves or whether it is behaving now.
+ *
+ * All three are gaps to report to the `greenhouse` repository, not gaps to fill
+ * in here.
  */
 
 import type { components } from "./schema";
@@ -271,6 +300,29 @@ export type CommandRead = components["schemas"]["CommandRead"];
 
 /** A count-free collection of commands: `items`, and nothing else. */
 export type CommandListRead = components["schemas"]["CommandListRead"];
+
+/**
+ * One automatic control rule of a control zone.
+ *
+ * Carries three point identifiers — the point it measures, the point it drives
+ * and the point that reports the result — plus a policy and two thresholds. It
+ * carries no name, no unit and no statement of direction; see the module
+ * docblock for what that forbids the portal from saying.
+ */
+export type ControlLoopRead = components["schemas"]["ControlLoopRead"];
+
+/** The rule a control loop follows. The contract publishes one member today. */
+export type ControlPolicyType = components["schemas"]["ControlPolicyType"];
+
+/**
+ * The one policy the contract currently names.
+ *
+ * Declared as `ControlPolicyType` rather than a bare string so that a second
+ * policy arriving in the contract — which the schema's own description says is
+ * the point of it being an enum — is a compile error here rather than a screen
+ * that quietly mislabels it.
+ */
+export const HYSTERESIS_POLICY: ControlPolicyType = "hysteresis-v1";
 
 /** Delivery lifecycle of a command: `pending`, `applied` or `rejected`. */
 export type CommandState = components["schemas"]["CommandState"];

@@ -27,6 +27,7 @@ import {
   fetchCommands,
   isTerminalCommandState,
 } from "./control";
+import { fetchControlLoops } from "./controlLoops";
 import { fetchHealth } from "./health";
 import { fetchFacilityConfiguration, fetchPointTelemetry } from "./monitoring";
 import {
@@ -193,6 +194,7 @@ export const queryKeys = {
   pointTelemetry: (pointId: string, limit: number) =>
     ["monitoring", "point-telemetry", pointId, limit] as const,
   control: () => ["control"] as const,
+  controlLoopList: (zoneId: string) => ["control", "control-loops", "list", zoneId] as const,
   command: (commandId: string) => ["control", "commands", "detail", commandId] as const,
   commandList: (filters: CommandListFilters) =>
     [
@@ -394,6 +396,27 @@ export function useFacilityConfigurationQuery(facilityId: string | undefined, en
 export function useFacilityConfigurationsQuery(facilityIds: readonly string[]) {
   return useQueries({
     queries: facilityIds.map((facilityId) => facilityConfigurationQueryOptions(facilityId, true)),
+  });
+}
+
+/**
+ * The automatic control rules configured for one control zone.
+ *
+ * Configuration, not telemetry: a loop changes when someone provisions it, so
+ * this is read on the topology staleness and polls on no interval at all. The
+ * zone workspace and Activity read the same key, so a customer moving between
+ * them re-reads nothing.
+ *
+ * @param zoneId The control zone from the route, untrusted.
+ * @param enabled Whether the screen is in a state where loops may be read.
+ */
+export function useControlLoopsQuery(zoneId: string | undefined, enabled = true) {
+  const id = identifier(zoneId);
+  return useQuery({
+    queryKey: queryKeys.controlLoopList(id ?? ""),
+    queryFn: ({ signal }) => fetchControlLoops(id ?? "", { signal }),
+    enabled: enabled && id !== undefined,
+    staleTime: TOPOLOGY_STALE_MS,
   });
 }
 

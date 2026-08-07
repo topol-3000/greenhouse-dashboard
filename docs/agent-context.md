@@ -67,7 +67,8 @@ or a count of how many points are in some state — because the only numbers the
 contract publishes are one point's value and the backend's own row totals;
 a local definition of "stale", which `DataQuality` already carries;
 agronomic recommendations; target ranges; recipes; grow cycles; runtime targets;
-automation and schedules; control-loop creation or visualisation; device
+automation and schedules; control-loop creation, editing, enabling, disabling
+and deletion; device
 provisioning, gateway status and any direct Edge or device communication;
 authentication, users, roles, tenants, billing and settings; WebSocket or
 server-sent events.
@@ -151,6 +152,7 @@ from it by `npm run generate:api-types`. The endpoints in use:
 | One command's lifecycle      | `GET /api/v1/commands/{command_id}`                                     |
 | Resolve a lost creation      | `GET /api/v1/commands?idempotency_key=&limit=1`                         |
 | One zone's command window    | `GET /api/v1/commands?control_zone_id=&target_point_id=&source=&limit=` |
+| One zone's automatic rules   | `GET /api/v1/control-loops?control_zone_id=`                            |
 
 Rules that follow from that:
 

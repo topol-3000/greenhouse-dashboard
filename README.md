@@ -37,7 +37,8 @@ the portal says so rather than filling the page.
 The one thing the portal writes is **one manual command at a time**, through the
 public `POST /api/v1/commands` operation, after an explicit confirmation. It
 still creates, edits and deletes nothing: no site, no facility, no control zone,
-no point, no control loop and no schedule. Activity is read-only: it cancels,
+no point, no control loop and no schedule — a zone's control loops are read and
+displayed, never configured. Activity is read-only: it cancels,
 retries and resubmits nothing. There is no alert and no automation, and the
 portal never talks to a gateway or a device. What a command _did_ is what the
 cloud API says it did — see
@@ -596,6 +597,37 @@ link — **View this command in Activity** — carrying the facility in the addr
 and the zone, control point and command the cloud API named. A command the
 workspace has stopped following is therefore recoverable rather than lost.
 
+### Automatic control inside a control zone
+
+Activity attributes some commands to `control_loop` — the greenhouse deciding
+something for itself. **Automatic control** is what those decisions come from:
+the control loops `GET /api/v1/control-loops?control_zone_id=` returns for the
+zone, each showing the point it watches, the point it drives, the point that
+reports the result, its policy and its two thresholds.
+
+One read, once per zone, shared with Activity through the same query key. The
+three point identifiers are resolved against the facility configuration document
+the workspace is already polling, so naming them costs no request.
+
+It is entirely read-only. Nothing here creates, edits, enables, disables or
+deletes a loop, and no control on the section suggests otherwise.
+
+**Three things this section will not say**, because `ControlLoopRead` does not
+publish them:
+
+| Not published                   | So the portal                                                                            |
+| ------------------------------- | ---------------------------------------------------------------------------------------- |
+| A name                          | describes a rule by the points it connects, and keeps the identifier on screen           |
+| A unit on either threshold      | shows `400` and `1200` as bare numbers, with the measured point's unit shown beside _it_ |
+| A direction, or an enabled flag | never says which way a policy acts, and never calls a rule active, firing or satisfied   |
+
+The middle one is the trap. `north-co2` publishes `ppm`, so rendering
+`400 ppm` looks like an obvious improvement — but nothing in `openapi.json` says
+a threshold is expressed in the measured point's unit, and
+`src/features/monitoring/measurements.ts` already refuses to guess a unit from a
+metric type. All three are gaps to report to the `greenhouse` repository, not
+gaps to fill in here.
+
 ## Activity
 
 **What it is.** `/activity` is one control zone's command history: every command
@@ -817,8 +849,10 @@ Notes that follow from the contract:
 - the Cloud ↔ Edge surface — `GET /api/v1/edge/gateways/{gateway_id}/commands`,
   `PUT .../acknowledgement` and `POST /api/v1/edge/telemetry` — is for gateways
   and is **never** called from the browser. Neither is control-loop creation,
-  gateway provisioning, direct current-state mutation, or any other `POST`,
-  `PATCH` or `DELETE`. The one write this portal makes is a manual command;
+  editing or deletion, gateway provisioning, direct current-state mutation, or
+  any other `POST`, `PATCH` or `DELETE`. The one write this portal makes is a
+  manual command. `GET /api/v1/control-loops?control_zone_id=` **is** read, once
+  per zone — see [Automatic control](#automatic-control-inside-a-control-zone);
 - `CommandRead` returns the three sample identifiers rather than embedded
   samples, and the portal does not follow them: a command's result is its
   `state`, and what the equipment reports is the reported point's own state.
@@ -935,6 +969,14 @@ Named here so nothing above is mistaken for a promise that has been kept:
   is a rendering of `observed_at`. Nothing decides when that becomes "stale" —
   `DataQuality` already carries the backend's own judgement, and the portal does
   not add a competing one.
+- **Configuring a control loop.** A zone's control loops are read and shown; the
+  portal creates, edits, enables, disables and deletes none of them, and the
+  contract's `POST /api/v1/control-loops` is never called.
+- **Saying what a control loop will do.** `ControlLoopRead` publishes no name,
+  no unit on either threshold, and no statement of direction or evaluation
+  state. So the portal shows the policy and both numbers and stops there: it
+  will not tell you the rule turns something on below a value, or that it is
+  currently satisfied, because the cloud API never said so.
 - **Acting on a past command.** Activity is read-only: no cancellation, no
   retry, no resubmission and no bulk control.
 - **Generic audit or system events.** Activity is command activity. Nothing else
@@ -942,9 +984,10 @@ Named here so nothing above is mistaken for a promise that has been kept:
 - Alerts and notifications about greenhouse conditions, threshold evaluation and
   "normal/warning/critical" classification.
 - Agronomic recommendations, target ranges, recipes, grow cycles, runtime
-  targets, automation, schedules, temporary overrides and control-loop creation
-  or visualisation. Manual control switches one configured actuator; it
-  configures nothing.
+  targets, schedules, temporary overrides, and control-loop creation, editing,
+  enabling, disabling or deletion. A zone's control loops are **shown**, and
+  nothing about them can be changed here. Manual control switches one configured
+  actuator; it configures nothing.
 - Non-boolean actuator control. The command contract accepts a strict `bool`, so
   there is no dimming, speed, percentage or setpoint control to build.
 - Device provisioning, firmware, physical device bindings, gateway status and

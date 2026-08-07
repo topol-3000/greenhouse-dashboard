@@ -428,7 +428,7 @@ test.describe("addresses and refresh", () => {
     await expect(page.getByTestId("manual-control")).toHaveCount(0);
   });
 
-  test("adds no activity, schedule, alert or automation surface", async ({ page }) => {
+  test("adds no activity, schedule or alert surface", async ({ page }) => {
     await mockHealth(page);
     await mockTopology(page);
     await mockCommands(page);
@@ -440,11 +440,36 @@ test.describe("addresses and refresh", () => {
     await expect(page.getByTestId("activity-list")).toHaveCount(0);
 
     const text = (await page.getByTestId("control-zone-page").textContent()) ?? "";
-    for (const forbidden of ["Schedule", "Alert", "Automation", "Control loop"]) {
+    for (const forbidden of ["Schedule", "Alert", "Recipe", "Grow cycle"]) {
       expect(text).not.toContain(forbidden);
     }
     await expect(page.getByRole("navigation", { name: "Primary" }).getByRole("link")).toHaveCount(
       3,
     );
+  });
+
+  test("shows the zone's control loops without offering to configure one", async ({ page }) => {
+    await mockHealth(page);
+    await mockTopology(page);
+    await mockCommands(page);
+    await page.goto(ZONE_URL);
+
+    // The zone now says what its own greenhouse runs on. Reading it is the
+    // whole feature: there is no create, no edit, no delete and no toggle.
+    const loops = page.getByTestId("control-loops");
+    await expect(loops).toBeVisible();
+    await expect(loops.getByTestId("control-loop").first()).toContainText(
+      "Drives North lamp from North CO2",
+    );
+
+    await expect(loops.getByRole("button", { name: /add|create|new|edit|delete/i })).toHaveCount(0);
+    await expect(loops.getByRole("switch")).toHaveCount(0);
+    await expect(loops.locator("form")).toHaveCount(0);
+
+    // Thresholds are the contract's bare numbers. The measured point publishes
+    // ppm; nothing says the thresholds are expressed in it, so they must not be.
+    const text = (await loops.textContent()) ?? "";
+    expect(text).toContain("400");
+    expect(text).not.toMatch(/400\s*ppm/);
   });
 });

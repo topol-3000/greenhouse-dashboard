@@ -146,6 +146,18 @@ interface TelemetryRow {
   quality: string;
 }
 
+interface ControlLoopRow {
+  id: string;
+  control_zone_id: string;
+  measurement_point_id: string;
+  control_point_id: string;
+  status_point_id: string;
+  policy_type: string;
+  lower_threshold: number;
+  upper_threshold: number;
+  created_at: string;
+}
+
 export interface TopologyDataset {
   sites: SiteRow[];
   facilities: FacilityRow[];
@@ -155,6 +167,8 @@ export interface TopologyDataset {
   configurations: ConfigurationRow[];
   /** `TelemetryHistoryRead` items, keyed by point identifier. */
   telemetry: Record<string, TelemetryRow[]>;
+  /** `ControlLoopRead` rows, across every zone. */
+  controlLoops: ControlLoopRow[];
 }
 
 /** Identifiers are UUIDs in the contract, so the fixtures use real ones. */
@@ -612,6 +626,19 @@ export const DEFAULT_TOPOLOGY: TopologyDataset = {
     // A point with no stored history at all.
     [E2E_IDS.soilMoisturePoint]: [],
   },
+  controlLoops: [
+    {
+      id: "cc000000-0000-4000-8000-000000000001",
+      control_zone_id: E2E_IDS.climateZone,
+      measurement_point_id: E2E_IDS.co2Point,
+      control_point_id: E2E_IDS.lampPoint,
+      status_point_id: E2E_IDS.lampStatusPoint,
+      policy_type: "hysteresis-v1",
+      lower_threshold: 400,
+      upper_threshold: 1200,
+      created_at: T0,
+    },
+  ],
 };
 
 /** A cloud API with nothing provisioned. */
@@ -622,6 +649,7 @@ export const EMPTY_TOPOLOGY: TopologyDataset = {
   points: [],
   configurations: [],
   telemetry: {},
+  controlLoops: [],
 };
 
 export interface TopologyController {
@@ -724,6 +752,15 @@ export async function mockTopology(
         siteId === null
           ? dataset.facilities
           : dataset.facilities.filter((facility) => facility.site_id === siteId);
+      await json(route, envelope(items, url));
+      return;
+    }
+    if (path === "/api/v1/control-loops") {
+      const zoneId = url.searchParams.get("control_zone_id");
+      const items =
+        zoneId === null
+          ? dataset.controlLoops
+          : dataset.controlLoops.filter((loop) => loop.control_zone_id === zoneId);
       await json(route, envelope(items, url));
       return;
     }

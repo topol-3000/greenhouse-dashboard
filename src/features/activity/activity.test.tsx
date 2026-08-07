@@ -19,6 +19,7 @@ import { cleanup, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   COMMAND_IDS,
+  controlLoopsUrl,
   CONTROL_LOOP_IDS,
   IDS,
   POINT_IDS,
@@ -98,7 +99,7 @@ describe("reaching Activity", () => {
     expect(api.calls.filter((url) => url.startsWith("/api/v1/commands"))).toHaveLength(1);
   });
 
-  it("consumes no Edge, control-loop or write operation", async () => {
+  it("consumes no Edge or write operation, and reads control loops once per zone", async () => {
     const { api } = renderPortal({ path: ZONE_ACTIVITY, routes: activityRoutes() });
     await screen.findByTestId("activity-list");
 
@@ -109,8 +110,11 @@ describe("reaching Activity", () => {
       expect(request.method).toBe("GET");
       expect(request.url).not.toContain("/edge/");
       expect(request.url).not.toContain("acknowledgement");
-      expect(request.url).not.toContain("control-loops");
     }
+    // The zone's loops are one read for the whole window, not one per row and
+    // not one per command opened. Opening a second command adds nothing.
+    expect(new Set(api.calls.filter((url) => url.includes("/control-loops"))).size).toBe(1);
+    expect(api.countFor(controlLoopsUrl(IDS.climateZone))).toBe(1);
   });
 });
 

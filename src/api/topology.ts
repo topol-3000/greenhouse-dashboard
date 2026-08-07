@@ -155,7 +155,14 @@ export interface TopologyRequestOptions {
   readonly signal?: AbortSignal | undefined;
 }
 
-function windowQuery(window: PageWindow): Record<string, string | number> {
+/**
+ * The page window as query parameters.
+ *
+ * Exported so every paginated collection sends the same two parameters in the
+ * same order: the window first, then whatever filter the operation takes. One
+ * filter set is then always one URL, which is what the request tests assert.
+ */
+export function windowQuery(window: PageWindow): Record<string, string | number> {
   return { limit: window.limit, offset: window.offset };
 }
 

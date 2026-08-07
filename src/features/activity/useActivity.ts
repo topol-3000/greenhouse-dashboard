@@ -11,6 +11,9 @@
  * - the selected facility's configuration document, keyed exactly as monitoring
  *   and manual control key it — which is what resolves point names and the
  *   reported point's state without one request per row;
+ * - the selected zone's control loops, keyed exactly as the ControlZone
+ *   workspace keys them, so an automatic command's cause has a name rather than
+ *   a bare identifier — read once for the zone, never once per command;
  * - and Activity's own bounded window of commands.
  *
  * A command opened for details adds one more: `GET /api/v1/commands/{id}`, the
@@ -36,11 +39,14 @@ import {
   queryKeys,
   useCommandListQuery,
   useControlZonesQuery,
+  useControlLoopsQuery,
   useFacilityConfigurationQuery,
 } from "../../api/queries";
 import { isResourceMissing, sameResourceId } from "../../api/topology";
 import type { ActuatorFeedback, ZoneActuator } from "../control/actuators";
 import { readZoneActuators } from "../control/actuators";
+import type { ZoneControlLoop } from "../control/controlLoops";
+import { findControlLoop, readZoneControlLoops } from "../control/controlLoops";
 import type { LoadState } from "../topology/useTopology";
 import { toLoadState, useTopologyOverview } from "../topology/useTopology";
 import type { TopologyOverview } from "../topology/useTopology";
@@ -125,6 +131,14 @@ export interface ActivityDetails {
   readonly isOutsideContext: boolean;
   /** The configuration document that resolves labels could not be read. */
   readonly labelsUnavailable: boolean;
+  /**
+   * The control loop the command names, if this zone's list contains it.
+   *
+   * A command may name a loop the list does not contain — the list is scoped to
+   * one zone, and a loop can be deleted after it issued a command. That is left
+   * unresolved and shown as the identifier, never guessed at.
+   */
+  readonly loop: ZoneControlLoop | undefined;
 }
 
 /** Everything the Activity page renders. */
@@ -220,6 +234,10 @@ export function useActivity(): ActivityView {
 
   // --- Configuration: labels, actuator options, reported state ----------
   const configurationQuery = useFacilityConfigurationQuery(facility?.id, facility !== undefined);
+  // Read once per zone so an automatic command's cause has a name. Shares its
+  // key with the ControlZone workspace, so moving between the two re-reads
+  // nothing, and it is never requested per command row.
+  const controlLoopsQuery = useControlLoopsQuery(zone?.id, zone !== undefined);
   const configuration = configurationQuery.data;
 
   const selectedZoneId = zone?.id;
@@ -314,6 +332,11 @@ export function useActivity(): ActivityView {
     zone !== undefined &&
     !sameResourceId(observedCommand.control_zone_id, zone.id);
 
+  const zoneLoops = useMemo(
+    () => readZoneControlLoops(controlLoopsQuery.data?.items ?? [], configuration),
+    [controlLoopsQuery.data, configuration],
+  );
+
   const detailLabels = useMemo<ActivityCommand | undefined>(() => {
     if (observedCommand === undefined || isOutsideContext) {
       return undefined;
@@ -398,6 +421,9 @@ export function useActivity(): ActivityView {
             reported,
             isOutsideContext,
             labelsUnavailable: configuration === undefined,
+            loop: isOutsideContext
+              ? undefined
+              : findControlLoop(zoneLoops, observedCommand?.control_loop_id ?? null),
           },
     selectSite: (siteId) => {
       patch(selectSitePatch(siteId));

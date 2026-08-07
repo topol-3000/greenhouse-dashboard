@@ -55,7 +55,9 @@ import {
   CTableRow,
 } from "@coreui/react";
 import { useParams } from "react-router";
+import { AutomaticControlSection } from "../control/AutomaticControlSection";
 import { ManualControlSection } from "../control/ManualControlSection";
+import { useZoneControlLoops } from "../control/useZoneControlLoops";
 import { useZoneManualControl } from "../control/useZoneManualControl";
 import { MonitoringSection } from "../monitoring/MonitoringSection";
 import { useZoneMonitoring } from "../monitoring/useZoneMonitoring";
@@ -95,6 +97,10 @@ export function ControlZonePage() {
   // exactly the same conditions. The portal offers no action on a zone the
   // contract does not place in the facility the address names.
   const control = useZoneManualControl(facilityId, zoneId, workspaceIsUsable);
+
+  // The rules the greenhouse runs on itself, gated the same way. Configuration
+  // rather than telemetry, so it is read once and polls on no interval.
+  const automatic = useZoneControlLoops(facilityId, zoneId, workspaceIsUsable);
 
   if (workspace.isZoneMissing) {
     return (
@@ -293,6 +299,8 @@ export function ControlZonePage() {
         facilityId={facilityId}
         control={control}
       />
+
+      <AutomaticControlSection zoneName={zone.name} control={automatic} />
     </div>
   );
 }

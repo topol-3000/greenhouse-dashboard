@@ -15,6 +15,7 @@ import {
   backendRoutes,
   climateZone,
   climateZonePoints,
+  controlLoopsUrl,
   controlZonePointsUrl,
   controlZoneUrl,
   DEFAULT_DATASET,
@@ -660,16 +661,21 @@ describe("truthfulness of the topology screens", () => {
     await screen.findByTestId("measurement-cards");
 
     for (const url of api.calls) {
-      expect(url).toMatch(/^(\/health|\/api\/v1\/(sites|facilities|control-zones|points)(\/|\?))/);
+      expect(url).toMatch(
+        /^(\/health|\/api\/v1\/(sites|facilities|control-zones|control-loops|points)(\/|\?))/,
+      );
     }
     // No endpoint that would carry a command, an actuator or a device into the
     // portal, and no per-point state request: the configuration document is the
     // one current-state read.
     expect(api.calls.some((url) => url.includes("/state"))).toBe(false);
     expect(api.calls.some((url) => url.includes("/commands"))).toBe(false);
-    expect(api.calls.some((url) => url.includes("/control-loops"))).toBe(false);
     expect(api.calls.some((url) => url.includes("/gateways"))).toBe(false);
     expect(api.calls.some((url) => url.includes("/edge/"))).toBe(false);
+    // Control loops are read, once, scoped to this zone — never per command and
+    // never by identifier.
+    const loopCalls = api.calls.filter((url) => url.includes("/control-loops"));
+    expect(loopCalls).toEqual([controlLoopsUrl(IDS.climateZone)]);
     // Telemetry is requested only once a point has been selected.
     expect(api.calls.some((url) => url.includes("/telemetry"))).toBe(false);
   });

@@ -49,6 +49,7 @@ import {
   desiredValueLabel,
 } from "../control/commandLabels";
 import { formatIsoInstant } from "../../shared/format";
+import { describeControlLoop } from "../control/controlLoops";
 import { MetaList } from "../topology/MetaList";
 import { PointIdentity } from "./ActivityList";
 import { receiptLabel, sourceLabel, sourceMeaning } from "./activityLabels";
@@ -253,7 +254,21 @@ export function CommandDetailsDialog({
                           : "The cloud API names none"}
                       </span>
                     ) : (
-                      <code>{command.control_loop_id}</code>
+                      // Described by the points it connects, never titled: the
+                      // contract publishes no name for a control loop, and the
+                      // identifier stays on screen so nothing here reads as a
+                      // label the backend supplied.
+                      <span data-testid="command-details-loop">
+                        {details.loop === undefined ? null : (
+                          <span className="d-block">{describeControlLoop(details.loop)}</span>
+                        )}
+                        <code>{command.control_loop_id}</code>
+                        {details.loop === undefined ? (
+                          <span className="d-block small text-body-secondary">
+                            This zone&rsquo;s control loops do not include it.
+                          </span>
+                        ) : null}
+                      </span>
                     ),
                 },
                 {

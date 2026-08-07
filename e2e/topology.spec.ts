@@ -258,14 +258,22 @@ test.describe("topology states", () => {
     await expect(page.getByTestId("measurement-cards")).toBeVisible();
 
     for (const request of topology.requests()) {
-      expect(request).toMatch(/^\/api\/v1\/(sites|facilities|control-zones|points)(\/|\?)/);
+      expect(request).toMatch(
+        /^\/api\/v1\/(sites|facilities|control-zones|control-loops|points)(\/|\?)/,
+      );
     }
     // The configuration document is the one current-state read: no per-point
     // state request, and nothing from the control plane.
     expect(topology.requests().some((request) => request.includes("/state"))).toBe(false);
     expect(topology.requests().some((request) => request.includes("/commands"))).toBe(false);
-    expect(topology.requests().some((request) => request.includes("/control-loops"))).toBe(false);
     expect(topology.requests().some((request) => request.includes("/gateways"))).toBe(false);
+    // Control loops are read once, scoped to this zone — never by identifier.
+    const loopRequests = topology
+      .requests()
+      .filter((request) => request.includes("/control-loops"));
+    expect(loopRequests).toEqual([
+      `/api/v1/control-loops?limit=200&offset=0&control_zone_id=${E2E_IDS.climateZone}`,
+    ]);
     // Telemetry is asked for only once a point has been chosen.
     expect(topology.requests().some((request) => request.includes("/telemetry"))).toBe(false);
 

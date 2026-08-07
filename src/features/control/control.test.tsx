@@ -454,7 +454,12 @@ describe("submitting one command", () => {
 
     expect(api.calls.some((url) => url.includes("/edge/"))).toBe(false);
     expect(api.calls.some((url) => url.includes("/gateways"))).toBe(false);
-    expect(api.calls.some((url) => url.includes("/control-loops"))).toBe(false);
+    // Control loops are read so the zone can show what it runs on itself, and
+    // that read is the only thing that ever touches the resource: submitting a
+    // command writes to no loop, and configures none.
+    for (const request of api.requests.filter((entry) => entry.url.includes("/control-loops"))) {
+      expect(request.method).toBe("GET");
+    }
   });
 });
 

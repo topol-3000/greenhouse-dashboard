@@ -38,6 +38,7 @@
 import type {
   CommandRead,
   ConfigurationPoint,
+  ControlLoopRead,
   ControlZoneRead,
   FacilityConfigurationRead,
   FacilityRead,
@@ -765,6 +766,26 @@ export const CONTROL_LOOP_IDS = {
   triggerSample: "cc000000-0000-4000-8000-000000000002",
 } as const;
 
+/**
+ * The one automatic control rule the default dataset configures.
+ *
+ * It drives the lamp from the CO2 reading, which is deliberately not the pairing
+ * a portal guessing from names would make: the lamp's own status point reports
+ * it, and nothing here is inferable from a code. The thresholds carry no unit,
+ * because `ControlLoopRead` publishes none.
+ */
+export const northLampLoop: ControlLoopRead = {
+  id: CONTROL_LOOP_IDS.lampSchedule,
+  control_zone_id: IDS.climateZone,
+  measurement_point_id: POINT_IDS.co2,
+  control_point_id: POINT_IDS.lamp,
+  status_point_id: POINT_IDS.lampStatus,
+  policy_type: "hysteresis-v1",
+  lower_threshold: 400,
+  upper_threshold: 1200,
+  created_at: T0,
+};
+
 /** An idempotency key a test can send and assert on without generating one. */
 export const IDEMPOTENCY_KEY = "ee000000-0000-4000-8000-000000000001";
 
@@ -902,6 +923,8 @@ export interface Dataset {
   readonly points: readonly ZonePointAssignmentRead[];
   /** Configuration documents, keyed by the facility they describe. */
   readonly configurations: readonly FacilityConfigurationRead[];
+  /** The automatic control rules configured across every zone. */
+  readonly controlLoops: readonly ControlLoopRead[];
   /** Telemetry windows, keyed by point identifier. */
   readonly telemetry: Readonly<Record<string, readonly TelemetrySampleRead[]>>;
 }
@@ -913,6 +936,7 @@ export const DEFAULT_DATASET: Dataset = {
   zones: [climateZone, irrigationZone, seedlingClimateZone],
   points: climateZonePoints,
   configurations: [northConfiguration, seedlingConfiguration],
+  controlLoops: [northLampLoop],
   telemetry: {
     [POINT_IDS.airTemp]: airTemperatureHistory,
     [POINT_IDS.co2]: co2History,
@@ -928,6 +952,7 @@ export const EMPTY_DATASET: Dataset = {
   zones: [],
   points: [],
   configurations: [],
+  controlLoops: [],
   telemetry: {},
 };
 
@@ -966,6 +991,16 @@ export function controlZoneUrl(id: string): string {
 /** The URL the portal builds for one zone's point composition. */
 export function controlZonePointsUrl(id: string, offset = 0): string {
   return `${V1}/control-zones/${encodeURIComponent(id)}/points?limit=200&offset=${String(offset)}`;
+}
+
+/**
+ * The URL the portal builds for one control zone's automatic control rules.
+ *
+ * The page window comes first and the filter second, mirroring how the client
+ * spreads them, so one filter set is always exactly one URL.
+ */
+export function controlLoopsUrl(zoneId: string, offset = 0): string {
+  return `${V1}/control-loops?limit=200&offset=${String(offset)}&control_zone_id=${encodeURIComponent(zoneId)}`;
 }
 
 /**
@@ -1055,6 +1090,9 @@ export function backendRoutes(dataset: Dataset = DEFAULT_DATASET, extra: Router 
     routes[controlZoneUrl(zone.id)] = { body: zone };
     routes[controlZonePointsUrl(zone.id)] = {
       body: page(dataset.points.filter((point) => point.control_zone_id === zone.id)),
+    };
+    routes[controlLoopsUrl(zone.id)] = {
+      body: page(dataset.controlLoops.filter((loop) => loop.control_zone_id === zone.id)),
     };
   }
   for (const configuration of dataset.configurations) {
